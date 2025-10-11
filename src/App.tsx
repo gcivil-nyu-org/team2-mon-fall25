@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { TopBar } from "./components/TopBar";
-import { Sidebar } from "./components/Sidebar";
-import { CalendarWeek } from "./components/CalendarWeek";
-import { Agenda } from "./components/Agenda";
-import { AddToCalendar } from "./components/AddToCalendar";
-import { SmartScheduleModal, type ScheduledMeeting } from "./components/SmartScheduleModal";
-import { UnavailabilityModal, type BlockedTime } from "./components/UnavailabilityModal";
-import { ConfirmModal } from "./components/ConfirmModal";
+import { TopBar } from "./components/layout/TopBar";
+import { Sidebar } from "./components/layout/Sidebar";
+import { CalendarWeek } from "./components/calendar/CalendarWeek";
+import { Agenda } from "./components/calendar/Agenda";
+import { AddToCalendar } from "./components/calendar/AddToCalendar";
+import { SmartScheduleModal, type ScheduledMeeting } from "./components/modals/SmartScheduleModal";
+import { UnavailabilityModal, type BlockedTime } from "./components/calendar/UnavailabilityModal";
+import { ConfirmModal } from "./components/modals/ConfirmModal";
+import { Dashboard } from "./components/dashboard/Dashboard";
+
 import {
   addDays,
   addWeeks,
@@ -58,7 +60,7 @@ function saveEvents(workspace: string, events: StoredEvent[]) {
 
 export default function App() {
   // Route + workspace
-  const [current, setCurrent] = useState<CalRoute>("calendar");
+  const [current, setCurrent] = useState<CalRoute>("dashboard");
   const [workspace, setWorkspace] = useState<string>(() => {
     return localStorage.getItem("cd.workspace") || "product";
   });
@@ -78,15 +80,15 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           title: "Sprint Planning",
-          startISO: set(addDays(base, 1), { hours: 9, minutes: 0 }).toISOString(), // Mon 09:00
-          endISO: set(addDays(base, 1), { hours: 12, minutes: 0 }).toISOString(), // Mon 12:00
+          startISO: set(addDays(base, 1), { hours: 9, minutes: 0 }).toISOString(),
+          endISO: set(addDays(base, 1), { hours: 12, minutes: 0 }).toISOString(),
           kind: "meeting",
         },
         {
           id: crypto.randomUUID(),
           title: "Vacation",
-          startISO: set(addDays(base, 6), { hours: 10, minutes: 0 }).toISOString(), // Sat 10:00
-          endISO: set(addDays(base, 6), { hours: 18, minutes: 0 }).toISOString(),  // Sat 18:00
+          startISO: set(addDays(base, 6), { hours: 10, minutes: 0 }).toISOString(),
+          endISO: set(addDays(base, 6), { hours: 18, minutes: 0 }).toISOString(),
           kind: "unavailable",
         },
       ];
@@ -144,7 +146,7 @@ export default function App() {
     setWeekStart((d) => new Date(d));
   }
 
-  // Delete flow (from grid or agenda)
+  // Delete flow
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const requestDelete = (id: string) => setPendingDeleteId(id);
   const confirmDelete = () => {
@@ -157,11 +159,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      {/* Global top bar (workspace switcher lives here) */}
+      {/* TopBar */}
       <TopBar workspaceId={workspace} onWorkspace={setWorkspace} />
 
       <div className="w-full h-full flex px-6 py-4 gap-6">
-        {/* Global sidebar */}
+        {/* Sidebar */}
         <aside className="w-[260px] shrink-0 sticky top-14 self-start">
           <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
         </aside>
@@ -170,7 +172,7 @@ export default function App() {
         <main className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
           {current === "calendar" ? (
             <>
-              {/* Calendar-only header */}
+              {/* Calendar header */}
               <header className="mb-3 flex items-center gap-2">
                 <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
                 <button
@@ -200,13 +202,10 @@ export default function App() {
                 </button>
               </header>
 
-              {/* Week grid (click an event to delete) */}
-              <CalendarWeek
-                weekStart={weekStart}
-                events={events}
-                onEventClick={requestDelete}
-              />
+              <CalendarWeek weekStart={weekStart} events={events} onEventClick={requestDelete} />
             </>
+          ) : current === "dashboard" ? (
+            <Dashboard />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section
@@ -214,13 +213,11 @@ export default function App() {
           )}
         </main>
 
-        {/* Agenda only on Calendar */}
-        {current === "calendar" ? (
-          <Agenda events={events} onDelete={requestDelete} />
-        ) : null}
+        {/* Agenda only for Calendar */}
+        {current === "calendar" ? <Agenda events={events} onDelete={requestDelete} /> : null}
       </div>
 
-      {/* Add to Calendar (chooser) */}
+      {/* Modals */}
       <AddToCalendar
         open={showAdd}
         onClose={() => setShowAdd(false)}
@@ -228,21 +225,18 @@ export default function App() {
         onBlockTime={() => setShowBlock(true)}
       />
 
-      {/* Smart Schedule flow */}
       <SmartScheduleModal
         open={showSmart}
         onClose={() => setShowSmart(false)}
         onScheduled={handleAddMeeting}
       />
 
-      {/* Schedule Unavailability flow */}
       <UnavailabilityModal
         open={showBlock}
         onClose={() => setShowBlock(false)}
         onBlocked={handleBlocked}
       />
 
-      {/* Delete confirmation */}
       <ConfirmModal
         open={pendingDeleteId !== null}
         onClose={() => setPendingDeleteId(null)}
@@ -251,8 +245,7 @@ export default function App() {
         confirmVariant="danger"
         onConfirm={confirmDelete}
       >
-        This will remove the event from your personal calendar. This action can’t be
-        undone.
+        This will remove the event from your personal calendar. This action can’t be undone.
       </ConfirmModal>
     </div>
   );
