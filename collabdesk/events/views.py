@@ -1,7 +1,7 @@
-from .models import Event, Unavailability
+from .models import Event
 from rest_framework import generics
 from rest_framework.response import Response
-from .serializers import EventSerializer, UnavailabilitySerializer
+from .serializers import EventSerializer
 # Create your views here.
 
 class EventListCreateView(generics.ListCreateAPIView):
@@ -23,12 +23,3 @@ class EventListCreateView(generics.ListCreateAPIView):
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Event.objects.all()
     serializer_calss = EventSerializer
-        
-
-class UnavailabilityListCreateView(generics.ListCreateAPIView):
-    queryset = Unavailability.objects.all()
-    serializer_class = UnavailabilitySerializer
-    
-class UnavailabilityDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Unavailability.objects.all()
-    serializer_calss = UnavailabilitySerializer
