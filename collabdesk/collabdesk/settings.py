@@ -76,20 +76,33 @@ WSGI_APPLICATION = 'collabdesk.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "postgres",
+#         "USER": "postgres",
+#         "PASSWORD": "team2testdatabase",
+#         "HOST": "db.mpjwwnyuithzwiztzeje.supabase.co",
+#         "PORT": "5432",
+#         "OPTIONS": {
+#             "sslmode": "require",
+#         },
+#     }
+# }
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "postgres",
         "USER": "postgres",
-        "PASSWORD": "team2testdatabase",
-        "HOST": "db.mpjwwnyuithzwiztzeje.supabase.co",
+        "PASSWORD": "collab@team2@1",
+        "HOST": "db.jxggktqrynstjmohwqns.supabase.co",
         "PORT": "5432",
         "OPTIONS": {
             "sslmode": "require",
         },
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
