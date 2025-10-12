@@ -32,7 +32,10 @@ python manage.py runserver
 ```
 
 ### The Endpoints :
+The detailed specifications of the API can be found on Notion.
 - Calendar API: GET Events - http://collabdesk.com/api/events/
+    - GET all events: http://collabdesk.com/api/events/
+    - GET specified events: http://collabdesk.com/api/events/?event_id="46b07014-a804-4514-ab1e-17b00a61e400"&user_id=1
 - Calendar API: POST Events - http://collabdesk.com/api/events/
 - Workspace API: GET workspac details - http://collabdesk/api/workspace/information/?workspace_id=2&user_id=1
 
