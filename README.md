@@ -110,5 +110,5 @@ python manage.py runserver
 - Calendar API: POST Events - http://collabdesk.com/api/events/
 - Workspace API: GET workspac details - http://collabdesk/api/workspace/information/?workspace_id=2&user_id=1
 
-    Example : http://127.0.0.1:8000/api/workspace/information/?workspace_id=cdb5abfe-dc99-4394-ac0e-e50a2f21d960&user_id=1
+    Example : http://127.0.0.1:8000/api/workspaces/information/?workspace_id=cdb5abfe-dc99-4394-ac0e-e50a2f21d960&user_id=1
 
