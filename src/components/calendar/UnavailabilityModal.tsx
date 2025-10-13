@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "../modals/Modal";
 import { parse, set, isAfter } from "date-fns";
+import { createEvent } from "../../lib/api";
 
 export type BlockedTime = {
   id: string;
@@ -22,17 +23,18 @@ export function UnavailabilityModal({
   onBlocked: (b: BlockedTime) => void;
 }) {
   const [reason, setReason] = useState("OOO");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Defaults: today + 09:30–17:30
   const d = defaultStartISO ? new Date(defaultStartISO) : new Date();
   const [startDate, setStartDate] = useState(
     d.toISOString().slice(0, 10) // yyyy-mm-dd
   );
-  const [startTime, setStartTime] = useState("09:30");
+  const [startTime, setStartTime] = useState("07:30");
   const [endDate, setEndDate] = useState(d.toISOString().slice(0, 10));
   const [endTime, setEndTime] = useState("17:30");
 
-  function submit() {
+  async function submit() {
     const sd = parse(startDate, "yyyy-MM-dd", new Date());
     const st = set(sd, {
       hours: parseInt(startTime.slice(0, 2), 10),
@@ -49,14 +51,37 @@ export function UnavailabilityModal({
       return;
     }
 
-    onBlocked({
-      id: crypto.randomUUID(),
-      title: reason.trim() || "Unavailable",
-      startISO: st.toISOString(),
-      endISO: et.toISOString(),
-      kind: "unavailable",
-    });
-    onClose();
+    setIsSubmitting(true);
+    try {
+      // Create event via API with GROUP type for unavailability
+      const response = await createEvent({
+        title: reason.trim() || "Unavailable",
+        description: "User marked as unavailable",
+        start_time: st.toISOString(),
+        end_time: et.toISOString(),
+        event_type: "GROUP",
+        location: "none",
+        created_by: 1, // TODO: Replace with actual user ID from auth context
+        workspace_id: "cdb5abfe-dc99-4394-ac0e-e50a2f21d960", // TODO: Replace with actual workspace ID
+      });
+
+      // Call the parent callback with the blocked time
+      onBlocked({
+        id: response.event_id,
+        title: reason.trim() || "Unavailable",
+        startISO: st.toISOString(),
+        endISO: et.toISOString(),
+        kind: "unavailable",
+      });
+
+      onClose();
+      setReason("OOO");
+    } catch (error) {
+      console.error("Failed to create unavailability event:", error);
+      alert("Failed to block time. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -114,9 +139,10 @@ export function UnavailabilityModal({
         <div className="pt-2">
           <button
             onClick={submit}
-            className="w-full rounded-xl bg-amber-700 px-4 py-2 text-white hover:bg-amber-800"
+            disabled={isSubmitting}
+            className="w-full rounded-xl bg-amber-700 px-4 py-2 text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Block Time
+            {isSubmitting ? "Blocking..." : "Block Time"}
           </button>
         </div>
       </div>

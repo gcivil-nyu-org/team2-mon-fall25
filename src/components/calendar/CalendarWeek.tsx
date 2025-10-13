@@ -112,23 +112,34 @@ import {
   
             const isUnavailable = e.kind === "unavailable";
             const baseColor = isUnavailable
-              ? "border-zinc-300 bg-zinc-200/60 dark:border-zinc-700 dark:bg-zinc-700/40"
+              ? "border-zinc-300 bg-zinc-200/70 dark:border-zinc-700 dark:bg-zinc-800/60"
               : "border-blue-200 bg-blue-100/70 dark:border-blue-900/60 dark:bg-blue-900/40";
-  
+
+            const hoverColor = isUnavailable
+              ? "hover:ring-2 hover:ring-zinc-400/60 dark:hover:ring-zinc-600/40"
+              : "hover:ring-2 hover:ring-blue-300/60 dark:hover:ring-blue-600/40";
+
             return (
               <button
                 key={e.id}
                 onClick={() => onEventClick?.(e.id)}
-                className={`absolute overflow-hidden rounded-xl p-2 text-xs text-left transition focus:outline-none ${baseColor} hover:ring-2 hover:ring-blue-300/60 dark:hover:ring-blue-600/40`}
+                className={`absolute overflow-hidden rounded-xl p-2 text-xs text-left transition focus:outline-none ${baseColor} ${hoverColor} ${
+                  isUnavailable ? "border-l-4 border-l-zinc-500 dark:border-l-zinc-600" : ""
+                }`}
                 style={{
                   top,
                   left: `calc(${left}% + 0.25rem)`,
                   width: `calc(${width}% - 0.5rem)`,
                   height,
+                  backgroundImage: isUnavailable
+                    ? "repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(113, 113, 122, 0.15) 8px, rgba(113, 113, 122, 0.15) 16px)"
+                    : undefined,
                 }}
                 title={`${e.title} • ${format(e.start, "EEE p")}–${format(e.end, "p")}`}
               >
-                <div className="font-medium">{e.title}</div>
+                <div className="font-medium">
+                  {e.title}
+                </div>
                 <div className="mt-0.5 opacity-70">
                   {format(e.start, "p")} – {format(e.end, "p")}
                 </div>

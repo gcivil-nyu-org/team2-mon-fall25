@@ -21,14 +21,14 @@ export function UnavailabilityModal({
   defaultStartISO?: string; // optional seed
   onBlocked: (b: BlockedTime) => void;
 }) {
-  const [reason, setReason] = useState("OOO");
+  const [reason, setReason] = useState("OOsdkjfnO");
 
   // Defaults: today + 09:30–17:30
   const d = defaultStartISO ? new Date(defaultStartISO) : new Date();
   const [startDate, setStartDate] = useState(
     d.toISOString().slice(0, 10) // yyyy-mm-dd
   );
-  const [startTime, setStartTime] = useState("09:30");
+  const [startTime, setStartTime] = useState("05:30");
   const [endDate, setEndDate] = useState(d.toISOString().slice(0, 10));
   const [endTime, setEndTime] = useState("17:30");
 

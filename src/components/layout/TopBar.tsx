@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
+import { fetchWorkspaceList } from "../../lib/api";
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -30,14 +31,13 @@ export function TopBar({
   useEffect(() => {
     async function fetchWorkspaces() {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/workspaces/list/");
-        const data = await res.json(); // [{workspace_id, name}, ...]
-        const formatted = data.map((w: any) => ({
-        id: w.workspace_id,
-        name: w.name,
-      }));
-      console.log("Workspaces fetched:", formatted);
-      setWorkspaceList(formatted);
+        const data = await fetchWorkspaceList();
+        const formatted = data.map((w) => ({
+          id: w.workspace_id,
+          name: w.name,
+        }));
+        console.log("Workspaces fetched:", formatted);
+        setWorkspaceList(formatted);
       } catch (error) {
         console.error("Error fetching workspaces:", error);
       }

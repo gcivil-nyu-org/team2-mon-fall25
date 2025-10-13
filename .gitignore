@@ -26,5 +26,7 @@ venv/
 __pycache__/
 *.pyc
 db.sqlite3
+# Only ignore .env and .env.local, allow .env.development and .env.production
 .env
+.env.local
 .DS_Store

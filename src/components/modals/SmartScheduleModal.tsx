@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Modal } from "../modals/Modal";
+import { Modal } from "./Modal";
 import {
   addMinutes,
   format,
@@ -8,6 +8,7 @@ import {
   set,
   startOfDay,
 } from "date-fns";
+import { createEvent } from "../../lib/api";
 
 // Mock team directory
 const PEOPLE = [
@@ -16,7 +17,6 @@ const PEOPLE = [
   { id: "mike", name: "Mike Ross", avatar: "🧔🏼" },
 ];
 
-type Attendee = { id: string; name: string };
 type Recommended = { start: Date; end: Date; score: "Best" | "Good" | "Alternative" };
 
 export type ScheduledMeeting = {
@@ -41,6 +41,7 @@ export function SmartScheduleModal({
   const [duration, setDuration] = useState(30); // minutes
   const [date, setDate] = useState(""); // yyyy-mm-dd
   const [selected, setSelected] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canFind = title.trim().length > 0 && date.length === 10 && selected.length > 0;
 
@@ -67,20 +68,42 @@ export function SmartScheduleModal({
     setSelected((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
   }
 
-  function schedule(slot: Recommended) {
-    onScheduled({
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      startISO: slot.start.toISOString(),
-      endISO: slot.end.toISOString(),
-      attendees: selected,
-    });
-    onClose();
-    setStep("setup");
-    setSelected([]);
-    setTitle("");
-    setDate("");
-    setDuration(30);
+  async function schedule(slot: Recommended) {
+    setIsSubmitting(true);
+    try {
+      // Create event via API
+      const response = await createEvent({
+        title: title.trim(),
+        description: `Meeting with ${selected.map(id => PEOPLE.find(p => p.id === id)?.name).join(", ")}`,
+        start_time: slot.start.toISOString(),
+        end_time: slot.end.toISOString(),
+        event_type: "INDIVIDUAL",
+        location: "none",
+        created_by: 1, // TODO: Replace with actual user ID from auth context
+        workspace_id: "cdb5abfe-dc99-4394-ac0e-e50a2f21d960", // TODO: Replace with actual workspace ID
+      });
+
+      // Call the parent callback with the scheduled meeting
+      onScheduled({
+        id: response.event_id,
+        title: title.trim(),
+        startISO: slot.start.toISOString(),
+        endISO: slot.end.toISOString(),
+        attendees: selected,
+      });
+
+      onClose();
+      setStep("setup");
+      setSelected([]);
+      setTitle("");
+      setDate("");
+      setDuration(30);
+    } catch (error) {
+      console.error("Failed to create event:", error);
+      alert("Failed to create event. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -190,7 +213,10 @@ export function SmartScheduleModal({
               <button
                 key={idx}
                 onClick={() => schedule(r)}
+                disabled={isSubmitting}
                 className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${
+                  isSubmitting ? "cursor-not-allowed opacity-50" : ""
+                } ${
                   r.score === "Best"
                     ? "border-green-300 bg-green-50/60 dark:border-green-900/50 dark:bg-green-900/20"
                     : r.score === "Good"
@@ -206,7 +232,7 @@ export function SmartScheduleModal({
                     {r.score} Match
                   </div>
                 </div>
-                <div className="text-lg">✔</div>
+                <div className="text-lg">{isSubmitting ? "⏳" : "✔"}</div>
               </button>
             ))}
           </div>
@@ -214,7 +240,8 @@ export function SmartScheduleModal({
           <div className="pt-2">
             <button
               onClick={() => setStep("setup")}
-              className="w-full rounded-xl border px-4 py-2 text-sm dark:border-zinc-700"
+              disabled={isSubmitting}
+              className="w-full rounded-xl border px-4 py-2 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ← Back
             </button>

@@ -16,7 +16,6 @@ const PEOPLE = [
   { id: "mike", name: "Mike Ross", avatar: "🧔🏼" },
 ];
 
-type Attendee = { id: string; name: string };
 type Recommended = { start: Date; end: Date; score: "Best" | "Good" | "Alternative" };
 
 export type ScheduledMeeting = {

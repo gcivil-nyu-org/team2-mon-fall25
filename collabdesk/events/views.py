@@ -1,5 +1,6 @@
 from rest_framework import generics
 from rest_framework.response import Response
+from rest_framework import status
 from .serializers import EventSerializer
 from .models import Event
 # Create your views here.
@@ -19,6 +20,13 @@ class EventListCreateView(generics.ListCreateAPIView):
             serializer = self.get_serializer(event)
             return Response(serializer.data)
         return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Event.objects.all()
