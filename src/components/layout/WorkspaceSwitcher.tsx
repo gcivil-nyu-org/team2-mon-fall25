@@ -2,21 +2,23 @@ import { useEffect, useState } from "react";
 
 export type Workspace = { id: string; name: string };
 
-const DEFAULTS: Workspace[] = [
-  { id: "product", name: "Product Team" },
-  { id: "design", name: "Design Ops" },
-  { id: "sales", name: "Sales GTM" },
-];
+// const DEFAULTS: Workspace[] = [
+//   { id: "product", name: "Product Team" },
+//   { id: "design", name: "Design Ops" },
+//   { id: "sales", name: "Sales GTM" },
+// ];
 
 export function WorkspaceSwitcher({
   value,
   onChange,
+  workspaces = [],
 }: {
   value: string;
   onChange: (id: string) => void;
+  workspaces?: Workspace[];
 }) {
   const [open, setOpen] = useState(false);
-  const [workspaces] = useState<Workspace[]>(DEFAULTS);
+  // const [workspaces] = useState<Workspace[]>(DEFAULTS);
 
   useEffect(() => {
     const last = localStorage.getItem("cd.workspace");
@@ -24,6 +26,7 @@ export function WorkspaceSwitcher({
   }, [value]);
 
   function select(id: string) {
+    console.log("Selected Workspace ID:", id);
     localStorage.setItem("cd.workspace", id);
     onChange(id);
     setOpen(false);

@@ -7,7 +7,7 @@ import { AddToCalendar } from "./components/calendar/AddToCalendar";
 import { SmartScheduleModal, type ScheduledMeeting } from "./components/modals/SmartScheduleModal";
 import { UnavailabilityModal, type BlockedTime } from "./components/calendar/UnavailabilityModal";
 import { ConfirmModal } from "./components/modals/ConfirmModal";
-// import { Dashboard } from "./components/dashboard/Dashboard";
+import { Dashboard } from "./components/dashboard/Dashboard";
 
 import {
   addDays,
@@ -62,7 +62,7 @@ export default function App() {
   // Route + workspace
   const [current, setCurrent] = useState<CalRoute>("calendar");
   const [workspace, setWorkspace] = useState<string>(() => {
-    return localStorage.getItem("cd.workspace") || "product";
+    return localStorage.getItem("cd.workspace") || "";
   });
   useEffect(() => localStorage.setItem("cd.workspace", workspace), [workspace]);
 
@@ -160,7 +160,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {/* Global top bar (workspace switcher lives here) */}
-      <TopBar workspaceId={workspace} onWorkspace={setWorkspace} />
+      <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
 
       <div className="w-full h-full flex px-6 py-4 gap-6">
         {/* Global sidebar */}
@@ -209,6 +209,8 @@ export default function App() {
                 onEventClick={requestDelete}
               />
             </>
+          ) : current === "dashboard" ? (
+            <Dashboard workspaceId={workspace}/>
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section

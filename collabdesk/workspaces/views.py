@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from urllib.parse import unquote
 from .models import Workspace, WorkspaceMember
 from .serializer import WorkspaceSerializer
 
@@ -37,3 +38,7 @@ class WorkspaceInformationView(APIView):
 
         return Response(data, status=status.HTTP_200_OK)
 
+class WorkspaceListView(APIView):
+    def get(self, request):
+        workspaces = Workspace.objects.all().values("workspace_id", "name")
+        return Response(list(workspaces))

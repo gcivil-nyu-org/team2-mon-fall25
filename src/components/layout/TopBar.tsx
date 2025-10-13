@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import type { Workspace } from "./WorkspaceSwitcher";
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -17,20 +18,39 @@ function useDarkMode() {
 }
 
 export function TopBar({
-  workspaceId,
+  workspaceName,
   onWorkspace,
 }: {
-  workspaceId: string;
+  workspaceName: string;
   onWorkspace: (id: string) => void;
 }) {
   const { isDark, setIsDark } = useDarkMode();
+  const [workspaceList, setWorkspaceList] = useState<Workspace[]>([]);
+    // Fetch workspace names on mount
+  useEffect(() => {
+    async function fetchWorkspaces() {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/workspaces/list/");
+        const data = await res.json(); // [{workspace_id, name}, ...]
+        const formatted = data.map((w: any) => ({
+        id: w.workspace_id,
+        name: w.name,
+      }));
+      console.log("Workspaces fetched:", formatted);
+      setWorkspaceList(formatted);
+      } catch (error) {
+        console.error("Error fetching workspaces:", error);
+      }
+    }
+    fetchWorkspaces();
+  }, []);
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
       <div className="flex h-14 items-center gap-3 px-4">
         <div className="text-xl font-semibold tracking-tight">CollabDesk</div>
         {/* workspace switcher */}
         <div className="ml-2">
-          <WorkspaceSwitcher value={workspaceId} onChange={onWorkspace} />
+          <WorkspaceSwitcher value={workspaceName} onChange={onWorkspace} workspaces={workspaceList} />
         </div>
         <div className="ml-auto">
           <button
