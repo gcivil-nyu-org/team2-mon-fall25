@@ -4,18 +4,19 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { CalendarWeek } from "./components/calendar/CalendarWeek";
 import { Agenda } from "./components/calendar/Agenda";
 import { AddToCalendar } from "./components/calendar/AddToCalendar";
-import { SmartScheduleModal, type ScheduledMeeting } from "./components/modals/SmartScheduleModal";
-import { UnavailabilityModal, type BlockedTime } from "./components/modals/UnavailabilityModal";
+import {
+  SmartScheduleModal,
+  type ScheduledMeeting,
+} from "./components/modals/SmartScheduleModal";
+import {
+  UnavailabilityModal,
+  type BlockedTime,
+} from "./components/modals/UnavailabilityModal";
 import { ConfirmModal } from "./components/modals/ConfirmModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
+import { Settings } from "./components/settings/Settings";
 import { fetchEvents, type BackendEvent } from "./lib/api";
-import { parseISO as parseISOBase } from "date-fns";
-
-import {
-  addWeeks,
-  isSameWeek,
-  startOfWeek,
-} from "date-fns";
+import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 
 type CalRoute =
   | "dashboard"
@@ -60,7 +61,7 @@ export default function App() {
         const events = await fetchEvents();
         setBackendEvents(events);
       } catch (error) {
-        console.error('Failed to load events:', error);
+        console.error("Failed to load events:", error);
       } finally {
         setLoading(false);
       }
@@ -74,7 +75,7 @@ export default function App() {
       const events = await fetchEvents();
       setBackendEvents(events);
     } catch (error) {
-      console.error('Failed to refresh events:', error);
+      console.error("Failed to refresh events:", error);
     }
   };
 
@@ -84,11 +85,12 @@ export default function App() {
       .map((e) => ({
         id: e.event_id,
         title: e.title,
-        // parseISO handles timezone-aware strings correctly
-        // The backend now returns times like "2025-10-12T11:43:00-04:00"
         start: parseISOBase(e.start_time),
         end: parseISOBase(e.end_time),
-        kind: (e.event_type === "GROUP" ? "unavailable" : "meeting") as "meeting" | "unavailable",
+        kind:
+          (e.event_type === "GROUP"
+            ? "unavailable"
+            : "meeting") as "meeting" | "unavailable",
       }))
       .filter((e) => isSameWeek(e.start, weekStart, { weekStartsOn: 0 }));
   }, [backendEvents, weekStart]);
@@ -104,34 +106,38 @@ export default function App() {
   const [showBlock, setShowBlock] = useState(false);
 
   function handleAddMeeting(m: ScheduledMeeting) {
-    // Event was already created via API in the modal, just refresh the list
-    console.log('Meeting scheduled:', m);
+    console.log("Meeting scheduled:", m);
     refreshEvents();
   }
 
   function handleBlocked(b: BlockedTime) {
-    // Event was already created via API in the modal, just refresh the list
-    console.log('Time blocked:', b);
+    console.log("Time blocked:", b);
     refreshEvents();
   }
 
-  // Delete flow (from grid or agenda)
+  // Delete flow
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const requestDelete = (id: string) => setPendingDeleteId(id);
   const confirmDelete = () => {
     if (!pendingDeleteId) return;
-    // TODO: DELETE to backend API
-    console.log('Delete event:', pendingDeleteId);
+    console.log("Delete event:", pendingDeleteId);
     setPendingDeleteId(null);
+  };
+
+  // Leave workspace logic
+  const handleLeaveWorkspace = (id: string) => {
+    alert(`You have left workspace: ${id}`);
+    setWorkspace("");
+    setCurrent("dashboard");
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      {/* Global top bar (workspace switcher lives here) */}
+      {/* TopBar */}
       <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
 
       <div className="w-full h-full flex px-6 py-4 gap-6">
-        {/* Global sidebar */}
+        {/* Sidebar */}
         <aside className="w-[260px] shrink-0 sticky top-14 self-start">
           <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
         </aside>
@@ -140,7 +146,6 @@ export default function App() {
         <main className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
           {current === "calendar" ? (
             <>
-              {/* Calendar-only header */}
               <header className="mb-3 flex items-center gap-2">
                 <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
                 <button
@@ -170,7 +175,6 @@ export default function App() {
                 </button>
               </header>
 
-              {/* Loading state */}
               {loading ? (
                 <div className="text-center py-8 text-zinc-500">Loading events...</div>
               ) : (
@@ -182,7 +186,9 @@ export default function App() {
               )}
             </>
           ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace}/>
+            <Dashboard workspaceId={workspace} />
+          ) : current === "settings" ? (
+            <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section
@@ -190,13 +196,13 @@ export default function App() {
           )}
         </main>
 
-        {/* Agenda only on Calendar */}
+        {/* Agenda only for Calendar */}
         {current === "calendar" ? (
           <Agenda events={events} onDelete={requestDelete} />
         ) : null}
       </div>
 
-      {/* Add to Calendar (chooser) */}
+      {/* Add / Smart Schedule / Block Modals */}
       <AddToCalendar
         open={showAdd}
         onClose={() => setShowAdd(false)}
@@ -204,14 +210,12 @@ export default function App() {
         onBlockTime={() => setShowBlock(true)}
       />
 
-      {/* Smart Schedule flow */}
       <SmartScheduleModal
         open={showSmart}
         onClose={() => setShowSmart(false)}
         onScheduled={handleAddMeeting}
       />
 
-      {/* Schedule Unavailability flow */}
       <UnavailabilityModal
         open={showBlock}
         onClose={() => setShowBlock(false)}
@@ -227,8 +231,7 @@ export default function App() {
         confirmVariant="danger"
         onConfirm={confirmDelete}
       >
-        This will remove the event from your personal calendar. This action can’t be
-        undone.
+        This will remove the event from your personal calendar. This action can’t be undone.
       </ConfirmModal>
     </div>
   );
