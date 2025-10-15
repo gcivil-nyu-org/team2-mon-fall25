@@ -1,190 +1,134 @@
-# React + TypeScript + Vite
+# CollabDesk Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript frontend for the CollabDesk collaborative workspace platform.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. **Install dependencies:**
+   ```bash
+   pnpm install  # or npm install
+   ```
 
-## React Compiler
+2. **Configure environment variables:**
+   
+   Copy `.env.development` and update if needed:
+   ```env
+   VITE_API_BASE_URL=http://localhost:8000
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+3. **Run the development server:**
+   ```bash
+   pnpm dev  # or npm run dev
+   ```
 
-## Expanding the ESLint configuration
+The app will be available at `http://localhost:5173`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Build for Production
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-# CollabDesk Backend (Django + Supabase)
-
-This is the backend service for **CollabDesk**, built using **Django REST Framework** and **Supabase (PostgreSQL)**.  
-It powers workspace management, event scheduling, user roles, and collaboration APIs.
-
----
-
-## Setup Instructions (Run From Scratch)
-
-Follow these steps carefully to set up the backend locally 👇
-
-### Step 1 — Clone the Repository
 ```bash
-git clone origin Backend
-cd <your_project_directory>
+pnpm build  # or npm run build
 ```
-### Step 2 — Install
+
+Built files will be in the `dist/` directory.
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── calendar/      # Calendar-related components
+│   ├── dashboard/     # Dashboard components
+│   ├── layout/        # Layout components (TopBar, Sidebar, etc.)
+│   └── modals/        # Modal components
+├── lib/
+│   ├── api.ts         # API client and backend communication
+│   ├── store.ts       # State management
+│   └── useDarkMode.ts # Dark mode hook
+├── App.tsx            # Main application component
+├── main.tsx           # Application entry point
+└── types.ts           # TypeScript type definitions
+```
+
+## Tech Stack
+
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Styling
+- **date-fns** - Date manipulation
+- **axios** - HTTP client
+
+## Scripts
+
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm preview` - Preview production build
+- `pnpm lint` - Run ESLint
+
+## Environment Variables
+
+- `VITE_API_BASE_URL` - Backend API URL (default: `http://localhost:8000`)
+# CollabDesk Backend
+
+Django REST API backend for the CollabDesk collaborative workspace platform.
+
+## Setup
+
+1. **Create a virtual environment:**
+   ```bash
+   cd collabdesk
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run migrations:**
+   ```bash
+   python manage.py migrate
+   ```
+
+4. **Create a superuser (optional):**
+   ```bash
+   python manage.py createsuperuser
+   ```
+
+5. **Run the development server:**
+   ```bash
+   python manage.py runserver
+   ```
+
+The API will be available at `http://localhost:8000`
+
+## Project Structure
+
+```
+collabdesk/
+├── manage.py
+├── requirements.txt
+├── collabdesk/          # Main project settings
+├── events/              # Events app (calendar events)
+├── users/               # Users app
+└── workspaces/          # Workspaces app
+```
+
+## API Endpoints
+
+- `/api/events/` - Event management
+- `/api/workspaces/` - Workspace management
+- `/admin/` - Django admin interface
+
+## Testing
+
 ```bash
-pip install -r requirements.txt
-```
-### Step 3 — If any Model changes done in Backend(Optional):
-```bash
-# Detect model changes
-python manage.py makemigrations
-# Apply migrations to database
-python manage.py migrate
+python manage.py test
 ```
 
-### Step4 - Run Server:
-```bash
-python manage.py runserver
-```
+## Database
 
-### The Endpoints :
-The detailed specifications of the API can be found on Notion.
-- Calendar API: GET Events - http://collabdesk.com/api/events/
-    - GET all events: http://collabdesk.com/api/events/
-    - GET specified events: http://collabdesk.com/api/events/?event_id="46b07014-a804-4514-ab1e-17b00a61e400"&user_id=1
-- Calendar API: POST Events - http://collabdesk.com/api/events/
-- Workspace API: GET workspac details - http://collabdesk/api/workspace/information/?workspace_id=2&user_id=1
+- **Development**: SQLite (`db.sqlite3`)
+- **Production**: PostgreSQL (configured via environment variables)
 
-    Example : http://127.0.0.1:8000/api/workspaces/information/?workspace_id=cdb5abfe-dc99-4394-ac0e-e50a2f21d960&user_id=1
-
-# React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```

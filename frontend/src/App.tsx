@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { TopBar } from "./components/TopBar";
-import { Sidebar } from "./components/Sidebar";
-import { CalendarWeek } from "./components/CalendarWeek";
-import { Agenda } from "./components/Agenda";
-import { AddToCalendar } from "./components/AddToCalendar";
-import { SmartScheduleModal, type ScheduledMeeting } from "./components/SmartScheduleModal";
-import { UnavailabilityModal, type BlockedTime } from "./components/UnavailabilityModal";
-import { ConfirmModal } from "./components/ConfirmModal";
+import { TopBar } from "./components/layout/TopBar";
+import { Sidebar } from "./components/layout/Sidebar";
+import { CalendarWeek } from "./components/calendar/CalendarWeek";
+import { Agenda } from "./components/calendar/Agenda";
+import { AddToCalendar } from "./components/calendar/AddToCalendar";
+import { SmartScheduleModal, type ScheduledMeeting } from "./components/modals/SmartScheduleModal";
+import { UnavailabilityModal, type BlockedTime } from "./components/modals/UnavailabilityModal";
+import { ConfirmModal } from "./components/modals/ConfirmModal";
+import { Dashboard } from "./components/dashboard/Dashboard";
+import { fetchEvents, type BackendEvent } from "./lib/api";
+import { parseISO as parseISOBase } from "date-fns";
+
 import {
-  addDays,
   addWeeks,
   isSameWeek,
-  parseISO,
-  set,
   startOfWeek,
 } from "date-fns";
 
@@ -34,33 +35,11 @@ type CalEvent = {
   kind?: "meeting" | "unavailable";
 };
 
-// ---- LocalStorage (per workspace) ----
-type StoredEvent = {
-  id: string;
-  title: string;
-  startISO: string;
-  endISO: string;
-  kind?: "meeting" | "unavailable";
-};
-const KEY = (ws: string) => `cd.events.${ws}`;
-
-function loadEvents(workspace: string): StoredEvent[] {
-  try {
-    const raw = localStorage.getItem(KEY(workspace));
-    return raw ? (JSON.parse(raw) as StoredEvent[]) : [];
-  } catch {
-    return [];
-  }
-}
-function saveEvents(workspace: string, events: StoredEvent[]) {
-  localStorage.setItem(KEY(workspace), JSON.stringify(events));
-}
-
 export default function App() {
   // Route + workspace
   const [current, setCurrent] = useState<CalRoute>("calendar");
   const [workspace, setWorkspace] = useState<string>(() => {
-    return localStorage.getItem("cd.workspace") || "product";
+    return localStorage.getItem("cd.workspace") || "";
   });
   useEffect(() => localStorage.setItem("cd.workspace", workspace), [workspace]);
 
@@ -69,44 +48,50 @@ export default function App() {
     startOfWeek(new Date(), { weekStartsOn: 0 })
   );
 
-  // Seed defaults if empty
+  // Backend events state
+  const [backendEvents, setBackendEvents] = useState<BackendEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch events from backend
   useEffect(() => {
-    const existing = loadEvents(workspace);
-    if (existing.length === 0) {
-      const base = startOfWeek(new Date(), { weekStartsOn: 0 });
-      const defaults: StoredEvent[] = [
-        {
-          id: crypto.randomUUID(),
-          title: "Sprint Planning",
-          startISO: set(addDays(base, 1), { hours: 9, minutes: 0 }).toISOString(), // Mon 09:00
-          endISO: set(addDays(base, 1), { hours: 12, minutes: 0 }).toISOString(), // Mon 12:00
-          kind: "meeting",
-        },
-        {
-          id: crypto.randomUUID(),
-          title: "Vacation",
-          startISO: set(addDays(base, 6), { hours: 10, minutes: 0 }).toISOString(), // Sat 10:00
-          endISO: set(addDays(base, 6), { hours: 18, minutes: 0 }).toISOString(),  // Sat 18:00
-          kind: "unavailable",
-        },
-      ];
-      saveEvents(workspace, defaults);
+    const loadBackendEvents = async () => {
+      try {
+        setLoading(true);
+        const events = await fetchEvents();
+        setBackendEvents(events);
+      } catch (error) {
+        console.error('Failed to load events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadBackendEvents();
+  }, []);
+
+  // Function to refresh events from backend
+  const refreshEvents = async () => {
+    try {
+      const events = await fetchEvents();
+      setBackendEvents(events);
+    } catch (error) {
+      console.error('Failed to refresh events:', error);
     }
-  }, [workspace]);
+  };
 
   // Derived events for the visible week
   const events: CalEvent[] = useMemo(() => {
-    const stored = loadEvents(workspace);
-    return stored
+    return backendEvents
       .map((e) => ({
-        id: e.id,
+        id: e.event_id,
         title: e.title,
-        start: parseISO(e.startISO),
-        end: parseISO(e.endISO),
-        kind: e.kind ?? "meeting",
+        // parseISO handles timezone-aware strings correctly
+        // The backend now returns times like "2025-10-12T11:43:00-04:00"
+        start: parseISOBase(e.start_time),
+        end: parseISOBase(e.end_time),
+        kind: (e.event_type === "GROUP" ? "unavailable" : "meeting") as "meeting" | "unavailable",
       }))
       .filter((e) => isSameWeek(e.start, weekStart, { weekStartsOn: 0 }));
-  }, [workspace, weekStart]);
+  }, [backendEvents, weekStart]);
 
   // Week navigation
   const prevWeek = () => setWeekStart((d) => addWeeks(d, -1));
@@ -119,29 +104,15 @@ export default function App() {
   const [showBlock, setShowBlock] = useState(false);
 
   function handleAddMeeting(m: ScheduledMeeting) {
-    const all = loadEvents(workspace);
-    all.push({
-      id: m.id,
-      title: m.title,
-      startISO: m.startISO,
-      endISO: m.endISO,
-      kind: "meeting",
-    });
-    saveEvents(workspace, all);
-    setWeekStart((d) => new Date(d)); // refresh derived events
+    // Event was already created via API in the modal, just refresh the list
+    console.log('Meeting scheduled:', m);
+    refreshEvents();
   }
 
   function handleBlocked(b: BlockedTime) {
-    const all = loadEvents(workspace);
-    all.push({
-      id: b.id,
-      title: b.title,
-      startISO: b.startISO,
-      endISO: b.endISO,
-      kind: "unavailable",
-    });
-    saveEvents(workspace, all);
-    setWeekStart((d) => new Date(d));
+    // Event was already created via API in the modal, just refresh the list
+    console.log('Time blocked:', b);
+    refreshEvents();
   }
 
   // Delete flow (from grid or agenda)
@@ -149,16 +120,15 @@ export default function App() {
   const requestDelete = (id: string) => setPendingDeleteId(id);
   const confirmDelete = () => {
     if (!pendingDeleteId) return;
-    const remaining = loadEvents(workspace).filter((e) => e.id !== pendingDeleteId);
-    saveEvents(workspace, remaining);
+    // TODO: DELETE to backend API
+    console.log('Delete event:', pendingDeleteId);
     setPendingDeleteId(null);
-    setWeekStart((d) => new Date(d));
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {/* Global top bar (workspace switcher lives here) */}
-      <TopBar workspaceId={workspace} onWorkspace={setWorkspace} />
+      <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
 
       <div className="w-full h-full flex px-6 py-4 gap-6">
         {/* Global sidebar */}
@@ -200,13 +170,19 @@ export default function App() {
                 </button>
               </header>
 
-              {/* Week grid (click an event to delete) */}
-              <CalendarWeek
-                weekStart={weekStart}
-                events={events}
-                onEventClick={requestDelete}
-              />
+              {/* Loading state */}
+              {loading ? (
+                <div className="text-center py-8 text-zinc-500">Loading events...</div>
+              ) : (
+                <CalendarWeek
+                  weekStart={weekStart}
+                  events={events}
+                  onEventClick={requestDelete}
+                />
+              )}
             </>
+          ) : current === "dashboard" ? (
+            <Dashboard workspaceId={workspace}/>
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section
