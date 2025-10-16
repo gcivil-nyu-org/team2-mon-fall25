@@ -23,4 +23,5 @@ urlpatterns = [
     path('api/workspaces/', include('workspaces.urls')),
     path('api/events/', include('events.urls')),
     path('calendar/', include('events.urls')),
+    path('api/profiles/', include('profiles.urls'))
 ]
