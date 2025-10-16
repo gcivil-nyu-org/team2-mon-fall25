@@ -10,14 +10,14 @@ class ProfileListCreateView(generics.ListCreateAPIView):
     serializer_class = ProfileSerializer
 
     def get(self, request, *args, **kwargs):
-        event_id = request.query_params.get('id')
-        if event_id:
+        profile_id = request.query_params.get('profile_id')
+        if profile_id:
             try:
-                event = Profile.objects.get(id=event_id)
+                profile = Profile.objects.get(id=profile_id)
             except Profile.DoesNotExist:
                 return Response({'Error': 'Event not found'}, status = 404)
 
-            serializer = self.get_serializer(event)
+            serializer = self.get_serializer(profile)
             return Response(serializer.data)
         return super().get(request, *args, **kwargs)
 
@@ -30,4 +30,4 @@ class ProfileListCreateView(generics.ListCreateAPIView):
 
 class ProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Profile.objects.all()
-    serializer_calss = ProfileSerializer
+    serializer_class = ProfileSerializer
