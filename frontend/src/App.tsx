@@ -1,3 +1,4 @@
+import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "./components/layout/TopBar";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -15,7 +16,7 @@ import {
 import { ConfirmModal } from "./components/modals/ConfirmModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, type BackendEvent } from "./lib/api";
+import { fetchEvents, setTokenGetter, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 
 type CalRoute =
@@ -37,6 +38,33 @@ type CalEvent = {
 };
 
 export default function App() {
+  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+  const [tokenReady, setTokenReady] = useState(false);
+
+  // Set up token getter for API calls
+  useEffect(() => {
+    console.log("App: Setting up token getter. isAuthenticated:", isAuthenticated);
+    setTokenGetter(async () => {
+      if (!isAuthenticated) {
+        console.log("Token getter called but user not authenticated");
+        return null;
+      }
+      try {
+        const token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          },
+        });
+        console.log("Token getter: Successfully retrieved token");
+        return token;
+      } catch (error) {
+        console.error("Failed to get access token:", error);
+        return null;
+      }
+    });
+    setTokenReady(true);
+  }, [isAuthenticated, getAccessTokenSilently]);
+
   // Route + workspace
   const [current, setCurrent] = useState<CalRoute>("calendar");
   const [workspace, setWorkspace] = useState<string>(() => {
@@ -53,8 +81,14 @@ export default function App() {
   const [backendEvents, setBackendEvents] = useState<BackendEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch events from backend
+  // Fetch events from backend - only when authenticated
   useEffect(() => {
+    if (isLoading) return; // Wait for Auth0 to finish checking
+    if (!isAuthenticated) {
+      setLoading(false);
+      return; // Don't fetch if not authenticated
+    }
+
     const loadBackendEvents = async () => {
       try {
         setLoading(true);
@@ -67,7 +101,7 @@ export default function App() {
       }
     };
     loadBackendEvents();
-  }, []);
+  }, [isAuthenticated, isLoading]);
 
   // Function to refresh events from backend
   const refreshEvents = async () => {

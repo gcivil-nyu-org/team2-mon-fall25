@@ -153,3 +153,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Auth0 Configuration
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN', 'dev-5s54nlyerhlsnvj1.us.auth0.com')
+AUTH0_AUDIENCE = os.getenv('AUTH0_AUDIENCE', 'https://api.collabdesk.com')
+
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'collabdesk.permissions.Auth0Authentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Default to allow, protect specific views
+    ],
+}
