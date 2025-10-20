@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
 import { fetchWorkspaceList } from "../../lib/api";
 import { Modal } from "../modals/Modal";
+import { LoginButton } from "../auth/LoginButton";
+import { LogoutButton } from "../auth/LogoutButton";
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -35,6 +38,7 @@ export function TopBar({
 }) {
   const { isDark, setIsDark } = useDarkMode();
   const [workspaceList, setWorkspaceList] = useState<Workspace[]>([]);
+  const { user, isAuthenticated, isLoading } = useAuth0();
 
   // Modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -88,23 +92,39 @@ export function TopBar({
     onWorkspace(newWs.id);
   };
 
-  // Fetch workspace names on mount
+  // Fetch workspace names on mount - only when authenticated
   useEffect(() => {
-    async function fetchWorkspaces() {
-      try {
-        const data = await fetchWorkspaceList();
-        const formatted = data.map((w) => ({
-          id: w.workspace_id,
-          name: w.name,
-        }));
-        console.log("Workspaces fetched:", formatted);
-        setWorkspaceList(formatted);
-      } catch (error) {
-        console.error("Error fetching workspaces:", error);
-      }
+    if (isLoading) {
+      console.log("TopBar: Auth0 still loading...");
+      return; // Wait for Auth0 to finish checking
     }
-    fetchWorkspaces();
-  }, []);
+    if (!isAuthenticated) {
+      console.log("TopBar: User not authenticated, skipping workspace fetch");
+      return; // Don't fetch if not authenticated
+    }
+
+    // Add a small delay to ensure token getter is ready
+    console.log("TopBar: User authenticated, waiting for token getter...");
+    const timer = setTimeout(() => {
+      console.log("TopBar: Fetching workspaces...");
+      async function fetchWorkspaces() {
+        try {
+          const data = await fetchWorkspaceList();
+          const formatted = data.map((w) => ({
+            id: w.workspace_id,
+            name: w.name,
+          }));
+          console.log("Workspaces fetched:", formatted);
+          setWorkspaceList(formatted);
+        } catch (error) {
+          console.error("Error fetching workspaces:", error);
+        }
+      }
+      fetchWorkspaces();
+    }, 100); // Small delay to let token getter initialize
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, isLoading]);
 
   return (
     <>
@@ -128,6 +148,20 @@ export function TopBar({
             >
               +
             </button>
+          </div>
+
+          {/* Auth0 buttons */}
+          <div className="flex items-center gap-2">
+            {isLoading ? (
+              <div className="text-sm text-zinc-500">Loading...</div>
+            ) : isAuthenticated ? (
+              <>
+                <span className="text-sm">{user?.name}</span>
+                <LogoutButton />
+              </>
+            ) : (
+              <LoginButton />
+            )}
           </div>
 
           {/* Dark mode toggle */}
