@@ -1,0 +1,86 @@
+# .travis.yml for CollabDesk (Frontend + Backend unified CI/CD)
+dist: jammy
+os: linux
+language: python
+python:
+  - "3.12"
+
+# Run jobs in parallel (matrix build)
+jobs:
+  include:
+    # ===== Backend Job =====
+    - stage: Backend Tests & Deploy
+      name: "Backend: Django + Python 3.12"
+      before_install:
+        - cd backend/collabdesk
+        - python -m venv venv        
+        - source venv/bin/activate        
+        - python -m pip install --upgrade pip setuptools wheel
+      install:
+        - pip install -r requirements.txt
+        - pip install black flake8 coverage coveralls
+      script:
+        # Formatting and lint checks
+        - black .
+        - flake8 .
+        # Run tests with coverage
+        - coverage run manage.py test --keepdb
+        - coverage report
+      after_success:
+        - coveralls
+      # deploy:
+      #   provider: elasticbeanstalk
+      #   region: "us-east-1"
+      #   app: "collabdesk-backend"
+      #   env: "collabdesk-env"
+      #   bucket_name: "elasticbeanstalk-us-east-1-XXXXXX"  # <-- replace with your EB bucket name
+      #   bucket_path: "collabdesk-backend"
+      #   on:
+      #     branch: main
+      #   access_key_id: $AWS_ACCESS_KEY_ID
+      #   secret_access_key: $AWS_SECRET_ACCESS_KEY
+
+    # ===== Frontend Job =====
+    - stage: Frontend Tests & Deploy
+      name: "Frontend: React + Node 18"
+      language: node_js
+      node_js:
+        - "18"
+      before_install:
+        - cd frontend
+        - npm install -g corepack
+        - corepack enable
+        - corepack prepare pnpm@10 --activate
+      install:
+        - pnpm install --frozen-lockfile
+      script:
+        - pnpm run lint || echo "No lint script found"
+        - pnpm run test -- --coverage
+      after_success:
+        - echo "Frontend tests completed successfully"
+      # deploy:
+      #   provider: elasticbeanstalk
+      #   region: "us-east-1"
+      #   app: "collabdesk-frontend"
+      #   env: "collabdesk-frontend-env"
+      #   bucket_name: "elasticbeanstalk-us-east-1-XXXXXX"  # <-- replace with your EB bucket name
+      #   bucket_path: "collabdesk-frontend"
+      #   on:
+      #     branch: main
+      #   access_key_id: $AWS_ACCESS_KEY_ID
+      #   secret_access_key: $AWS_SECRET_ACCESS_KEY
+
+# # Global environment variables (encrypted in Travis UI)
+# env:
+#   global:
+#     - DJANGO_SETTINGS_MODULE=backend.settings
+#     - NODE_ENV=production
+#     - AWS_REGION=us-east-1
+
+# # Notifications
+# notifications:
+#   email:
+#     recipients:
+#       - sr7731@nyu.edu
+#     on_success: always
+#     on_failure: always

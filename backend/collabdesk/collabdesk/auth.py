@@ -2,6 +2,7 @@
 Auth0 JWT Token Validator
 Fetches public keys from Auth0 and validates JWT tokens.
 """
+
 import json
 import jwt
 import requests
@@ -85,10 +86,10 @@ class Auth0TokenValidator:
 # Singleton instance
 _validator = None
 
+
 def get_token_validator() -> Auth0TokenValidator:
     """Get or create the token validator singleton"""
     global _validator
     if _validator is None:
         _validator = Auth0TokenValidator()
     return _validator
-
