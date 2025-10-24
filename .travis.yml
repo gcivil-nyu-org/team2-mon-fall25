@@ -21,7 +21,7 @@ jobs:
         - pip install black flake8 coverage coveralls
       script:
         # Formatting and lint checks
-        - black .
+        - black --check .
         - flake8 .
         # Run tests with coverage
         - coverage run manage.py test --keepdb

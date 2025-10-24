@@ -53,7 +53,7 @@ class ProfileGETTests(TestCase):
 
         url = reverse("profiles:profile-detail", args=(profile1.profile_id,))
 
-        response = self.client.get(url)
+        response = self.client.get(url, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, profile1.full_name)
 
@@ -71,7 +71,7 @@ class ProfileGETTests(TestCase):
 
         url = reverse("profiles:profile-list")
 
-        response = self.client.get(url)
+        response = self.client.get(url, follow=True)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()[0]["full_name"], "Bob")
         self.assertEqual(response.json()[1]["full_name"], "Jessie")
@@ -87,18 +87,17 @@ class ProfilePOSTTests(TestCase):
         user1 = User.objects.create(username="Bob")
 
         url = reverse("profiles:profile-list")
+        payload = json.dumps(
+            {
+                "user_id": user1.id,
+                "full_name": "Bob",
+                "avatar_url": "example.com",
+                "bio": "Student",
+                "created_at": timezone.now().isoformat(),
+            }
+        )
         response = self.client.post(
-            url,
-            data=json.dumps(
-                {
-                    "user_id": user1.id,
-                    "full_name": "Bob",
-                    "avatar_url": "example.com",
-                    "bio": "Student",
-                    "created_at": timezone.now().isoformat(),
-                }
-            ),
-            content_type="application/json",
+            url, data=payload, content_type="application/json", follow=True
         )
 
         self.assertEqual(response.status_code, 201)
