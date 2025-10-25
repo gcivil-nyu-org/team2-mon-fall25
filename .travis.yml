@@ -55,7 +55,7 @@ jobs:
         - pnpm install --frozen-lockfile
       script:
         - pnpm run lint || echo "No lint script found"
-        - pnpm run test -- --coverage
+        - pnpm run test
       after_success:
         - echo "Frontend tests completed successfully"
       # deploy:
