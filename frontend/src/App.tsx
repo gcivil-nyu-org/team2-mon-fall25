@@ -39,7 +39,7 @@ type CalEvent = {
 
 export default function App() {
   const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
-  const [tokenReady, setTokenReady] = useState(false);
+  const [, setTokenReady] = useState(false);
 
   // Set up token getter for API calls
   useEffect(() => {
