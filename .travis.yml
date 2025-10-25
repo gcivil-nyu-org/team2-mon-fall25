@@ -42,10 +42,13 @@ jobs:
 
     # ===== Frontend Job =====
     - stage: Frontend Tests & Deploy
-      name: "Frontend: React + Node 18"
+      name: "Frontend: React + Node 20"
       language: node_js
       node_js:
-        - "18"
+        - "20"
+      cache:
+        directories:
+          - frontend/node_modules
       before_install:
         - cd frontend
         - npm install -g corepack
