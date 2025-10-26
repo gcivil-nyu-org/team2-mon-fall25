@@ -89,12 +89,11 @@ jobs:
         - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
       script:
         - echo "Using $ENV_FILE for build"
-        - cp $ENV_FILE .env          # 👈 copy correct env file to .env
+        - cp $ENV_FILE frontend/.env
+        - cat frontend/.env
         - cd frontend
         - npm ci
         - npm run build
-        - cat ./dist/assets/*.js | grep "api-dev"  
-        - cat ./dist/assets/*.js | grep "api-prod" 
         - aws s3 sync ./dist s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
     - stage: build and deploy (prod)
