@@ -3,14 +3,14 @@ dist: jammy
 os: linux
 language: python
 python:
-  - "3.12"
+  - "3.11"
 
 # Run jobs in parallel (matrix build)
 jobs:
   include:
     # ===== Backend Job =====
     - stage: Backend Tests & Deploy
-      name: "Backend: Django + Python 3.12"
+      name: "Backend: Django + Python 3.11"
       before_install:
         - cd backend/collabdesk
         - python -m venv venv        
@@ -28,17 +28,28 @@ jobs:
         - coverage report
       after_success:
         - coveralls
-      # deploy:
-      #   provider: elasticbeanstalk
-      #   region: "us-east-1"
-      #   app: "collabdesk-backend"
-      #   env: "collabdesk-env"
-      #   bucket_name: "elasticbeanstalk-us-east-1-XXXXXX"  # <-- replace with your EB bucket name
-      #   bucket_path: "collabdesk-backend"
-      #   on:
-      #     branch: main
-      #   access_key_id: $AWS_ACCESS_KEY_ID
-      #   secret_access_key: $AWS_SECRET_ACCESS_KEY
+      deploy:
+        - provider: elasticbeanstalk
+          region: "us-east-1"
+          app: "collabdesk-backend"
+          env: "collabdesk-backend-dev"
+          bucket_name: "elasticbeanstalk-us-east-1-861276083927"
+          # bucket_path: "collabdesk-frontend-dev"
+          on:
+            branch: develop
+          access_key_id: $AWS_ACCESS_KEY_ID
+          secret_access_key: $AWS_SECRET_ACCESS_KEY
+
+        - provider: elasticbeanstalk
+          region: "us-east-1"
+          app: "collabdesk-backend"
+          env: "collabdesk-backend-prod"
+          bucket_name: "elasticbeanstalk-us-east-1-861276083927"
+          # bucket_path: "collabdesk-frontend-prod"
+          on:
+            branch: main
+          access_key_id: $AWS_ACCESS_KEY_ID
+          secret_access_key: $AWS_SECRET_ACCESS_KEY
 
     # ===== Frontend Job =====
     - stage: Frontend Tests & Deploy
@@ -61,24 +72,37 @@ jobs:
         - pnpm run test
       after_success:
         - echo "Frontend tests completed successfully"
-      # deploy:
-      #   provider: elasticbeanstalk
-      #   region: "us-east-1"
-      #   app: "collabdesk-frontend"
-      #   env: "collabdesk-frontend-env"
-      #   bucket_name: "elasticbeanstalk-us-east-1-XXXXXX"  # <-- replace with your EB bucket name
-      #   bucket_path: "collabdesk-frontend"
-      #   on:
-      #     branch: main
-      #   access_key_id: $AWS_ACCESS_KEY_ID
-      #   secret_access_key: $AWS_SECRET_ACCESS_KEY
+    - stage: build and deploy (dev)
+      if: branch = develop
+      name: "Deploy Integration"
+      env:
+        - ENV_FILE=frontend/.env.development
+        - S3_BUCKET=collabdesk-frontend-dev
+        - CF_DIST_ID=E1Q11CVWLLP2KA
+      script:
+        - echo "Using $ENV_FILE for build"
+        - cp $ENV_FILE .env          # 👈 copy correct env file to .env
+        - npm ci
+        - npm run build
+        - aws sts get-caller-identity
+        - aws s3 sync build/ s3://$S3_BUCKET --delete
+        - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
+    - stage: build and deploy (prod)
+      if: branch = main
+      name: "Deploy Production"
+      env:
+        - ENV_FILE=frontend/.env.production
+        - S3_BUCKET=collabdesk-frontend-prod
+        - CF_DIST_ID=E2MB4YPO4KNA31
+      script:
+        - echo "Using $ENV_FILE for build"
+        - cp $ENV_FILE .env          # 👈 same trick
+        - npm ci
+        - npm run build
+        - aws sts get-caller-identity
+        - aws s3 sync build/ s3://$S3_BUCKET --delete
+        - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
 
-# # Global environment variables (encrypted in Travis UI)
-# env:
-#   global:
-#     - DJANGO_SETTINGS_MODULE=backend.settings
-#     - NODE_ENV=production
-#     - AWS_REGION=us-east-1
 
 # # Notifications
 # notifications:
