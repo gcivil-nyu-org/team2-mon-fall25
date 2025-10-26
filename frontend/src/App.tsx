@@ -39,7 +39,7 @@ type CalEvent = {
 
 export default function App() {
   const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
-  const [, setTokenReady] = useState(false);
+  const [tokenReady, setTokenReady] = useState(false);
 
   // Set up token getter for API calls
   useEffect(() => {
@@ -88,7 +88,9 @@ export default function App() {
       setLoading(false);
       return; // Don't fetch if not authenticated
     }
-
+  if (!tokenReady) {
+        return; // Wait for token getter to be set up
+      }
     const loadBackendEvents = async () => {
       try {
         setLoading(true);
@@ -101,7 +103,7 @@ export default function App() {
       }
     };
     loadBackendEvents();
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, tokenReady]);
 
   // Function to refresh events from backend
   const refreshEvents = async () => {
