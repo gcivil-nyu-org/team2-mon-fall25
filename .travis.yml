@@ -57,10 +57,6 @@ jobs:
       language: node_js
       node_js:
         - "20"
-      addons:
-        apt:
-          packages:
-            - awscli
       cache:
         directories:
           - frontend/node_modules
@@ -77,6 +73,10 @@ jobs:
       after_success:
         - echo "Frontend tests completed successfully"
     - stage: build and deploy (dev)
+      addons:
+        apt:
+          packages:
+            - awscli
       if: branch = develop
       name: "Deploy Integration"
       env:
@@ -85,14 +85,18 @@ jobs:
         - CF_DIST_ID=E1Q11CVWLLP2KA
       script:
         - echo "Using $ENV_FILE for build"
-        - cd frontend
         - cp $ENV_FILE .env          # 👈 copy correct env file to .env
+        - cd frontend
         - npm ci
         - npm run build
         - aws sts get-caller-identity
         - aws s3 sync build/ s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
     - stage: build and deploy (prod)
+      addons:
+        apt:
+          packages:
+            - awscli
       if: branch = main
       name: "Deploy Production"
       env:
@@ -102,6 +106,7 @@ jobs:
       script:
         - echo "Using $ENV_FILE for build"
         - cp $ENV_FILE .env          # 👈 same trick
+        - cd frontend
         - npm ci
         - npm run build
         - aws sts get-caller-identity
