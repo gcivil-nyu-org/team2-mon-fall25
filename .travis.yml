@@ -83,6 +83,10 @@ jobs:
         - ENV_FILE=frontend/.env.development
         - S3_BUCKET=collabdesk-frontend-dev
         - CF_DIST_ID=E1Q11CVWLLP2KA
+      before_install:
+        - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+        - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        - export AWS_DEFAULT_REGION=$AWS_REGION
       script:
         - echo "Using $ENV_FILE for build"
         - cp $ENV_FILE .env          # 👈 copy correct env file to .env
@@ -90,7 +94,7 @@ jobs:
         - npm ci
         - npm run build
         - aws sts get-caller-identity
-        - aws s3 sync build/ s3://$S3_BUCKET --delete
+        - aws s3 sync ./dist s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
     - stage: build and deploy (prod)
       addons:
@@ -103,6 +107,10 @@ jobs:
         - ENV_FILE=frontend/.env.production
         - S3_BUCKET=collabdesk-frontend-prod
         - CF_DIST_ID=E2MB4YPO4KNA31
+      before_install:
+        - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+        - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
       script:
         - echo "Using $ENV_FILE for build"
         - cp $ENV_FILE .env          # 👈 same trick
@@ -110,7 +118,7 @@ jobs:
         - npm ci
         - npm run build
         - aws sts get-caller-identity
-        - aws s3 sync build/ s3://$S3_BUCKET --delete
+        - aws s3 sync ./dist s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
 
 
