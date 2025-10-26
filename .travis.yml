@@ -93,6 +93,8 @@ jobs:
         - cd frontend
         - npm ci
         - npm run build
+        - cat ./dist/assets/*.js | grep "api-dev"  
+        - cat ./dist/assets/*.js | grep "api-prod" 
         - aws s3 sync ./dist s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
     - stage: build and deploy (prod)
