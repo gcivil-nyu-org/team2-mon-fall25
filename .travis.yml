@@ -57,6 +57,10 @@ jobs:
       language: node_js
       node_js:
         - "20"
+      addons:
+        apt:
+          packages:
+            - awscli
       cache:
         directories:
           - frontend/node_modules
@@ -81,6 +85,7 @@ jobs:
         - CF_DIST_ID=E1Q11CVWLLP2KA
       script:
         - echo "Using $ENV_FILE for build"
+        - cd frontend
         - cp $ENV_FILE .env          # 👈 copy correct env file to .env
         - npm ci
         - npm run build
