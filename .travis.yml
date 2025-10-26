@@ -112,7 +112,7 @@ jobs:
         - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
       script:
         - echo "Using $ENV_FILE for build"
-        - cp $ENV_FILE .env          # 👈 same trick
+        - cp $ENV_FILE .env         
         - cd frontend
         - npm ci
         - npm run build
