@@ -8,8 +8,8 @@ python:
 # Run jobs in parallel (matrix build)
 jobs:
   include:
-    # ===== Backend Job =====
-    - stage: Backend Tests & Deploy
+    # ===== Backend build and deploy job =====
+    - stage: Backend build, tests & Deploy
       name: "Backend: Django + Python 3.11"
       before_install:
         - cd backend/collabdesk
@@ -31,9 +31,9 @@ jobs:
       deploy:
         - provider: elasticbeanstalk
           region: "us-east-1"
-          app: "collabdesk-backend"
-          env: "collabdesk-backend-dev"
-          bucket_name: "elasticbeanstalk-us-east-1-861276083927"
+          app: "collabdesk-backend-dev"
+          env: "collabdesk-backend-dev-env"
+          bucket_name: "collabdesk-backend-dev"
           # bucket_path: "collabdesk-frontend-dev"
           on:
             branch: develop
@@ -52,7 +52,7 @@ jobs:
           secret_access_key: $AWS_SECRET_ACCESS_KEY
 
     # ===== Frontend Job =====
-    - stage: Frontend Tests & Deploy
+    - stage: Frontend build & tests
       name: "Frontend: React + Node 20"
       language: node_js
       node_js:
@@ -72,6 +72,8 @@ jobs:
         - pnpm run test
       after_success:
         - echo "Frontend tests completed successfully"
+
+    # ===== Frontend Build & Deploy (dev) =====
     - stage: build and deploy (dev)
       addons:
         apt:
@@ -89,13 +91,13 @@ jobs:
         - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
       script:
         - echo "Using $ENV_FILE for build"
-        - cp $ENV_FILE frontend/.env
-        - cat frontend/.env
         - cd frontend
         - npm ci
-        - npm run build
+        - npm run build:dev
         - aws s3 sync ./dist s3://$S3_BUCKET --delete
         - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
+  
+    # ===== Frontend Build & Deploy (prod) =====
     - stage: build and deploy (prod)
       addons:
         apt:
@@ -113,7 +115,6 @@ jobs:
         - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
       script:
         - echo "Using $ENV_FILE for build"
-        - cp $ENV_FILE .env         
         - cd frontend
         - npm ci
         - npm run build
