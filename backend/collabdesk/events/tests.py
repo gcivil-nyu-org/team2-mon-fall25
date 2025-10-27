@@ -8,6 +8,7 @@ from workspaces.models import Workspace
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
+from django.test import override_settings
 
 
 def createEvent():
@@ -49,6 +50,7 @@ class EventModelTests(TestCase):
         self.assertEqual(str(event), event.title)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class EventAPITests(TestCase):
     def setUp(self):
         self.event = createEvent()
@@ -82,7 +84,7 @@ class EventAPITests(TestCase):
         response = self.client.post(self.url, payload, format="json", follow=True)
 
         # Assertions
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
 
     def test_get_with_event_id_uuid(self):
         event = createEvent()

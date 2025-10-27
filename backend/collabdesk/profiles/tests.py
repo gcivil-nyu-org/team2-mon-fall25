@@ -103,6 +103,5 @@ class ProfilePOSTTests(TestCase):
             follow=True,
         )
 
-        # TODO: The response.status_code should be 201; update this part later.
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         # self.assertIn("profile_id", response.json())
