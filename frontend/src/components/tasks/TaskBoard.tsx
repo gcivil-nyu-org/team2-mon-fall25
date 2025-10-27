@@ -7,7 +7,7 @@ interface Props {
   onTaskStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
 }
 
-const TaskBoard: React.FC<Props> = ({ tasks, onTaskStatusChange }) => {
+const TaskBoard: React.FC<Props> = ({ tasks, onTaskStatusChange: _ }) => {
   const columns: Array<{
     status: Task["status"];
     label: string;
