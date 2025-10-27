@@ -1,7 +1,11 @@
 # Coverage Badges
 
-## Develop branch
-![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25.svg?token=femJf7L7wQgHi3cCjt9R&branch=develop)
+## main branch
+[![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25.svg?branch=main)](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25)
+[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team2-mon-fall25/badge.svg?branch=main)](https://coveralls.io/github/gcivil-nyu-org/team2-mon-fall25?branch=main)
+
+## develop branch
+[![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25.svg?branch=develop)](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25)
 [![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team2-mon-fall25/badge.svg?branch=develop)](https://coveralls.io/github/gcivil-nyu-org/team2-mon-fall25?branch=develop)
 
 # CollabDesk Frontend
