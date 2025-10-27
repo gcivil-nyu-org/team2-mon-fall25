@@ -1,0 +1,129 @@
+# .travis.yml for CollabDesk (Frontend + Backend unified CI/CD)
+dist: jammy
+os: linux
+language: python
+python:
+  - "3.11"
+
+# Run jobs in parallel (matrix build)
+jobs:
+  include:
+    # ===== Backend build and deploy job =====
+    - stage: Backend build, tests & Deploy
+      name: "Backend: Django + Python 3.11"
+      before_install:
+        - cd backend/collabdesk        
+        - python -m pip install --upgrade pip setuptools wheel
+      install:
+        - pip install -r requirements.txt
+        - pip install black flake8 coverage coveralls
+      script:
+        # Formatting and lint checks
+        - black --check .
+        - flake8 .
+        # Run tests with coverage
+        - coverage run manage.py test --keepdb
+        - coverage report
+      after_success:
+        - coveralls
+      deploy:
+        - provider: elasticbeanstalk
+          region: "us-east-1"
+          app: "collabdesk-backend-dev"
+          env: "collabdesk-backend-dev"
+          bucket_name: "collabdesk-backend-dev"
+          # bucket_path: "collabdesk-frontend-dev"
+          on:
+            branch: develop
+          access_key_id: $AWS_ACCESS_KEY_ID
+          secret_access_key: $AWS_SECRET_ACCESS_KEY
+
+        - provider: elasticbeanstalk
+          region: "us-east-1"
+          app: "collabdesk-backend"
+          env: "collabdesk-backend-prod"
+          bucket_name: "elasticbeanstalk-us-east-1-861276083927"
+          # bucket_path: "collabdesk-frontend-prod"
+          on:
+            branch: main
+          access_key_id: $AWS_ACCESS_KEY_ID
+          secret_access_key: $AWS_SECRET_ACCESS_KEY
+
+    # ===== Frontend Job =====
+    - stage: Frontend build & tests
+      name: "Frontend: React + Node 20"
+      language: node_js
+      node_js:
+        - "20"
+      cache:
+        directories:
+          - frontend/node_modules
+      before_install:
+        - cd frontend
+        - npm install -g corepack
+        - corepack enable
+        - corepack prepare pnpm@10 --activate
+      install:
+        - pnpm install --frozen-lockfile
+      script:
+        - pnpm run lint || echo "No lint script found"
+        - pnpm run test
+      after_success:
+        - echo "Frontend tests completed successfully"
+
+    # ===== Frontend Build & Deploy (dev) =====
+    - stage: build and deploy (dev)
+      addons:
+        apt:
+          packages:
+            - awscli
+      if: branch = develop
+      name: "Deploy Integration"
+      env:
+        - ENV_FILE=frontend/.env.development
+        - S3_BUCKET=collabdesk-frontend-dev
+        - CF_DIST_ID=E1Q11CVWLLP2KA
+      before_install:
+        - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+        - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
+      script:
+        - echo "Using $ENV_FILE for build"
+        - cd frontend
+        - npm ci
+        - npm run build:dev
+        - aws s3 sync ./dist s3://$S3_BUCKET --delete
+        - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
+  
+    # ===== Frontend Build & Deploy (prod) =====
+    - stage: build and deploy (prod)
+      addons:
+        apt:
+          packages:
+            - awscli
+      if: branch = main
+      name: "Deploy Production"
+      env:
+        - ENV_FILE=frontend/.env.production
+        - S3_BUCKET=collabdesk-frontend-prod
+        - CF_DIST_ID=E2MB4YPO4KNA31
+      before_install:
+        - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+        - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+        - export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
+      script:
+        - echo "Using $ENV_FILE for build"
+        - cd frontend
+        - npm ci
+        - npm run build
+        - aws s3 sync ./dist s3://$S3_BUCKET --delete
+        - aws cloudfront create-invalidation --distribution-id $CF_DIST_ID --paths "/*"
+
+
+# # Notifications
+# notifications:
+#   email:
+#     recipients:
+#       - sr7731@nyu.edu
+#     on_success: always
+#     on_failure: always
