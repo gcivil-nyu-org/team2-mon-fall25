@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 import unittest
+from django.test import override_settings
 
 
 # Create your tests here.
@@ -23,6 +24,7 @@ def createProfile(user_id, full_name, avatar_url, bio, created_at):
     return profile
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class ProfileModelTests(TestCase):
     def test_profile_display(self):
         """
@@ -46,6 +48,7 @@ class ProfileModelTests(TestCase):
         # TODO:
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class ProfileGETTests(TestCase):
     def test_get_with_profile_id_uuid(self):
         User = get_user_model()
@@ -78,8 +81,8 @@ class ProfileGETTests(TestCase):
         self.assertEqual(response.json()[1]["full_name"], "Jessie")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class ProfilePOSTTests(TestCase):
-    # @unittest.skip("Temporarily skipping this test ")
     def test_post_with_valid_parameters(self):
         """
         Verify that posting all required profile fields (excluding profile_id) successfully creates a profile
