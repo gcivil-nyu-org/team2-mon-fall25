@@ -18,6 +18,7 @@ import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
 import { fetchEvents, setTokenGetter, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
+import Tasks from "./components/tasks/Tasks";
 
 type CalRoute =
   | "dashboard"
@@ -225,6 +226,8 @@ export default function App() {
             <Dashboard workspaceId={workspace} />
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
+          ) : current === "tasks" ? (
+            <Tasks />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section

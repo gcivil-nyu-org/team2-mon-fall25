@@ -17,3 +17,14 @@ export type CalendarEvent = {
   startHour: number;
   endHour: number;
 };
+
+export type Task = {
+  id: string;
+  name: string;
+  description: string;
+  dueDate: string;
+  priority: "high" | "medium" | "low";
+  tags: string[];
+  status: "todo" | "in-progress" | "done";
+  assignedTo?: string; // User initials or name
+};
