@@ -1,3 +1,9 @@
+# Coverage Badges
+
+## Develop branch
+![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team2-mon-fall25.svg?token=femJf7L7wQgHi3cCjt9R&branch=develop)
+[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team2-mon-fall25/badge.svg?branch=develop)](https://coveralls.io/github/gcivil-nyu-org/team2-mon-fall25?branch=develop)
+
 # CollabDesk Frontend
 
 React + TypeScript frontend for the CollabDesk collaborative workspace platform.

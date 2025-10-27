@@ -32,7 +32,7 @@ jobs:
         - provider: elasticbeanstalk
           region: "us-east-1"
           app: "collabdesk-backend-dev"
-          env: "collabdesk-backend-dev-env"
+          env: "collabdesk-backend-dev"
           bucket_name: "collabdesk-backend-dev"
           # bucket_path: "collabdesk-frontend-dev"
           on:
