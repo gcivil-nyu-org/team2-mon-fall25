@@ -1,0 +1,19 @@
+[run]
+source = .
+omit =
+    */migrations/*
+    */__init__.py
+    */tests.py
+    */tests/*
+    */venv/*
+    collabdesk/* 
+    manage.py
+
+[report]
+omit =
+    */migrations/*
+    */__init__.py
+    */tests.py
+    */tests/*
+    */venv/*
+    collabdesk/*
