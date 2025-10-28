@@ -4,7 +4,6 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
 import { fetchWorkspaceList } from "../../lib/api";
 import { Modal } from "../modals/Modal";
-import { LoginButton } from "../auth/LoginButton";
 import { LogoutButton } from "../auth/LogoutButton";
 
 function useDarkMode() {
@@ -150,18 +149,10 @@ export function TopBar({
             </button>
           </div>
 
-          {/* Auth0 buttons */}
+          {/* User info and logout */}
           <div className="flex items-center gap-2">
-            {isLoading ? (
-              <div className="text-sm text-zinc-500">Loading...</div>
-            ) : isAuthenticated ? (
-              <>
-                <span className="text-sm">{user?.name}</span>
-                <LogoutButton />
-              </>
-            ) : (
-              <LoginButton />
-            )}
+            <span className="text-sm">{user?.name}</span>
+            <LogoutButton />
           </div>
 
           {/* Dark mode toggle */}

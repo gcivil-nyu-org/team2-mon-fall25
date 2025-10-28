@@ -19,6 +19,7 @@ import { Settings } from "./components/settings/Settings";
 import { fetchEvents, setTokenGetter, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
+import { LandingPage } from "./components/landing/LandingPage";
 
 type CalRoute =
   | "dashboard"
@@ -168,6 +169,23 @@ export default function App() {
     setCurrent("dashboard");
   };
 
+  // Show loading screen while Auth0 initializes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900">
+        <div className="text-center">
+          <div className="text-lg text-zinc-600 dark:text-zinc-400">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  // Show main app if authenticated
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {/* TopBar */}
