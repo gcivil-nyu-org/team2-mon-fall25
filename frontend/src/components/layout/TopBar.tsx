@@ -4,7 +4,6 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
 import { fetchWorkspaceList } from "../../lib/api";
 import { Modal } from "../modals/Modal";
-import { LogoutButton } from "../auth/LogoutButton";
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -149,10 +148,9 @@ export function TopBar({
             </button>
           </div>
 
-          {/* User info and logout */}
+          {/* User info */}
           <div className="flex items-center gap-2">
             <span className="text-sm">{user?.name}</span>
-            <LogoutButton />
           </div>
 
           {/* Dark mode toggle */}
