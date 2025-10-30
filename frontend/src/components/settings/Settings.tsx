@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export function Settings({
   workspaceId,
@@ -7,6 +8,7 @@ export function Settings({
   workspaceId: string;
   onLeaveWorkspace: (id: string) => void;
 }) {
+  const { logout } = useAuth0();
   const [name, setName] = useState("John Doe");
   const [email, setEmail] = useState("john.doe@example.com");
   const [notifications, setNotifications] = useState(true);
@@ -145,15 +147,10 @@ export function Settings({
         </button>
 
         <button
-            onClick={() => {
-            alert("Signing out...");
-            // optional: clear auth tokens, localStorage, or redirect
-            localStorage.clear();
-            window.location.href = "/"; // change path as needed
-            }}
-            className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 text-sm font-medium py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+          onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+          className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 text-sm font-medium py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
-            Sign Out
+          Log Out
         </button>
       </div>
     </div>
