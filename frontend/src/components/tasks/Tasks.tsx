@@ -52,6 +52,29 @@ const Tasks: React.FC = () => {
     setShowModal(false);
   };
 
+  const handleTaskStatusChange = (taskId: string, newStatus: Task["status"]) => {
+    setTasks(
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, status: newStatus } : task
+      )
+    );
+  };
+
+  const handleTaskPriorityChange = (
+    taskId: string,
+    newPriority: Task["priority"]
+  ) => {
+    setTasks(
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, priority: newPriority } : task
+      )
+    );
+  };
+
+  const handleTaskDelete = (taskId: string) => {
+    setTasks(tasks.filter((task) => task.id !== taskId));
+  };
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -263,9 +286,19 @@ const Tasks: React.FC = () => {
 
       {/* Task View */}
       {view === "board" ? (
-        <TaskBoard tasks={filteredTasks} />
+        <TaskBoard
+          tasks={filteredTasks}
+          onTaskStatusChange={handleTaskStatusChange}
+          onTaskDelete={handleTaskDelete}
+          onTaskPriorityChange={handleTaskPriorityChange}
+        />
       ) : (
-        <TaskList tasks={filteredTasks} />
+        <TaskList
+          tasks={filteredTasks}
+          onTaskStatusChange={handleTaskStatusChange}
+          onTaskDelete={handleTaskDelete}
+          onTaskPriorityChange={handleTaskPriorityChange}
+        />
       )}
 
       {/* Modal */}

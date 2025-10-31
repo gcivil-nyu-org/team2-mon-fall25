@@ -124,3 +124,14 @@ export async function fetchWorkspaceInformation(
   }
   return response.json();
 }
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/${eventId}/`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete event');
+  }
+}
