@@ -16,7 +16,7 @@ import {
 import { ConfirmModal } from "./components/modals/ConfirmModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, type BackendEvent } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { LandingPage } from "./components/landing/LandingPage";
@@ -155,11 +155,23 @@ export default function App() {
 
   // Delete flow
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const requestDelete = (id: string) => setPendingDeleteId(id);
-  const confirmDelete = () => {
-    if (!pendingDeleteId) return;
-    console.log("Delete event:", pendingDeleteId);
-    setPendingDeleteId(null);
+  const confirmDelete = async () => {
+    if (!pendingDeleteId || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteEvent(pendingDeleteId);
+      console.log("Event deleted successfully:", pendingDeleteId);
+      await refreshEvents(); // Refresh the events list
+      setPendingDeleteId(null);
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+      alert("Failed to delete event. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Leave workspace logic
@@ -282,13 +294,14 @@ export default function App() {
       {/* Delete confirmation */}
       <ConfirmModal
         open={pendingDeleteId !== null}
-        onClose={() => setPendingDeleteId(null)}
+        onClose={() => !isDeleting && setPendingDeleteId(null)}
         title="Delete Event?"
         confirmText="Delete"
         confirmVariant="danger"
         onConfirm={confirmDelete}
+        isLoading={isDeleting}
       >
-        This will remove the event from your personal calendar. This action can’t be undone.
+        This will remove the event from your personal calendar. This action can't be undone.
       </ConfirmModal>
     </div>
   );
