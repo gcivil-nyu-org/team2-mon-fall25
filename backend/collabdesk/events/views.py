@@ -2,8 +2,8 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .serializers import EventSerializer
-from .models import Event
+from .serializers import EventSerializer, EventParticipantSerializer
+from .models import Event, EventParticipant
 
 # Create your views here.
 
@@ -12,18 +12,6 @@ class EventListCreateView(generics.ListCreateAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
-        event_id = request.query_params.get("id")
-        if event_id:
-            try:
-                event = Event.objects.get(id=event_id)
-            except Event.DoesNotExist:
-                return Response({"Error": "Event not found"}, status=404)
-
-            serializer = self.get_serializer(event)
-            return Response(serializer.data)
-        return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -36,4 +24,16 @@ class EventListCreateView(generics.ListCreateAPIView):
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class EventParticipantCreateView(generics.ListCreateAPIView):
+    queryset = EventParticipant.objects.all()
+    serializer_class = EventParticipantSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class EventParticipantDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = EventParticipant.objects.all()
+    serializer_class = EventParticipantSerializer
     permission_classes = [IsAuthenticated]

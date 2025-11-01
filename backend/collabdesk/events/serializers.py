@@ -1,6 +1,6 @@
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
-from .models import Event
+from .models import Event, EventParticipant
 from django.conf import settings
 import pytz
 
@@ -45,4 +45,22 @@ class EventSerializer(serializers.ModelSerializer):
             ).exists()
             if overlap:
                 raise ConflictException()
+        return data
+
+
+class EventParticipantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventParticipant
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Convert UTC datetimes to the configured timezone
+        tz = pytz.timezone(settings.TIME_ZONE)
+
+        if instance.added_at:
+            # Convert to the target timezone and format with offset
+            start_local = instance.added_at.astimezone(tz)
+            data["added_at"] = start_local.isoformat()
+
         return data

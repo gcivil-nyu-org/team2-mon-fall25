@@ -3,7 +3,7 @@ import datetime
 
 from django.utils import timezone
 from django.test import TestCase
-from .models import Event
+from .models import Event, EventParticipant
 from workspaces.models import Workspace
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -167,7 +167,7 @@ class EventAPITests(TestCase):
         end_time = created_at + datetime.timedelta(days=1, hours=3)
 
         payload2 = {
-            "title": "Test Event 1",
+            "title": "Test Event 2",
             "description": "Overlapping event",
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
@@ -183,3 +183,28 @@ class EventAPITests(TestCase):
 
         self.assertEqual(response1.status_code, 201)
         self.assertEqual(response2.status_code, 409)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class EventParticipantModelTest(TestCase):
+    def test_create_event_participant_and_str_method(self):
+        event = createDefaultEvent()
+        user = event.created_by
+        added_at = timezone.now()
+        User = get_user_model()
+        user2 = User.objects.create(username=f"user_{uuid.uuid4().hex[:8]}")
+
+        payload = {
+            "added_at": added_at.isoformat(),
+            "status": "Test event participant",
+            "added_by": user.id,
+            "event": event.event_id,
+            "user": user2.id,
+        }
+        self.client = APIClient()
+        self.client.force_authenticate(user=user)
+
+        url = reverse("events:participant-list")
+        response = self.client.post(url, payload, format="json", follow=True)
+
+        self.assertEqual(response.status_code, 201)
