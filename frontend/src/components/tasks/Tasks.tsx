@@ -3,9 +3,22 @@ import { type Task } from "../../types";
 import TaskBoard from "./TaskBoard";
 import TaskList from "./TaskList";
 import TaskModal from "../modals/TaskModal";
+import { getTasks, createTask, updateTask, deleteTask } from "../../api/tasks";
+import { useEffect } from "react";
 
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  useEffect(() => {
+  const loadTasks = async () => {
+    try {
+      const data: Task[] = await getTasks();
+      setTasks(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  loadTasks();
+}, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -47,10 +60,35 @@ const Tasks: React.FC = () => {
     });
   }, [tasks, searchQuery, priorityFilter, tagFilter, statusFilter]);
 
-  const handleCreateTask = (newTask: Task) => {
-    setTasks([...tasks, { ...newTask, id: Date.now().toString() }]);
+  const handleCreateTask = async (newTask: Task) => {
+  try {
+    await createTask(newTask); // save to backend
+    const data = await getTasks(); // refresh tasks
+    setTasks(data);
     setShowModal(false);
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
+  const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
+  try {
+    await updateTask(id, updates);
+    const data = await getTasks();
+    setTasks(data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+  const handleDeleteTask = async (id: string) => {
+  try {
+    await deleteTask(id);
+    const data = await getTasks();
+    setTasks(data);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const handleTaskStatusChange = (taskId: string, newStatus: Task["status"]) => {
     setTasks(
@@ -283,23 +321,15 @@ const Tasks: React.FC = () => {
           </div>
         )}
       </div>
-
       {/* Task View */}
       {view === "board" ? (
-        <TaskBoard
-          tasks={filteredTasks}
-          onTaskStatusChange={handleTaskStatusChange}
-          onTaskDelete={handleTaskDelete}
-          onTaskPriorityChange={handleTaskPriorityChange}
-        />
-      ) : (
-        <TaskList
-          tasks={filteredTasks}
-          onTaskStatusChange={handleTaskStatusChange}
-          onTaskDelete={handleTaskDelete}
-          onTaskPriorityChange={handleTaskPriorityChange}
-        />
-      )}
+  <TaskBoard
+    tasks={filteredTasks}
+    onTaskStatusChange={(id, status) => handleUpdateTask(id, { status })}
+  />
+) : (
+  <TaskList tasks={filteredTasks} />
+)}
 
       {/* Modal */}
       {showModal && (
