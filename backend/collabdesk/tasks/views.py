@@ -5,16 +5,23 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Task
 from .serializers import TaskSerializer
+
 # from .permissions import IsCreatorOrReadOnly
+
 
 class TaskViewSet(viewsets.ModelViewSet):
     """
     Provides list, retrieve, create, update, partial_update, destroy.
     """
+
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     # permission_classes = [IsCreatorOrReadOnly]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    filter_backends = [
+        filters.SearchFilter,
+        filters.OrderingFilter,
+        DjangoFilterBackend,
+    ]
     search_fields = ["title", "description"]
     ordering_fields = ["priority", "due_date", "created_at", "updated_at"]
     filterset_fields = ["status", "priority", "assignee", "creator", "archived"]
@@ -27,6 +34,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         # set completed_at automatically when status is DONE and completed_at not set
         if obj.status == Task.Status.DONE and obj.completed_at is None:
             import django.utils.timezone as tz
+
             obj.completed_at = tz.now()
             obj.save()
 
@@ -36,4 +44,3 @@ class TaskViewSet(viewsets.ModelViewSet):
         task.archived = True
         task.save()
         return Response({"status": "archived"})
-

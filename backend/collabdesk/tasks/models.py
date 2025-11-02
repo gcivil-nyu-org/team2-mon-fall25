@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
-from django.contrib.postgres.fields import ArrayField  
+from django.contrib.postgres.fields import ArrayField
+
 
 class Task(models.Model):
     class Status(models.TextChoices):
@@ -28,9 +29,11 @@ class Task(models.Model):
     #     null=True,
     #     blank=True,
     # )
-    status = models.CharField(max_length=15, choices=Status.choices, default=Status.TODO)
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.TODO
+    )
     priority = models.IntegerField(choices=Priority.choices, default=Priority.MEDIUM)
-    creator = models.CharField(max_length=100, default="admin") 
+    creator = models.CharField(max_length=100, default="admin")
     assignee = models.CharField(max_length=100, blank=True, null=True, default="megha")
     due_date = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -44,4 +47,3 @@ class Task(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
-
