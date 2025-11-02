@@ -35,9 +35,9 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-SECURE_SSL_REDIRECT = True
+# SECURE_SSL_REDIRECT = True
 
 # Application definition
 
@@ -51,9 +51,11 @@ INSTALLED_APPS = [
     "users",
     "workspaces",
     "events",
+    "tasks",
     "rest_framework",
     "corsheaders",
     "profiles",
+    "django_filters",
 ]
 
 MIDDLEWARE = [
