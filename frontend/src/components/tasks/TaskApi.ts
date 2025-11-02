@@ -27,7 +27,16 @@ const mapPriorityToNumber = (priority: "high" | "medium" | "low"): number => {
       return 3;
   }
 };
-
+interface BackendTask {
+  id: number;
+  title?: string;
+  description?: string;
+  due_date?: string | null;
+  priority: number;
+  tags?: string[];
+  status?: string;
+  assignee?: string;
+}
 // ✅ Fetch all tasks
 export const getTasks = async (): Promise<Task[]> => {
   const res = await fetch(`${API_URL}/api/tasks/`);
@@ -35,7 +44,7 @@ export const getTasks = async (): Promise<Task[]> => {
   const data = await res.json();
 
   // Convert backend → frontend structure
-  return data.map((t: any) => ({
+  return data.map((t: BackendTask) => ({
     id: String(t.id),
     name: t.title || "",
     description: t.description || "",
@@ -86,7 +95,15 @@ export const updateTask = async (
   id: string,
   updates: Partial<Task>
 ): Promise<Task> => {
-  const payload: any = {};
+  const payload: Partial<{
+  title: string;
+  description: string;
+  due_date: string | null;
+  priority: number;
+  tags: string[];
+  status: string;
+  assignee: string;
+}>= {};
   if (updates.name) payload.title = updates.name;
   if (updates.description) payload.description = updates.description;
   if (updates.dueDate) payload.due_date = updates.dueDate;
