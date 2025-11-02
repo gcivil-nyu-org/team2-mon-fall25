@@ -32,5 +32,31 @@ class Event(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
+    is_private = models.BooleanField(default=False)
+
     def __str__(self):
         return self.title
+
+
+class EventParticipant(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    added_at = models.DateTimeField(default=timezone.now)
+    status = models.CharField(max_length=50, default="none")
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        default=1,
+        related_name="added_by",
+    )
+    event = models.ForeignKey("events.Event", on_delete=models.CASCADE, null=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="participants"
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.user:
+            self.user = self.added_by
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.event)

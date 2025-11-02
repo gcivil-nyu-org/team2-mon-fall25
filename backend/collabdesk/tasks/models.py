@@ -4,10 +4,9 @@ from django.contrib.postgres.fields import ArrayField
 
 class Task(models.Model):
     class Status(models.TextChoices):
-        TODO = "TODO", "To do"
-        IN_PROGRESS = "INP", "In progress"
-        DONE = "DONE", "Done"
-        # BLOCKED = "BLKD", "Blocked"
+        TODO = "todo", "To do"
+        IN_PROGRESS = "in-progress", "In progress"
+        DONE = "done", "Done"
 
     class Priority(models.IntegerChoices):
         LOW = 1, "Low"
@@ -29,7 +28,7 @@ class Task(models.Model):
     #     null=True,
     #     blank=True,
     # )
-    status = models.CharField(max_length=5, choices=Status.choices, default=Status.TODO)
+    status = models.CharField(max_length=15, choices=Status.choices, default=Status.TODO)
     priority = models.IntegerField(choices=Priority.choices, default=Priority.MEDIUM)
     creator = models.CharField(max_length=100, default="admin") 
     assignee = models.CharField(max_length=100, blank=True, null=True, default="megha")
