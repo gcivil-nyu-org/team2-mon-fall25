@@ -36,7 +36,7 @@ class Task(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    tags = ArrayField(models.CharField(max_length=100), blank=True, default=list)
+    tags = models.JSONField(blank=True, default=list)
     archived = models.BooleanField(default=False)
 
     class Meta:
