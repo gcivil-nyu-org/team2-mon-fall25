@@ -13,7 +13,9 @@ User = get_user_model()
 class WorkspaceInformationViewTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.user = User.objects.create_user(
+            username="testuser", email="testuser@example.com", password="testpass"
+        )
         self.client.force_authenticate(user=self.user)
 
         # create workspace with valid UUID and created_by
@@ -26,13 +28,12 @@ class WorkspaceInformationViewTests(APITestCase):
         self.url = reverse("workspaces:workspace-information")
 
     def test_get_workspace_info_as_member(self):
-        WorkspaceMember.objects.create(workspace=self.workspace, user_id=self.user.id)
+        WorkspaceMember.objects.create(workspace=self.workspace, user=self.user)
 
         response = self.client.get(
             self.url,
             {
                 "workspace_id": str(self.workspace.workspace_id),
-                "user_id": str(self.user.id),
             },
         )
 
@@ -47,7 +48,6 @@ class WorkspaceInformationViewTests(APITestCase):
             self.url,
             {
                 "workspace_id": str(self.workspace.workspace_id),
-                "user_id": str(self.user.id),
             },
         )
 
@@ -57,20 +57,23 @@ class WorkspaceInformationViewTests(APITestCase):
         self.assertNotIn("owner", response.data)
 
     def test_missing_workspace_id(self):
-        response = self.client.get(self.url, {"user_id": str(self.user.id)})
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_missing_user_id(self):
+        # This test is no longer valid since the view uses request.user instead of user_id parameter
+        # The authenticated user is always available, so we test successful response instead
         response = self.client.get(
             self.url, {"workspace_id": str(self.workspace.workspace_id)}
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("is_member", response.data)
 
     def test_invalid_workspace_id(self):
         bad_uuid = uuid.uuid4()
         response = self.client.get(
             self.url,
-            {"workspace_id": str(bad_uuid), "user_id": str(self.user.id)},
+            {"workspace_id": str(bad_uuid)},
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -80,7 +83,6 @@ class WorkspaceInformationViewTests(APITestCase):
             self.url,
             {
                 "workspace_id": str(self.workspace.workspace_id),
-                "user_id": str(self.user.id),
             },
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -90,7 +92,9 @@ class WorkspaceInformationViewTests(APITestCase):
 class WorkspaceListViewTests(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username="listuser", password="testpass")
+        self.user = User.objects.create_user(
+            username="listuser", email="listuser@example.com", password="testpass"
+        )
         self.client.force_authenticate(user=self.user)
         self.url = reverse("workspaces:workspace-name-list")
 
@@ -100,8 +104,16 @@ class WorkspaceListViewTests(APITestCase):
         self.assertEqual(response.data, [])
 
     def test_get_workspace_list_with_items(self):
-        Workspace.objects.create(name="Workspace 1", created_by=self.user)
-        Workspace.objects.create(name="Workspace 2", created_by=self.user)
+        workspace1 = Workspace.objects.create(name="Workspace 1", created_by=self.user)
+        workspace2 = Workspace.objects.create(name="Workspace 2", created_by=self.user)
+
+        # Create WorkspaceMember entries so the user is a member of these workspaces
+        WorkspaceMember.objects.create(
+            workspace=workspace1, user=self.user, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=workspace2, user=self.user, role="owner"
+        )
 
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
