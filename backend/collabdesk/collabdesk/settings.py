@@ -51,9 +51,11 @@ INSTALLED_APPS = [
     "users",
     "workspaces",
     "events",
+    "tasks",
     "rest_framework",
     "corsheaders",
     "profiles",
+    "django_filters",
 ]
 
 MIDDLEWARE = [
