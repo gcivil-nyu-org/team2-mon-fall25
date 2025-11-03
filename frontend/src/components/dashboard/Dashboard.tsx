@@ -20,9 +20,8 @@ export function Dashboard({ workspaceId }: { workspaceId: string }) {
     console.log("🔁 Fetching workspace info for:", workspaceId);
     setLoading(true);
     setError("");
-    const user_id = 1;
 
-    fetchWorkspaceInformation(workspaceId, user_id)
+    fetchWorkspaceInformation(workspaceId)
       .then((data) => {
         setWorkspace(data);
       })

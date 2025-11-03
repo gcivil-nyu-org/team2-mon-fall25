@@ -66,9 +66,9 @@ class ProfileGETTests(TestCase):
         Verify that a GET request without specifying profile_id returns all existing user profiles.
         """
         User = get_user_model()
-        user1 = User.objects.create(username="Bob")
+        user1 = User.objects.create(username="Bob", email="bob@example.com")
         profile1 = createProfile(user1, "Bob", "example.com", "Student", timezone.now())
-        user2 = User.objects.create(username="Jessie")
+        user2 = User.objects.create(username="Jessie", email="jessie@example.com")
         profile2 = createProfile(
             user2, "Jessie", "example.com", "Student", timezone.now()
         )

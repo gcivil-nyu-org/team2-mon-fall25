@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { fetchCurrentUser } from "../../lib/api";
 
 export function Settings({
   workspaceId,
@@ -7,12 +9,35 @@ export function Settings({
   workspaceId: string;
   onLeaveWorkspace: (id: string) => void;
 }) {
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john.doe@example.com");
+  const { logout, isAuthenticated } = useAuth0();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [notifications, setNotifications] = useState(true);
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch current user data from backend
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const userData = await fetchCurrentUser();
+        setName(userData.full_name || "");
+        setEmail(userData.email || "");
+        setProfilePic(userData.profile_picture);
+      } catch (error) {
+        console.error("Failed to load user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [isAuthenticated]);
 
   const handleChangePassword = () => {
     alert("Password change flow will be implemented here.");
@@ -40,6 +65,14 @@ export function Settings({
     fileInputRef.current?.click();
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-xl mx-auto mt-8 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+        <div className="text-center py-8 text-zinc-500">Loading user information...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-xl mx-auto mt-8 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
       <h2 className="text-2xl font-semibold mb-4">Settings</h2>
@@ -58,7 +91,7 @@ export function Settings({
               className="h-full w-full object-cover"
             />
           ) : (
-            name[0]
+            name ? name[0].toUpperCase() : "?"
           )}
         </div>
         <div>
@@ -145,15 +178,10 @@ export function Settings({
         </button>
 
         <button
-            onClick={() => {
-            alert("Signing out...");
-            // optional: clear auth tokens, localStorage, or redirect
-            localStorage.clear();
-            window.location.href = "/"; // change path as needed
-            }}
-            className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 text-sm font-medium py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+          onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+          className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 text-sm font-medium py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
-            Sign Out
+          Log Out
         </button>
       </div>
     </div>

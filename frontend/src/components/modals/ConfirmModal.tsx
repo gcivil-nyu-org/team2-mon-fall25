@@ -9,6 +9,7 @@ export function ConfirmModal({
   confirmText = "Delete",
   confirmVariant = "danger",
   onConfirm,
+  isLoading = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function ConfirmModal({
   confirmText?: string;
   confirmVariant?: "danger" | "primary";
   onConfirm: () => void;
+  isLoading?: boolean;
 }) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
@@ -27,19 +29,21 @@ export function ConfirmModal({
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-lg border px-3 py-1.5 text-sm dark:border-zinc-700"
+            disabled={isLoading}
+            className="rounded-lg border px-3 py-1.5 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
+            disabled={isLoading}
             className={
               confirmVariant === "danger"
-                ? "rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
-                : "rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900"
+                ? "rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                : "rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
-            {confirmText}
+            {isLoading ? "Deleting..." : confirmText}
           </button>
         </div>
       </div>

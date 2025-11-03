@@ -3,9 +3,22 @@ import { type Task } from "../../types";
 import TaskBoard from "./TaskBoard";
 import TaskList from "./TaskList";
 import TaskModal from "../modals/TaskModal";
+import { getTasks, createTask, updateTask, deleteTask } from "./TaskApi";
+import { useEffect } from "react";
 
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  useEffect(() => {
+  const loadTasks = async () => {
+    try {
+      const data: Task[] = await getTasks();
+      setTasks(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  loadTasks();
+}, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -47,10 +60,87 @@ const Tasks: React.FC = () => {
     });
   }, [tasks, searchQuery, priorityFilter, tagFilter, statusFilter]);
 
-  const handleCreateTask = (newTask: Task) => {
-    setTasks([...tasks, { ...newTask, id: Date.now().toString() }]);
+  const handleCreateTask = async (newTask: Task) => {
+    const duplicate = tasks.find(
+    (t) => t.name.toLowerCase() === newTask.name.toLowerCase()
+  );
+  if (duplicate) {
+    alert("Task with this name already exists");
+    return; // stop execution
+  }
+  try {
+    await createTask(newTask); // save to backend
+    const data = await getTasks(); // refresh tasks
+    setTasks(data);
     setShowModal(false);
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
+//   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
+//   try {
+//     await updateTask(id, updates);
+//     const data = await getTasks();
+//     setTasks(data);
+//   } catch (err) {
+//     console.error(err);
+//   }
+// };
+
+//   const handleDeleteTask = async (id: string | number) => {
+//   try {
+//     await deleteTask(id);
+//     const data = await getTasks();
+//     setTasks(data);
+//   } catch (err) {
+//     console.error(err);
+//   }
+// };
+
+  const handleTaskStatusChange = async (taskId: string, newStatus: Task["status"]) => {
+  try {
+    // Optimistically update UI
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, status: newStatus } : task
+      )
+    );
+
+    // Update backend
+    await updateTask(taskId, { status: newStatus });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
+  const handleTaskPriorityChange = async (
+  taskId: string,
+  newPriority: Task["priority"]
+) => {
+  try {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, priority: newPriority } : task
+      )
+    );
+
+    await updateTask(taskId, { priority: newPriority });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+
+  const handleTaskDelete = async (taskId: string | number) => {
+  try {
+    await deleteTask(taskId);
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   return (
     <div className="w-full">
@@ -260,13 +350,22 @@ const Tasks: React.FC = () => {
           </div>
         )}
       </div>
-
       {/* Task View */}
       {view === "board" ? (
-        <TaskBoard tasks={filteredTasks} />
-      ) : (
-        <TaskList tasks={filteredTasks} />
-      )}
+  <TaskBoard
+    tasks={filteredTasks}
+    onTaskStatusChange={handleTaskStatusChange}      // Dragging updates status
+    onTaskDelete={handleTaskDelete}                 // Delete button works
+    onTaskPriorityChange={handleTaskPriorityChange} // Priority change works
+  />
+) : (
+  <TaskList
+    tasks={filteredTasks}
+    onTaskStatusChange={handleTaskStatusChange}
+    onTaskDelete={handleTaskDelete}
+    onTaskPriorityChange={handleTaskPriorityChange}
+  />
+)}
 
       {/* Modal */}
       {showModal && (

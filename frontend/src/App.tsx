@@ -16,9 +16,10 @@ import {
 import { ConfirmModal } from "./components/modals/ConfirmModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, type BackendEvent } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
+import { LandingPage } from "./components/landing/LandingPage";
 
 type CalRoute =
   | "dashboard"
@@ -89,12 +90,17 @@ export default function App() {
       setLoading(false);
       return; // Don't fetch if not authenticated
     }
-  if (!tokenReady) {
-        return; // Wait for token getter to be set up
-      }
+    if (!tokenReady) {
+      return; // Wait for token getter to be set up
+    }
+    if (!workspace) {
+      setLoading(false);
+      return; // Don't fetch if no workspace selected
+    }
     const loadBackendEvents = async () => {
       try {
         setLoading(true);
+        console.log("🔄 Fetching events for workspace:", workspace);
         const events = await fetchEvents();
         setBackendEvents(events);
       } catch (error) {
@@ -104,7 +110,7 @@ export default function App() {
       }
     };
     loadBackendEvents();
-  }, [isAuthenticated, isLoading, tokenReady]);
+  }, [isAuthenticated, isLoading, tokenReady, workspace]);
 
   // Function to refresh events from backend
   const refreshEvents = async () => {
@@ -154,11 +160,23 @@ export default function App() {
 
   // Delete flow
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const requestDelete = (id: string) => setPendingDeleteId(id);
-  const confirmDelete = () => {
-    if (!pendingDeleteId) return;
-    console.log("Delete event:", pendingDeleteId);
-    setPendingDeleteId(null);
+  const confirmDelete = async () => {
+    if (!pendingDeleteId || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteEvent(pendingDeleteId);
+      console.log("Event deleted successfully:", pendingDeleteId);
+      await refreshEvents(); // Refresh the events list
+      setPendingDeleteId(null);
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+      alert("Failed to delete event. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Leave workspace logic
@@ -168,6 +186,23 @@ export default function App() {
     setCurrent("dashboard");
   };
 
+  // Show loading screen while Auth0 initializes
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900">
+        <div className="text-center">
+          <div className="text-lg text-zinc-600 dark:text-zinc-400">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  // Show main app if authenticated
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       {/* TopBar */}
@@ -264,13 +299,14 @@ export default function App() {
       {/* Delete confirmation */}
       <ConfirmModal
         open={pendingDeleteId !== null}
-        onClose={() => setPendingDeleteId(null)}
+        onClose={() => !isDeleting && setPendingDeleteId(null)}
         title="Delete Event?"
         confirmText="Delete"
         confirmVariant="danger"
         onConfirm={confirmDelete}
+        isLoading={isDeleting}
       >
-        This will remove the event from your personal calendar. This action can’t be undone.
+        This will remove the event from your personal calendar. This action can't be undone.
       </ConfirmModal>
     </div>
   );

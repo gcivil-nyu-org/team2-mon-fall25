@@ -1,39 +1,108 @@
 from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .serializers import EventSerializer
-from .models import Event
+from rest_framework.exceptions import PermissionDenied
+from .serializers import EventSerializer, EventParticipantSerializer
+from .models import Event, EventParticipant
+from collabdesk.middleware import set_workspace_context
+import logging
 
-# Create your views here.
+logger = logging.getLogger(__name__)
 
 
 class EventListCreateView(generics.ListCreateAPIView):
-    queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        event_id = request.query_params.get("id")
-        if event_id:
-            try:
-                event = Event.objects.get(id=event_id)
-            except Event.DoesNotExist:
-                return Response({"Error": "Event not found"}, status=404)
+    def initial(self, request, *args, **kwargs):
+        """Override to set workspace context after authentication"""
+        super().initial(request, *args, **kwargs)
+        # After authentication completes, set workspace context
+        set_workspace_context(request)
 
-            serializer = self.get_serializer(event)
-            return Response(serializer.data)
-        return super().get(request, *args, **kwargs)
+    def get_queryset(self):
+        """
+        Filter events by workspace context.
+        If workspace is provided in header, filter by that workspace.
+        Otherwise, return all events for user's workspaces.
+        """
+        user = self.request.user
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # If workspace context is set, filter by that workspace
+        if hasattr(self.request, "workspace") and self.request.workspace:
+            logger.info(
+                f"Fetching events for user={user.email}, "
+                f"workspace={self.request.workspace.name}"
+            )
+            return Event.objects.filter(workspace=self.request.workspace)
+
+        # Otherwise, return events from all user's workspaces
+        logger.info(f"Fetching events from all workspaces for user={user.email}")
+        user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
+        return Event.objects.filter(workspace_id__in=user_workspaces)
+
+    def perform_create(self, serializer):
+        """
+        Automatically set workspace and created_by when creating an event.
+        """
+        # Debug logging
+        logger.info("🔍 perform_create called")
+        logger.info(f"   User: {self.request.user.email}")
+        logger.info(f"   Has workspace attr: {hasattr(self.request, 'workspace')}")
+        logger.info(
+            f"   Workspace value: {getattr(self.request, 'workspace', 'NOT SET')}"
+        )
+        logger.info(
+            f"   Workspace role: {getattr(self.request, 'workspace_role', 'NOT SET')}"
+        )
+
+        # Require workspace context for creating events
+        if not hasattr(self.request, "workspace") or not self.request.workspace:
+            logger.error("❌ Workspace context missing! Raising PermissionDenied")
+            raise PermissionDenied(
+                "Workspace context required. Please provide X-Workspace-ID header."
+            )
+
+        logger.info(
+            f"✅ Creating event in workspace={self.request.workspace.name}, "
+            f"user={self.request.user.email}"
+        )
+
+        serializer.save(workspace=self.request.workspace, created_by=self.request.user)
 
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Event.objects.all()
     serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        """Override to set workspace context after authentication"""
+        super().initial(request, *args, **kwargs)
+        # After authentication completes, set workspace context
+        set_workspace_context(request)
+
+    def get_queryset(self):
+        """
+        Filter events by workspace context to ensure users can only
+        access events from their workspaces.
+        """
+        user = self.request.user
+
+        # If workspace context is set, use it
+        if hasattr(self.request, "workspace") and self.request.workspace:
+            return Event.objects.filter(workspace=self.request.workspace)
+
+        # Otherwise, filter by user's workspaces
+        user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
+        return Event.objects.filter(workspace_id__in=user_workspaces)
+
+
+class EventParticipantCreateView(generics.ListCreateAPIView):
+    queryset = EventParticipant.objects.all()
+    serializer_class = EventParticipantSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class EventParticipantDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = EventParticipant.objects.all()
+    serializer_class = EventParticipantSerializer
     permission_classes = [IsAuthenticated]
