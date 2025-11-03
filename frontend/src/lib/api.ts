@@ -22,8 +22,8 @@ export type CreateEventPayload = {
   end_time: string; // ISO string
   event_type: 'INDIVIDUAL' | 'GROUP';
   location?: string;
-  created_by: number;
-  workspace_id: string;
+  // workspace and created_by are now set automatically by the backend
+  // from the X-Workspace-ID header and authenticated user
 };
 
 export type Workspace = {
@@ -73,6 +73,13 @@ async function authenticatedFetch(url: string, options: RequestInit = {}): Promi
     console.warn('⚠️ Token getter not configured for request:', url);
   }
 
+  // Add workspace context header if workspace is selected
+  const currentWorkspace = localStorage.getItem('cd.workspace');
+  if (currentWorkspace) {
+    headers['X-Workspace-ID'] = currentWorkspace;
+    console.log('✅ Workspace context added to request:', currentWorkspace);
+  }
+
   return fetch(url, {
     ...options,
     headers,
@@ -113,11 +120,10 @@ export async function fetchWorkspaceList(): Promise<WorkspaceListItem[]> {
 }
 
 export async function fetchWorkspaceInformation(
-  workspaceId: string,
-  userId: number
+  workspaceId: string
 ): Promise<Workspace> {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}&user_id=${userId}`
+    `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}`
   );
   if (!response.ok) {
     throw new Error('Failed to fetch workspace information');
@@ -135,3 +141,20 @@ export async function deleteEvent(eventId: string): Promise<void> {
     throw new Error(errorData.message || 'Failed to delete event');
   }
 }
+
+export type User = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  profile_picture: string | null;
+  username: string;
+};
+
+export async function fetchCurrentUser(): Promise<User> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/users/me/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch current user');
+  }
+  return response.json();
+}
+
