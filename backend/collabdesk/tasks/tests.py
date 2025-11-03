@@ -8,7 +8,9 @@ from .models import Task
 class TaskViewSetTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
-        self.view = TaskViewSet.as_view({'post': 'create', 'patch': 'partial_update', 'post': 'archive'})
+        self.view = TaskViewSet.as_view(
+            {"get": "create", "patch": "partial_update", "post": "archive"}
+        )
         self.task = Task.objects.create(title="Test Task", status=Task.Status.TODO)
 
     def test_perform_create(self):
@@ -22,7 +24,9 @@ class TaskViewSetTests(TestCase):
 
     def test_perform_update_marks_done(self):
         """Covers perform_update logic for DONE status"""
-        task = Task.objects.create(title="Done Task", status=Task.Status.DONE, completed_at=None)
+        task = Task.objects.create(
+            title="Done Task", status=Task.Status.DONE, completed_at=None
+        )
         serializer = type("Serializer", (), {"save": lambda self: task})()
         viewset = TaskViewSet()
         viewset.perform_update(serializer)
@@ -34,4 +38,3 @@ class TaskViewSetTests(TestCase):
         request = self.factory.post("/api/tasks/1/archive/")
         response = view(request, pk=self.task.pk)
         self.assertEqual(response.status_code, 200)
-
