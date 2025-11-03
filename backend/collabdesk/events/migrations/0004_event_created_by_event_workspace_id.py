@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("events", "0003_alter_event_created_at_alter_event_updated_at"),
-        ("workspaces", "0001_initial_old"),
+        ("workspaces", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
