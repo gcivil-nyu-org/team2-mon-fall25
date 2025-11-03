@@ -31,12 +31,21 @@ class Role(models.Model):
 
 
 class WorkspaceMember(models.Model):
+    ROLE_CHOICES = [
+        ('owner', 'Owner'),
+        ('member', 'Member'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name="members"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="workspaces")
-    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True)
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='member')
+    invited_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="invited_members"
+    )
+    is_active = models.BooleanField(default=True)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

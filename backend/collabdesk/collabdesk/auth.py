@@ -82,6 +82,23 @@ class Auth0TokenValidator:
         except Exception as e:
             raise ValueError(f"Token validation failed: {str(e)}")
 
+    def get_user_info(self, access_token: str) -> Dict:
+        """
+        Fetch user info from Auth0 userinfo endpoint
+        This contains email, name, picture, etc.
+        """
+        userinfo_url = f"https://{self.domain}/userinfo"
+        try:
+            response = requests.get(
+                userinfo_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to fetch user info: {str(e)}")
+
 
 # Singleton instance
 _validator = None

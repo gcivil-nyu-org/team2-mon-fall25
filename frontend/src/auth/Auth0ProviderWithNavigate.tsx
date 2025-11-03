@@ -25,6 +25,7 @@ export const Auth0ProviderWithNavigate = ({
       authorizationParams={{
         redirect_uri: redirectUri,
         audience: audience,
+        scope: 'openid profile email',
       }}
       cacheLocation="localstorage"
       useRefreshTokens={true}

@@ -54,6 +54,7 @@ export function UnavailabilityModal({
     setIsSubmitting(true);
     try {
       // Create event via API with GROUP type for unavailability
+      // workspace and created_by are automatically set from X-Workspace-ID header and authenticated user
       const response = await createEvent({
         title: reason.trim() || "Unavailable",
         description: "User marked as unavailable",
@@ -61,8 +62,6 @@ export function UnavailabilityModal({
         end_time: et.toISOString(),
         event_type: "GROUP",
         location: "none",
-        created_by: 1, // TODO: Replace with actual user ID from auth context
-        workspace_id: "cdb5abfe-dc99-4394-ac0e-e50a2f21d960", // TODO: Replace with actual workspace ID
       });
 
       // Call the parent callback with the blocked time

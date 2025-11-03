@@ -24,15 +24,23 @@ class Event(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=1
     )
-    workspace_id = models.ForeignKey(
+    workspace = models.ForeignKey(
         "workspaces.Workspace",
         on_delete=models.CASCADE,
+        related_name="events",
         default=uuid.UUID("cdb5abfe-dc99-4394-ac0e-e50a2f21d960"),
     )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
     is_private = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-start_time']
+        indexes = [
+            models.Index(fields=['workspace', 'start_time']),
+            models.Index(fields=['created_by', 'start_time']),
+        ]
 
     def __str__(self):
         return self.title

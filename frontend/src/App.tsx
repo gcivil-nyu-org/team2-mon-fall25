@@ -90,12 +90,17 @@ export default function App() {
       setLoading(false);
       return; // Don't fetch if not authenticated
     }
-  if (!tokenReady) {
-        return; // Wait for token getter to be set up
-      }
+    if (!tokenReady) {
+      return; // Wait for token getter to be set up
+    }
+    if (!workspace) {
+      setLoading(false);
+      return; // Don't fetch if no workspace selected
+    }
     const loadBackendEvents = async () => {
       try {
         setLoading(true);
+        console.log("🔄 Fetching events for workspace:", workspace);
         const events = await fetchEvents();
         setBackendEvents(events);
       } catch (error) {
@@ -105,7 +110,7 @@ export default function App() {
       }
     };
     loadBackendEvents();
-  }, [isAuthenticated, isLoading, tokenReady]);
+  }, [isAuthenticated, isLoading, tokenReady, workspace]);
 
   // Function to refresh events from backend
   const refreshEvents = async () => {

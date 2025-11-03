@@ -12,9 +12,15 @@ class ConflictException(APIException):
 
 
 class EventSerializer(serializers.ModelSerializer):
+    # Make workspace read-only since it's set automatically from context
+    workspace = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Make created_by read-only since it's set automatically from request.user
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Event
         fields = "__all__"
+        read_only_fields = ['workspace', 'created_by', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -34,14 +40,22 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, data):
-        user = self.context["request"].user
+        request = self.context.get("request")
+        if not request:
+            return data
+
+        user = request.user
         start = data.get("start_time")
         end = data.get("end_time")
         event_type = data.get("event_type")
 
-        if event_type == "INDIVIDUAL":
+        # Check for conflicts within the same workspace
+        if event_type == "INDIVIDUAL" and hasattr(request, 'workspace') and request.workspace:
             overlap = Event.objects.filter(
-                created_by=user, start_time__lt=end, end_time__gt=start
+                created_by=user,
+                workspace=request.workspace,
+                start_time__lt=end,
+                end_time__gt=start
             ).exists()
             if overlap:
                 raise ConflictException()

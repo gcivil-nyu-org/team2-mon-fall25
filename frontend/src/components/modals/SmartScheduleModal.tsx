@@ -72,6 +72,7 @@ export function SmartScheduleModal({
     setIsSubmitting(true);
     try {
       // Create event via API
+      // workspace and created_by are automatically set from X-Workspace-ID header and authenticated user
       const response = await createEvent({
         title: title.trim(),
         description: `Meeting with ${selected.map(id => PEOPLE.find(p => p.id === id)?.name).join(", ")}`,
@@ -79,8 +80,6 @@ export function SmartScheduleModal({
         end_time: slot.end.toISOString(),
         event_type: "INDIVIDUAL",
         location: "none",
-        created_by: 1, // TODO: Replace with actual user ID from auth context
-        workspace_id: "cdb5abfe-dc99-4394-ac0e-e50a2f21d960", // TODO: Replace with actual workspace ID
       });
 
       // Call the parent callback with the scheduled meeting

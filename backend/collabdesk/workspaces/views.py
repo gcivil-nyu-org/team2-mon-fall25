@@ -3,7 +3,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from urllib.parse import unquote
 from .models import Workspace, WorkspaceMember
 from .serializer import WorkspaceSerializer
 
@@ -13,20 +12,22 @@ class WorkspaceInformationView(APIView):
 
     def get(self, request):
         workspace_id = request.query_params.get("workspace_id")
-        user_id = request.query_params.get("user_id")
 
         # Validate input
-        if not workspace_id or not user_id:
+        if not workspace_id:
             return Response(
-                {"error": "workspace_id and user_id are required"},
+                {"error": "workspace_id is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
 
+        # Use authenticated user instead of requiring user_id parameter
+        user = request.user
+
         # Check if user is a member
         is_member = WorkspaceMember.objects.filter(
-            workspace=workspace, user_id=user_id
+            workspace=workspace, user=user, is_active=True
         ).exists()
 
         serializer = WorkspaceSerializer(workspace)
@@ -46,5 +47,14 @@ class WorkspaceListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        workspaces = Workspace.objects.all().values("workspace_id", "name")
+        # Only return workspaces the user is a member of
+        user = request.user
+        workspace_ids = WorkspaceMember.objects.filter(
+            user=user, is_active=True
+        ).values_list('workspace_id', flat=True)
+
+        workspaces = Workspace.objects.filter(
+            workspace_id__in=workspace_ids
+        ).values("workspace_id", "name")
+
         return Response(list(workspaces))
