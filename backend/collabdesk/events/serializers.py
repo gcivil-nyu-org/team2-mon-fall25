@@ -20,7 +20,7 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = "__all__"
-        read_only_fields = ['workspace', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ["workspace", "created_by", "created_at", "updated_at"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -50,12 +50,16 @@ class EventSerializer(serializers.ModelSerializer):
         event_type = data.get("event_type")
 
         # Check for conflicts within the same workspace
-        if event_type == "INDIVIDUAL" and hasattr(request, 'workspace') and request.workspace:
+        if (
+            event_type == "INDIVIDUAL"
+            and hasattr(request, "workspace")
+            and request.workspace
+        ):
             overlap = Event.objects.filter(
                 created_by=user,
                 workspace=request.workspace,
                 start_time__lt=end,
-                end_time__gt=start
+                end_time__gt=start,
             ).exists()
             if overlap:
                 raise ConflictException()

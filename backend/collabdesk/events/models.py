@@ -36,10 +36,10 @@ class Event(models.Model):
     is_private = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ['-start_time']
+        ordering = ["-start_time"]
         indexes = [
-            models.Index(fields=['workspace', 'start_time']),
-            models.Index(fields=['created_by', 'start_time']),
+            models.Index(fields=["workspace", "start_time"]),
+            models.Index(fields=["created_by", "start_time"]),
         ]
 
     def __str__(self):

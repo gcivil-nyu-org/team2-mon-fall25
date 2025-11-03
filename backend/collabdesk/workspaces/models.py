@@ -32,8 +32,8 @@ class Role(models.Model):
 
 class WorkspaceMember(models.Model):
     ROLE_CHOICES = [
-        ('owner', 'Owner'),
-        ('member', 'Member'),
+        ("owner", "Owner"),
+        ("member", "Member"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -41,9 +41,13 @@ class WorkspaceMember(models.Model):
         Workspace, on_delete=models.CASCADE, related_name="members"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="workspaces")
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='member')
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="member")
     invited_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="invited_members"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invited_members",
     )
     is_active = models.BooleanField(default=True)
     joined_at = models.DateTimeField(auto_now_add=True)

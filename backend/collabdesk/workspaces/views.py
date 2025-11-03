@@ -51,10 +51,10 @@ class WorkspaceListView(APIView):
         user = request.user
         workspace_ids = WorkspaceMember.objects.filter(
             user=user, is_active=True
-        ).values_list('workspace_id', flat=True)
+        ).values_list("workspace_id", flat=True)
 
-        workspaces = Workspace.objects.filter(
-            workspace_id__in=workspace_ids
-        ).values("workspace_id", "name")
+        workspaces = Workspace.objects.filter(workspace_id__in=workspace_ids).values(
+            "workspace_id", "name"
+        )
 
         return Response(list(workspaces))

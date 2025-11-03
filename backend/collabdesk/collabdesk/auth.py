@@ -92,7 +92,7 @@ class Auth0TokenValidator:
             response = requests.get(
                 userinfo_url,
                 headers={"Authorization": f"Bearer {access_token}"},
-                timeout=10
+                timeout=10,
             )
             response.raise_for_status()
             return response.json()

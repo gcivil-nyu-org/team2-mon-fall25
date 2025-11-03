@@ -3,6 +3,7 @@ Workspace Context Middleware
 Extracts workspace_id from request headers and stores it for later processing.
 Note: For DRF views, actual authentication happens in the view, not middleware.
 """
+
 import logging
 from workspaces.models import WorkspaceMember
 
@@ -26,7 +27,7 @@ class WorkspaceContextMiddleware:
         request.workspace_role = None
 
         # Extract and store workspace_id from header for later use
-        workspace_id = request.headers.get('X-Workspace-ID')
+        workspace_id = request.headers.get("X-Workspace-ID")
         request.workspace_id_header = workspace_id
 
         # Debug logging
@@ -36,13 +37,13 @@ class WorkspaceContextMiddleware:
 
         # For API requests, we skip auth check here because DRF authenticates in the view
         # The view will call set_workspace_context() after authentication
-        if request.path.startswith('/api/'):
-            logger.info(f"   API request - workspace validation will happen in view")
+        if request.path.startswith("/api/"):
+            logger.info("   API request - workspace validation will happen in view")
             response = self.get_response(request)
             return response
 
         # For non-API requests, try to set workspace context now
-        if workspace_id and hasattr(request, 'user') and request.user.is_authenticated:
+        if workspace_id and hasattr(request, "user") and request.user.is_authenticated:
             try:
                 logger.info(
                     f"Attempting to set workspace context: "
@@ -50,17 +51,15 @@ class WorkspaceContextMiddleware:
                 )
 
                 # Verify user has access to this workspace
-                membership = WorkspaceMember.objects.select_related(
-                    'workspace'
-                ).get(
-                    workspace_id=workspace_id,
-                    user=request.user,
-                    is_active=True
+                membership = WorkspaceMember.objects.select_related("workspace").get(
+                    workspace_id=workspace_id, user=request.user, is_active=True
                 )
 
                 # Attach workspace and role to request
                 request.workspace = membership.workspace
-                request.workspace_role = membership.role  # Now a string: 'owner' or 'member'
+                request.workspace_role = (
+                    membership.role
+                )  # Now a string: 'owner' or 'member'
 
                 logger.info(
                     f"✅ Workspace context set: user={request.user.email}, "
@@ -87,7 +86,7 @@ def set_workspace_context(request):
     Helper function to set workspace context after authentication.
     Call this from views after DRF authentication completes.
     """
-    workspace_id = getattr(request, 'workspace_id_header', None)
+    workspace_id = getattr(request, "workspace_id_header", None)
 
     if not workspace_id:
         logger.warning("No X-Workspace-ID header found in request")
@@ -105,10 +104,8 @@ def set_workspace_context(request):
         )
 
         # Verify user has access to this workspace
-        membership = WorkspaceMember.objects.select_related('workspace').get(
-            workspace_id=workspace_id,
-            user=request.user,
-            is_active=True
+        membership = WorkspaceMember.objects.select_related("workspace").get(
+            workspace_id=workspace_id, user=request.user, is_active=True
         )
 
         # Attach workspace and role to request
@@ -132,4 +129,3 @@ def set_workspace_context(request):
     except Exception as e:
         logger.error(f"❌ Error setting workspace context: {e}", exc_info=True)
         return False
-

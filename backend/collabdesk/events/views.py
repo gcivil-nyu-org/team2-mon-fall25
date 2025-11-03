@@ -28,7 +28,7 @@ class EventListCreateView(generics.ListCreateAPIView):
         user = self.request.user
 
         # If workspace context is set, filter by that workspace
-        if hasattr(self.request, 'workspace') and self.request.workspace:
+        if hasattr(self.request, "workspace") and self.request.workspace:
             logger.info(
                 f"Fetching events for user={user.email}, "
                 f"workspace={self.request.workspace.name}"
@@ -37,7 +37,7 @@ class EventListCreateView(generics.ListCreateAPIView):
 
         # Otherwise, return events from all user's workspaces
         logger.info(f"Fetching events from all workspaces for user={user.email}")
-        user_workspaces = user.workspaces.values_list('workspace_id', flat=True)
+        user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
         return Event.objects.filter(workspace_id__in=user_workspaces)
 
     def perform_create(self, serializer):
@@ -45,15 +45,19 @@ class EventListCreateView(generics.ListCreateAPIView):
         Automatically set workspace and created_by when creating an event.
         """
         # Debug logging
-        logger.info(f"🔍 perform_create called")
+        logger.info("🔍 perform_create called")
         logger.info(f"   User: {self.request.user.email}")
         logger.info(f"   Has workspace attr: {hasattr(self.request, 'workspace')}")
-        logger.info(f"   Workspace value: {getattr(self.request, 'workspace', 'NOT SET')}")
-        logger.info(f"   Workspace role: {getattr(self.request, 'workspace_role', 'NOT SET')}")
+        logger.info(
+            f"   Workspace value: {getattr(self.request, 'workspace', 'NOT SET')}"
+        )
+        logger.info(
+            f"   Workspace role: {getattr(self.request, 'workspace_role', 'NOT SET')}"
+        )
 
         # Require workspace context for creating events
-        if not hasattr(self.request, 'workspace') or not self.request.workspace:
-            logger.error(f"❌ Workspace context missing! Raising PermissionDenied")
+        if not hasattr(self.request, "workspace") or not self.request.workspace:
+            logger.error("❌ Workspace context missing! Raising PermissionDenied")
             raise PermissionDenied(
                 "Workspace context required. Please provide X-Workspace-ID header."
             )
@@ -63,10 +67,7 @@ class EventListCreateView(generics.ListCreateAPIView):
             f"user={self.request.user.email}"
         )
 
-        serializer.save(
-            workspace=self.request.workspace,
-            created_by=self.request.user
-        )
+        serializer.save(workspace=self.request.workspace, created_by=self.request.user)
 
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -87,11 +88,11 @@ class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
 
         # If workspace context is set, use it
-        if hasattr(self.request, 'workspace') and self.request.workspace:
+        if hasattr(self.request, "workspace") and self.request.workspace:
             return Event.objects.filter(workspace=self.request.workspace)
 
         # Otherwise, filter by user's workspaces
-        user_workspaces = user.workspaces.values_list('workspace_id', flat=True)
+        user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
         return Event.objects.filter(workspace_id__in=user_workspaces)
 
 

@@ -40,32 +40,32 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Allow custom headers
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-    'x-workspace-id',  # Custom workspace header
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-workspace-id",  # Custom workspace header
 ]
 
 # Expose headers to the frontend
 CORS_EXPOSE_HEADERS = [
-    'content-type',
-    'x-workspace-id',
+    "content-type",
+    "x-workspace-id",
 ]
 
 # Allow all methods
 CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
 ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

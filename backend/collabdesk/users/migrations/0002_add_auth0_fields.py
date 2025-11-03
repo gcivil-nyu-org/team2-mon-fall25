@@ -5,19 +5,19 @@ from django.db import migrations, models
 
 def generate_unique_user_ids(apps, schema_editor):
     """Generate unique UUIDs for existing users"""
-    User = apps.get_model('users', 'User')
+    User = apps.get_model("users", "User")
     for user in User.objects.all():
         user.user_id = uuid.uuid4()
-        user.save(update_fields=['user_id'])
+        user.save(update_fields=["user_id"])
 
 
 def fix_empty_emails(apps, schema_editor):
     """Fix users with empty emails to make them unique"""
-    User = apps.get_model('users', 'User')
+    User = apps.get_model("users", "User")
     counter = 0
-    for user in User.objects.filter(email=''):
-        user.email = f'user_{user.id}@placeholder.com'
-        user.save(update_fields=['email'])
+    for user in User.objects.filter(email=""):
+        user.email = f"user_{user.id}@placeholder.com"
+        user.save(update_fields=["email"])
         counter += 1
     if counter > 0:
         print(f"Fixed {counter} users with empty emails")
@@ -87,4 +87,3 @@ class Migration(migrations.Migration):
             options={},
         ),
     ]
-
