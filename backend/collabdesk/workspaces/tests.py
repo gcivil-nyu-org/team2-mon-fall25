@@ -128,6 +128,7 @@ class WorkspaceListViewTests(APITestCase):
         print(response)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class WorkspaceCreateViewTests(APITestCase):
     def setUp(self):
@@ -157,8 +158,12 @@ class WorkspaceCreateViewTests(APITestCase):
 
     def test_create_workspace_with_members(self):
         # create 2 mock users
-        member1 = User.objects.create_user(username="m1", email="m1@ex.com", password="x")
-        member2 = User.objects.create_user(username="m2", email="m2@ex.com", password="x")
+        member1 = User.objects.create_user(
+            username="m1", email="m1@ex.com", password="x"
+        )
+        member2 = User.objects.create_user(
+            username="m2", email="m2@ex.com", password="x"
+        )
 
         payload = {
             "name": "Team Workspace",

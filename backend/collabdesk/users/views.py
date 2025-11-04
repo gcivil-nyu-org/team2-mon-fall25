@@ -32,6 +32,7 @@ def current_user(request):
         }
     )
 
+
 @api_view(["GET"])
 @authentication_classes([Auth0Authentication])
 @permission_classes([permissions.IsAuthenticated])
