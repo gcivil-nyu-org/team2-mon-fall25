@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
-import { fetchWorkspaceList, createWorkspace } from "../../lib/api";
+import { fetchWorkspaceList, createWorkspace, fetchAllUsers } from "../../lib/api";
 import { Modal } from "../modals/Modal";
+import type { User } from '../../lib/api';
 
 
 function useDarkMode() {
@@ -44,35 +45,43 @@ export function TopBar({
   const [wsName, setWsName] = useState("");
   const [wsDesc, setWsDesc] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
-  // Mock user list for now
-  const mockUsers = [
-    "Alex Johnson",
-    "Sarah Chen",
-    "Mike Ross",
-    "Priya Nair",
-    "John Miller",
-  ];
 
-  const filtered = mockUsers.filter((u) =>
-    u.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+  const loadUsers = async () => {
+    try {
+      const data = await fetchAllUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+  loadUsers();
+}, []);
+
+  const filtered = users.filter((u) =>
+    u.full_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleSelect = (user: string) => {
-    setSelected((prev) =>
-      prev.includes(user)
-        ? prev.filter((s) => s !== user)
-        : [...prev, user]
-    );
-  };
+const toggleSelect = (user: User) => {
+  setSelected((prev) =>
+    prev.some((s) => s.id === user.id)
+      ? prev.filter((s) => s.id !== user.id)
+      : [...prev, user]
+  );
+};
 
 const handleCreateWorkspace = async () => {
   try {
+    console.log("Selected users:", selected);
+    console.log("Mapped IDs:", selected.map((u) => u.id));
+
     const payload = {
       name: wsName,
       description: wsDesc,
-      members: [],
+      members: [], // change this later
     };
     const newWorkspace = await createWorkspace(payload);
     console.log("Workspace created:", newWorkspace);
@@ -203,19 +212,20 @@ const handleCreateWorkspace = async () => {
             />
             <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
               {filtered.map((user) => {
-                const selectedUser = selected.includes(user);
+                const selectedUser = selected.some((s) => s.id === user.id);
                 return (
-                  <button
-                    key={user}
-                    onClick={() => toggleSelect(user)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                      selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
-                    }`}
-                  >
-                    {user}
+                <button
+                key={user.user_id}
+                onClick={() => toggleSelect(user)}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                  selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
+                }`}
+                >
+                  {user.full_name}
+                  <span className="text-xs text-gray-500 ml-2">{user.email}</span>
                   </button>
-                );
-              })}
+                  );
+                  })}
             </div>
           </div>
 
