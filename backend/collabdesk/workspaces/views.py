@@ -60,6 +60,7 @@ class WorkspaceListView(APIView):
 
         return Response(list(workspaces))
 
+
 class WorkspaceCreateView(generics.CreateAPIView):
     queryset = Workspace.objects.all()
     serializer_class = WorkspaceCreateSerializer
