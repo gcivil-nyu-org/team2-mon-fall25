@@ -82,6 +82,22 @@ export default function App() {
     mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [current]);
 
+  // Message board thread state
+  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(null);
+
+  // Handle opening a message thread from dashboard
+  const handleOpenMessageThread = (messageId: string) => {
+    setOpenThreadMessageId(messageId);
+    setCurrent("message");
+  };
+
+  // Clear thread message ID when leaving message board
+  useEffect(() => {
+    if (current !== "message") {
+      setOpenThreadMessageId(null);
+    }
+  }, [current]);
+
   // Calendar state: week start (Sun)
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 })
@@ -266,7 +282,7 @@ export default function App() {
               )}
             </>
           ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace} />
+            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
           ) : current === "tasks" ? (
@@ -274,7 +290,7 @@ export default function App() {
           ) : current === "resources" ? (
             <Resources />
           ) : current === "message" ? (
-            <MessageBoard />
+            <MessageBoard openThreadMessageId={openThreadMessageId} />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section

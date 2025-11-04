@@ -16,7 +16,7 @@ import { MessageComposer } from "./MessageComposer";
 import { ConfirmModal } from "../modals/ConfirmModal";
 import { ThreadModal } from "./ThreadModal";
 
-export function MessageBoard() {
+export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -31,6 +31,16 @@ export function MessageBoard() {
   useEffect(() => {
     loadMessages();
   }, []);
+
+  // Open thread when openThreadMessageId is provided
+  useEffect(() => {
+    if (openThreadMessageId && messages.length > 0) {
+      const message = messages.find((m) => m.id === openThreadMessageId);
+      if (message) {
+        setThreadMessage(message);
+      }
+    }
+  }, [openThreadMessageId, messages]);
 
   const loadMessages = async () => {
     try {

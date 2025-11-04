@@ -4,7 +4,13 @@ import { WorkspaceInfoCard } from "./WorkspaceInfoCard";
 import { fetchWorkspaceInformation, type Workspace } from "../../lib/api";
 import { getMessages, formatRelativeTime, type Message } from "../messageboard/MessageBoardApi";
 
-export function Dashboard({ workspaceId }: { workspaceId: string }) {
+export function Dashboard({
+  workspaceId,
+  onOpenMessageThread
+}: {
+  workspaceId: string;
+  onOpenMessageThread?: (messageId: string) => void;
+}) {
   const { isAuthenticated, isLoading: authLoading } = useAuth0();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,9 +78,10 @@ export function Dashboard({ workspaceId }: { workspaceId: string }) {
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {recentMessages.map((message) => (
-              <div
+              <button
                 key={message.id}
-                className="px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-colors"
+                onClick={() => onOpenMessageThread?.(message.id)}
+                className="w-full px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-colors text-left cursor-pointer"
               >
                 <div className="flex gap-3">
                   {/* Avatar */}
@@ -117,7 +124,7 @@ export function Dashboard({ workspaceId }: { workspaceId: string }) {
                     )}
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
