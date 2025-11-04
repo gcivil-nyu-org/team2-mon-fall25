@@ -146,12 +146,9 @@ const Tasks: React.FC = () => {
     <div className="w-full">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
           Tasks
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Manage your team's work and track progress
-        </p>
       </div>
 
       {/* Filters and Controls Bar */}
