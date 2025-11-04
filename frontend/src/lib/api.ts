@@ -1,5 +1,6 @@
 // API utility for backend communication
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 export type BackendEvent = {
   event_id: string;
@@ -158,3 +159,30 @@ export async function fetchCurrentUser(): Promise<User> {
   return response.json();
 }
 
+interface CreateWorkspacePayload {
+  name: string;
+  description?: string;
+  members?: number[]; // optional, can be empty
+}
+
+export async function createWorkspace(
+  payload: CreateWorkspacePayload
+): Promise<any> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/create/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("❌ Failed to create workspace:", errorText);
+    throw new Error("Failed to create workspace");
+  }
+
+  const data = await response.json();
+  console.log("✅ Workspace created successfully:", data);
+  return data;
+}

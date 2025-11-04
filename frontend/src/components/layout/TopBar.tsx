@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
-import { fetchWorkspaceList } from "../../lib/api";
+import { fetchWorkspaceList, createWorkspace } from "../../lib/api";
 import { Modal } from "../modals/Modal";
+
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -66,29 +67,26 @@ export function TopBar({
     );
   };
 
-  const handleCreateWorkspace = () => {
-    if (!wsName.trim()) {
-      alert("Please enter a workspace name");
-      return;
-    }
-    const newWs = {
-      id: crypto.randomUUID(),
+const handleCreateWorkspace = async () => {
+  try {
+    const payload = {
       name: wsName,
       description: wsDesc,
-      members: selected,
+      members: [],
     };
-    const existing = JSON.parse(localStorage.getItem("cd.workspaces") || "[]");
-    const updated = [...existing, newWs];
-    localStorage.setItem("cd.workspaces", JSON.stringify(updated));
+    const newWorkspace = await createWorkspace(payload);
+    console.log("Workspace created:", newWorkspace);
 
-    // reset state
-    setWsName("");
-    setWsDesc("");
-    setSearch("");
-    setSelected([]);
+    // update UI or local state
     setShowCreate(false);
-    onWorkspace(newWs.id);
-  };
+    onWorkspace(newWorkspace.workspace_id);
+  } catch (error) {
+    console.error("Error creating workspace:", error);
+    alert("Failed to create workspace. Please try again.");
+  }
+};
+
+
 
   // Fetch workspace names on mount - only when authenticated
   useEffect(() => {
