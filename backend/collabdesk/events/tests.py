@@ -4,7 +4,7 @@ import datetime
 from django.utils import timezone
 from django.test import TestCase
 from .models import Event, EventParticipant
-from workspaces.models import Workspace
+from workspaces.models import Workspace, WorkspaceMember
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -14,13 +14,18 @@ from django.test import override_settings
 def createDefaultEvent():
     e_uuid = uuid.uuid4()
     User = get_user_model()
-    user = User.objects.create(username=f"user_{uuid.uuid4().hex[:8]}")
+    username = f"user_{uuid.uuid4().hex[:8]}"
+    user = User.objects.create(username=username, email=f"{username}@test.com")
 
     workspace = Workspace.objects.create(
         name="CollabDesk Workspace",
         description="Main workspace for CollabDesk project",
         created_by=user,
     )
+
+    # Create workspace membership for the user
+    WorkspaceMember.objects.create(workspace=workspace, user=user, is_active=True)
+
     created_at = timezone.now()
     updated_at = created_at
     start_time = created_at + datetime.timedelta(hours=1)
@@ -36,7 +41,7 @@ def createDefaultEvent():
         event_type=event_type,
         location=location,
         created_by=user,
-        workspace_id=workspace,
+        workspace=workspace,
         created_at=created_at,
         updated_at=updated_at,
     )
@@ -47,13 +52,18 @@ def createDefaultEvent():
 def createEventWithCunstomizedTime(created_at, updated_at, start_time, end_time):
     e_uuid = uuid.uuid4()
     User = get_user_model()
-    user = User.objects.create(username=f"user_{uuid.uuid4().hex[:8]}")
+    username = f"user_{uuid.uuid4().hex[:8]}"
+    user = User.objects.create(username=username, email=f"{username}@test.com")
 
     workspace = Workspace.objects.create(
         name="CollabDesk Workspace",
         description="Main workspace for CollabDesk project",
         created_by=user,
     )
+
+    # Create workspace membership for the user
+    WorkspaceMember.objects.create(workspace=workspace, user=user, is_active=True)
+
     event_type = "GROUP"
     location = "School"
     event = Event.objects.create(
@@ -65,7 +75,7 @@ def createEventWithCunstomizedTime(created_at, updated_at, start_time, end_time)
         event_type=event_type,
         location=location,
         created_by=user,
-        workspace_id=workspace,
+        workspace=workspace,
         created_at=created_at,
         updated_at=updated_at,
     )
@@ -84,7 +94,7 @@ class EventAPITests(TestCase):
     def setUp(self):
         self.event = createDefaultEvent()
         self.user = self.event.created_by
-        self.workspace = self.event.workspace_id
+        self.workspace = self.event.workspace
 
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -103,14 +113,16 @@ class EventAPITests(TestCase):
             "end_time": end_time.isoformat(),
             "event_type": "GROUP",
             "location": "Library",
-            "created_by": self.user.id,
-            "workspace_id": str(self.workspace.workspace_id),
-            "created_at": created_at.isoformat(),
-            "updated_at": created_at.isoformat(),
         }
 
-        # Send POST request
-        response = self.client.post(self.url, payload, format="json", follow=True)
+        # Send POST request with workspace context header
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
 
         # Assertions
         self.assertEqual(response.status_code, 201)
@@ -121,7 +133,9 @@ class EventAPITests(TestCase):
         client.force_authenticate(user=event.created_by)
 
         url = reverse("events:event-detail", args=(event.event_id,))
-        response = client.get(url, follow=True)
+        response = client.get(
+            url, follow=True, HTTP_X_WORKSPACE_ID=str(event.workspace.workspace_id)
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_get_without_event_id_uuid(self):
@@ -130,7 +144,9 @@ class EventAPITests(TestCase):
         client.force_authenticate(user=event.created_by)
 
         url = reverse("events:event-list")
-        response = client.get(url, follow=True)
+        response = client.get(
+            url, follow=True, HTTP_X_WORKSPACE_ID=str(event.workspace.workspace_id)
+        )
         self.assertEqual(response.status_code, 200)
 
     def test_create_and_delete_event(self):
@@ -139,7 +155,9 @@ class EventAPITests(TestCase):
         client.force_authenticate(user=event.created_by)
 
         url = reverse("events:event-detail", args=(event.event_id,))
-        response = client.delete(url)
+        response = client.delete(
+            url, HTTP_X_WORKSPACE_ID=str(event.workspace.workspace_id)
+        )
         self.assertEqual(response.status_code, 204)
 
     def test_create_overlap_event(self):
@@ -154,14 +172,16 @@ class EventAPITests(TestCase):
             "end_time": end_time.isoformat(),
             "event_type": "INDIVIDUAL",
             "location": "Library",
-            "created_by": self.user.id,
-            "workspace_id": str(self.workspace.workspace_id),
-            "created_at": created_at.isoformat(),
-            "updated_at": created_at.isoformat(),
         }
 
         url = reverse("events:event-list")
-        response1 = self.client.post(url, payload1, format="json", follow=True)
+        response1 = self.client.post(
+            url,
+            payload1,
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
 
         start_time = created_at + datetime.timedelta(days=1, hours=2)
         end_time = created_at + datetime.timedelta(days=1, hours=3)
@@ -173,13 +193,15 @@ class EventAPITests(TestCase):
             "end_time": end_time.isoformat(),
             "event_type": "INDIVIDUAL",
             "location": "Library",
-            "created_by": self.user.id,
-            "workspace_id": str(self.workspace.workspace_id),
-            "created_at": created_at.isoformat(),
-            "updated_at": created_at.isoformat(),
         }
 
-        response2 = self.client.post(url, payload2, format="json", follow=True)
+        response2 = self.client.post(
+            url,
+            payload2,
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
 
         self.assertEqual(response1.status_code, 201)
         self.assertEqual(response2.status_code, 409)
@@ -192,7 +214,8 @@ class EventParticipantModelTest(TestCase):
         user = event.created_by
         added_at = timezone.now()
         User = get_user_model()
-        user2 = User.objects.create(username=f"user_{uuid.uuid4().hex[:8]}")
+        username = f"user_{uuid.uuid4().hex[:8]}"
+        user2 = User.objects.create(username=username, email=f"{username}@test.com")
 
         payload = {
             "added_at": added_at.isoformat(),
