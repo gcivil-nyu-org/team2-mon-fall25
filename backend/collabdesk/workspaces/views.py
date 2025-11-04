@@ -1,10 +1,11 @@
 from rest_framework.views import APIView
+from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Workspace, WorkspaceMember
-from .serializer import WorkspaceSerializer
+from .serializer import WorkspaceSerializer, WorkspaceCreateSerializer
 
 
 class WorkspaceInformationView(APIView):
@@ -58,3 +59,13 @@ class WorkspaceListView(APIView):
         )
 
         return Response(list(workspaces))
+
+class WorkspaceCreateView(generics.CreateAPIView):
+    queryset = Workspace.objects.all()
+    serializer_class = WorkspaceCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["request"] = self.request
+        return ctx
