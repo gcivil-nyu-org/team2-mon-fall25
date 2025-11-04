@@ -47,7 +47,8 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         return WorkspaceMemberSerializer(members, many=True).data
 
     def get_member_count(self, obj):
-        return obj.members.count()    
+        return obj.members.count()
+
 
 class WorkspaceCreateSerializer(serializers.ModelSerializer):
     members = serializers.ListField(
@@ -56,7 +57,7 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Workspace
-        fields = [ "name", "description", "members"]
+        fields = ["name", "description", "members"]
         read_only_fields = ["workspace_id"]
 
     def create(self, validated_data):

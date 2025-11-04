@@ -127,3 +127,64 @@ class WorkspaceListViewTests(APITestCase):
         response = self.client.get(self.url)
         print(response)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceCreateViewTests(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="createuser", email="createuser@example.com", password="testpass"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse("workspaces:workspace-create")
+
+    def test_create_workspace_success(self):
+        payload = {
+            "name": "My Test Workspace",
+            "description": "Created via test",
+            "members": [],
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Workspace.objects.filter(name="My Test Workspace").exists())
+
+        workspace = Workspace.objects.get(name="My Test Workspace")
+        self.assertEqual(workspace.created_by, self.user)
+        self.assertTrue(workspace.is_active)
+        self.assertEqual(response.data["name"], "My Test Workspace")
+
+    def test_create_workspace_with_members(self):
+        # create 2 mock users
+        member1 = User.objects.create_user(username="m1", email="m1@ex.com", password="x")
+        member2 = User.objects.create_user(username="m2", email="m2@ex.com", password="x")
+
+        payload = {
+            "name": "Team Workspace",
+            "description": "Testing members",
+            "members": [member1.id, member2.id],
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        workspace = Workspace.objects.get(name="Team Workspace")
+
+        # check members got added
+        members = WorkspaceMember.objects.filter(workspace=workspace)
+        self.assertEqual(members.count(), 3)  # owner + 2 members
+        self.assertTrue(members.filter(user=self.user, role="owner").exists())
+        self.assertTrue(members.filter(user=member1).exists())
+
+    def test_create_workspace_missing_name(self):
+        payload = {"description": "No name provided"}
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", response.data)
+
+    def test_unauthenticated_user_cannot_create(self):
+        self.client.logout()
+        payload = {"name": "Unauthorized Workspace"}
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
