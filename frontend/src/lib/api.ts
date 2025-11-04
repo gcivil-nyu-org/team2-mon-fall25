@@ -1,6 +1,6 @@
 // API utility for backend communication
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE_URL = 'http://localhost:8000';
 
 export type BackendEvent = {
   event_id: string;
@@ -144,6 +144,7 @@ export async function deleteEvent(eventId: string): Promise<void> {
 }
 
 export type User = {
+  id: number;
   user_id: string;
   email: string;
   full_name: string;
@@ -155,6 +156,14 @@ export async function fetchCurrentUser(): Promise<User> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/users/me/`);
   if (!response.ok) {
     throw new Error('Failed to fetch current user');
+  }
+  return response.json();
+}
+
+export async function fetchAllUsers(): Promise<User[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/users/list/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch user list');
   }
   return response.json();
 }
@@ -179,7 +188,7 @@ export async function createWorkspace(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("❌ Failed to create workspace:", errorText);
-    throw new Error("Failed to create workspace");
+  throw new Error("Failed to create workspace");
   }
 
   const data = await response.json();

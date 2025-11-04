@@ -1,6 +1,10 @@
-from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from collabdesk.permissions import Auth0Authentication
+from rest_framework import  permissions, status
+from .models import User
+from django.contrib.auth import get_user_model
+# from rest_framework.serializers import ModelSerializer
 
 # Create your views here.
 
@@ -22,3 +26,18 @@ def current_user(request):
             "username": user.username,
         }
     )
+
+@api_view(["GET"])
+@authentication_classes([Auth0Authentication])
+@permission_classes([permissions.IsAuthenticated])
+def list_users(request):
+    """
+    Get list of all users for workspace member selection,
+    excluding the current authenticated user.
+    """
+    current_user = request.user
+    users = User.objects.exclude(user_id=current_user.user_id).values(
+        "user_id", "full_name", "email"
+    )
+
+    return Response(list(users), status=status.HTTP_200_OK)
