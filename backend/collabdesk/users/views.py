@@ -1,9 +1,14 @@
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.response import Response
 from collabdesk.permissions import Auth0Authentication
-from rest_framework import  permissions, status
+from rest_framework import permissions, status
 from .models import User
 from django.contrib.auth import get_user_model
+
 # from rest_framework.serializers import ModelSerializer
 
 # Create your views here.

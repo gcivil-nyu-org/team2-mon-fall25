@@ -176,7 +176,7 @@ interface CreateWorkspacePayload {
 
 export async function createWorkspace(
   payload: CreateWorkspacePayload
-): Promise<any> {
+): Promise<Workspace> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/create/`, {
     method: "POST",
     headers: {
@@ -187,11 +187,11 @@ export async function createWorkspace(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("❌ Failed to create workspace:", errorText);
+    console.error("Failed to create workspace:", errorText);
   throw new Error("Failed to create workspace");
   }
 
   const data = await response.json();
-  console.log("✅ Workspace created successfully:", data);
+  console.log("Workspace created successfully:", data);
   return data;
 }

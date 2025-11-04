@@ -20,6 +20,7 @@ class Workspace(models.Model):
 
     def save(self, *args, **kwargs):
         from django.utils import timezone
+
         now = timezone.now()
         if not self.pk:
             self.updated_at = now
