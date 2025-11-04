@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { fetchCurrentUser } from "../../lib/api";
 
@@ -15,8 +15,6 @@ export function Settings({
   const [notifications, setNotifications] = useState(true);
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch current user data from backend
   useEffect(() => {
@@ -39,10 +37,6 @@ export function Settings({
     loadUserData();
   }, [isAuthenticated]);
 
-  const handleChangePassword = () => {
-    alert("Password change flow will be implemented here.");
-  };
-
   const handleLeaveWorkspace = () => {
     if (
       window.confirm(
@@ -51,18 +45,6 @@ export function Settings({
     ) {
       onLeaveWorkspace(workspaceId);
     }
-  };
-
-  const handleProfilePicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setProfilePic(imageUrl);
-    }
-  };
-
-  const handleProfilePicClick = () => {
-    fileInputRef.current?.click();
   };
 
   if (loading) {
@@ -79,11 +61,7 @@ export function Settings({
 
       {/* Profile Picture */}
       <div className="flex items-center gap-4 mb-6">
-        <div
-          className="h-16 w-16 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-lg font-medium overflow-hidden cursor-pointer"
-          onClick={handleProfilePicClick}
-          title="Click to change profile picture"
-        >
+        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-lg font-medium text-white overflow-hidden">
           {profilePic ? (
             <img
               src={profilePic}
@@ -95,62 +73,13 @@ export function Settings({
           )}
         </div>
         <div>
-          <p className="text-sm text-zinc-500">Profile Picture</p>
-          <button
-            onClick={handleProfilePicClick}
-            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 underline hover:opacity-80"
-          >
-            Change
-          </button>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleProfilePicUpload}
-            className="hidden"
-          />
+          <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">{name || "User"}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{email}</p>
         </div>
-      </div>
-
-      {/* Name */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-        />
-      </div>
-
-      {/* Email with Edit */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Email</label>
-        <div className="flex gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="flex-1 rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-          />
-          <button className="rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            Edit
-          </button>
-        </div>
-      </div>
-
-      {/* Change Password */}
-      <div className="mb-4">
-        <button
-          onClick={handleChangePassword}
-          className="rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          Change Password
-        </button>
       </div>
 
       {/* Notifications */}
-      <div className="mb-8 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4">
+      <div className="mb-8 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-4">
         <label className="text-sm font-medium">Enable Notifications</label>
         <button
           onClick={() => setNotifications(!notifications)}

@@ -1,5 +1,5 @@
 import { useAuth0 } from "@auth0/auth0-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { TopBar } from "./components/layout/TopBar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { CalendarWeek } from "./components/calendar/CalendarWeek";
@@ -19,6 +19,8 @@ import { Settings } from "./components/settings/Settings";
 import { fetchEvents, setTokenGetter, deleteEvent, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
+import { Resources } from "./components/resources/Resources";
+import { MessageBoard } from "./components/messageboard/MessageBoard";
 import { LandingPage } from "./components/landing/LandingPage";
 
 type CalRoute =
@@ -73,6 +75,28 @@ export default function App() {
     return localStorage.getItem("cd.workspace") || "";
   });
   useEffect(() => localStorage.setItem("cd.workspace", workspace), [workspace]);
+
+  // Scroll to top when route changes
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [current]);
+
+  // Message board thread state
+  const [openThreadMessageId, setOpenThreadMessageId] = useState<string | null>(null);
+
+  // Handle opening a message thread from dashboard
+  const handleOpenMessageThread = (messageId: string) => {
+    setOpenThreadMessageId(messageId);
+    setCurrent("message");
+  };
+
+  // Clear thread message ID when leaving message board
+  useEffect(() => {
+    if (current !== "message") {
+      setOpenThreadMessageId(null);
+    }
+  }, [current]);
 
   // Calendar state: week start (Sun)
   const [weekStart, setWeekStart] = useState<Date>(() =>
@@ -215,7 +239,7 @@ export default function App() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
+        <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
           {current === "calendar" ? (
             <>
               <header className="mb-3 flex items-center gap-2">
@@ -258,11 +282,15 @@ export default function App() {
               )}
             </>
           ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace} />
+            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
           ) : current === "tasks" ? (
             <Tasks />
+          ) : current === "resources" ? (
+            <Resources />
+          ) : current === "message" ? (
+            <MessageBoard openThreadMessageId={openThreadMessageId} />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
               {current.toUpperCase()} section
