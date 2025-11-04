@@ -10,7 +10,6 @@ import {
   CURRENT_USER,
   extractMentions,
   formatRelativeTime,
-  REACTION_EMOJIS,
 } from "./MessageBoardApi";
 import { MessageItem } from "./MessageItem";
 

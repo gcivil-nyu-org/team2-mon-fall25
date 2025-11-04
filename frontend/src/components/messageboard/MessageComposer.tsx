@@ -19,7 +19,6 @@ export function MessageComposer({ onSend, disabled }: MessageComposerProps) {
   const [content, setContent] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
-  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,10 +45,6 @@ export function MessageComposer({ onSend, disabled }: MessageComposerProps) {
       setMentionSearch("");
       setShowMentionDropdown(true);
       setSelectedMentionIndex(0);
-
-      // Position dropdown near cursor
-      const rect = textarea.getBoundingClientRect();
-      setMentionPosition({ top: rect.top - 150, left: rect.left });
     } else if (lastAtSymbol !== -1) {
       const textAfterAt = textBeforeCursor.substring(lastAtSymbol + 1);
       if (!textAfterAt.includes(" ") && textAfterAt.length > 0) {

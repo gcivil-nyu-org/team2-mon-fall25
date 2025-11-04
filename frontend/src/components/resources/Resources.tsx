@@ -90,11 +90,6 @@ export function Resources() {
     }
   };
 
-  const handleEdit = (resource: Resource) => {
-    setSelectedResource(resource);
-    setShowEditModal(true);
-  };
-
   const handleUpdate = (updatedResource: Resource) => {
     setResources((prev) =>
       prev.map((r) => (r.id === updatedResource.id ? updatedResource : r))
@@ -270,7 +265,6 @@ export function Resources() {
             resources={filteredResources}
             onPreview={handlePreview}
             onDownload={handleDownload}
-            onEdit={handleEdit}
             onDelete={handleDelete}
           />
         )}

@@ -10,7 +10,6 @@ interface ResourceListProps {
   resources: Resource[];
   onPreview: (resource: Resource) => void;
   onDownload: (resource: Resource) => void;
-  onEdit: (resource: Resource) => void;
   onDelete: (resource: Resource) => void;
 }
 
@@ -18,7 +17,6 @@ export function ResourceList({
   resources,
   onPreview,
   onDownload,
-  onEdit,
   onDelete,
 }: ResourceListProps) {
   if (resources.length === 0) {

@@ -1,5 +1,3 @@
-import type { Resource } from "./ResourceApi";
-
 interface FileTypeBadgeProps {
   fileType: string;
   size?: "sm" | "md" | "lg";
