@@ -13,4 +13,10 @@ urlpatterns = [
         EventParticipantDetailView.as_view(),
         name="participant-detail",
     ),
+
+    path(
+        "user/",
+        UserEventListView.as_view(),
+        name="userEvent-detail",
+    )
 ]

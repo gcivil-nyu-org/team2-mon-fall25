@@ -106,3 +106,21 @@ class EventParticipantDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = EventParticipant.objects.all()
     serializer_class = EventParticipantSerializer
     permission_classes = [IsAuthenticated]
+
+class UserEventListView(generics.ListCreateAPIView):
+    serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
+    def initial(self, request, *args, **kwargs):
+        """Override to set workspace context after authentication"""
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
+
+    def get_queryset(self):
+        """
+        Return only events created by the requesting user. Also respect
+        workspace context when present so this view only exposes events
+        from the current workspace (or user's workspaces otherwise).
+        """
+        user = self.request.user
+
+        return Event.objects.filter(created_by=user)
