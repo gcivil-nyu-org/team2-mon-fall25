@@ -206,6 +206,25 @@ class EventAPITests(TestCase):
         self.assertEqual(response1.status_code, 201)
         self.assertEqual(response2.status_code, 409)
 
+    def test_user_event_list_only_returns_user_events(self):
+        """GET /api/events/user/ should return only events created by the
+        authenticated user."""
+        # Create another event by a different user
+        other_event = createDefaultEvent()
+
+        url = reverse("events:userEvent-detail")
+        response = self.client.get(url, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+
+        # There should be exactly one event (the one created in setUp)
+        self.assertEqual(len(response.data), 1)
+
+        # The returned event's created_by must match the authenticated user
+        returned_created_by = response.data[0].get("created_by")
+        self.assertEqual(returned_created_by, self.user.id)
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class EventParticipantModelTest(TestCase):
