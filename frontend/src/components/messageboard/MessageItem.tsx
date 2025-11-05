@@ -111,8 +111,8 @@ export function MessageItem({
 
   return (
     <div
-      className={`group px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors ${
-        isCurrentUser ? "bg-blue-50/30 dark:bg-blue-950/10" : ""
+      className={`group bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 mb-3 hover:shadow-md transition-all ${
+        isCurrentUser ? "ring-2 ring-blue-200 dark:ring-blue-900/50" : ""
       }`}
     >
       <div className="flex gap-3">
@@ -169,7 +169,7 @@ export function MessageItem({
 
           {/* Actions */}
           {!isEditing && (
-            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1 mt-2">
               {/* Add Reaction */}
               <div className="relative" ref={reactionPickerRef}>
                 <button

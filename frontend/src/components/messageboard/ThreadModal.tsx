@@ -202,7 +202,7 @@ export function ThreadModal({
         </div>
 
         {/* Replies */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading ? (
             <div className="text-center py-8 text-zinc-500">
               Loading replies...

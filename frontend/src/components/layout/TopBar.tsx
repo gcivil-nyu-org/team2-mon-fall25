@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
-import { fetchWorkspaceList, createWorkspace, fetchAllUsers } from "../../lib/api";
+import { fetchWorkspaceList, createWorkspace, fetchAllUsers, joinWorkspace } from "../../lib/api";
 import { Modal } from "../modals/Modal";
+import { WorkspaceActionModal } from "../modals/WorkspaceActionModal";
+import { JoinWorkspaceModal } from "../modals/JoinWorkspaceModal";
 import type { User } from '../../lib/api';
 
 
@@ -41,7 +43,9 @@ export function TopBar({
   const { user, isAuthenticated, isLoading } = useAuth0();
 
   // Modal state
+  const [showActionModal, setShowActionModal] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const [wsName, setWsName] = useState("");
   const [wsDesc, setWsDesc] = useState("");
   const [search, setSearch] = useState("");
@@ -92,6 +96,19 @@ const handleCreateWorkspace = async () => {
   } catch (error) {
     console.error("Error creating workspace:", error);
     alert("Failed to create workspace. Please try again.");
+  }
+};
+
+const handleJoinWorkspace = async (code: string) => {
+  try {
+    const workspace = await joinWorkspace(code);
+    console.log("Joined workspace:", workspace);
+
+    setShowJoin(false);
+    onWorkspace(workspace.workspace_id);
+  } catch (error) {
+    console.error("Error joining workspace:", error);
+    alert("Failed to join workspace. Please check the code and try again.");
   }
 };
 
@@ -147,7 +164,7 @@ const handleCreateWorkspace = async () => {
 
             {/* Add Workspace Button (circle with +) */}
             <button
-              onClick={() => setShowCreate(true)}
+              onClick={() => setShowActionModal(true)}
               className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 text-lg font-medium leading-none hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               title="Add Workspace"
             >
@@ -172,6 +189,14 @@ const handleCreateWorkspace = async () => {
           </div>
         </div>
       </header>
+
+      {/* Workspace Action Selection Modal */}
+      <WorkspaceActionModal
+        open={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        onCreateWorkspace={() => setShowCreate(true)}
+        onJoinWorkspace={() => setShowJoin(true)}
+      />
 
       {/* Create Workspace Modal */}
       <Modal
@@ -237,6 +262,13 @@ const handleCreateWorkspace = async () => {
           </button>
         </div>
       </Modal>
+
+      {/* Join Workspace Modal */}
+      <JoinWorkspaceModal
+        open={showJoin}
+        onClose={() => setShowJoin(false)}
+        onJoin={handleJoinWorkspace}
+      />
     </>
   );
 }

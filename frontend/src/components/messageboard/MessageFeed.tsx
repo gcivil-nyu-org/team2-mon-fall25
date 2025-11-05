@@ -67,7 +67,7 @@ export function MessageFeed({
   const parentMessages = messages.filter((m) => m.parentId === null);
 
   return (
-    <div ref={feedContainerRef} className="py-4">
+    <div ref={feedContainerRef} className="p-4">
       {parentMessages.map((message) => (
         <MessageItem
           key={message.id}
