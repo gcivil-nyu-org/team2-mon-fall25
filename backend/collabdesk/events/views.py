@@ -107,9 +107,11 @@ class EventParticipantDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventParticipantSerializer
     permission_classes = [IsAuthenticated]
 
+
 class UserEventListView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     permission_classes = [IsAuthenticated]
+
     def initial(self, request, *args, **kwargs):
         """Override to set workspace context after authentication"""
         super().initial(request, *args, **kwargs)
