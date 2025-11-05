@@ -225,6 +225,7 @@ class EventAPITests(TestCase):
         returned_created_by = response.data[0].get("created_by")
         self.assertEqual(returned_created_by, self.user.id)
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class EventParticipantModelTest(TestCase):
     def test_create_event_participant_and_str_method(self):
