@@ -36,6 +36,7 @@ export type Workspace = {
   is_member?: boolean;
   is_public?: boolean;
   owner_id?: number;
+  invite_code?: string;
 };
 
 export type WorkspaceListItem = {
@@ -222,5 +223,25 @@ export async function updateWorkspace(
 
   const data = await response.json();
   console.log("Workspace updated successfully:", data);
+  return data;
+}
+
+export async function joinWorkspace(inviteCode: string): Promise<Workspace> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/join/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ invite_code: inviteCode }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to join workspace:", errorText);
+    throw new Error("Failed to join workspace");
+  }
+
+  const data = await response.json();
+  console.log("Joined workspace successfully:", data);
   return data;
 }
