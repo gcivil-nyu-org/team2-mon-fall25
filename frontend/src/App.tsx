@@ -13,10 +13,10 @@ import {
   UnavailabilityModal,
   type BlockedTime,
 } from "./components/modals/UnavailabilityModal";
-import { ConfirmModal } from "./components/modals/ConfirmModal";
+import { EventDetailsModal } from "./components/modals/EventDetailsModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, deleteEvent, type BackendEvent } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, type BackendEvent } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { Resources } from "./components/resources/Resources";
@@ -39,6 +39,9 @@ type CalEvent = {
   start: Date;
   end: Date;
   kind?: "meeting" | "unavailable";
+  description?: string;
+  location?: string;
+  createdBy?: number;
 };
 
 export default function App() {
@@ -98,6 +101,27 @@ export default function App() {
     }
   }, [current]);
 
+  // Current user and calendar view state
+  const [currentUserId, setCurrentUserId] = useState<number | undefined>();
+  const [calendarView, setCalendarView] = useState<"my" | "all">("all");
+  const [selectedEventForDetails, setSelectedEventForDetails] = useState<CalEvent | null>(null);
+
+  // Fetch current user ID
+  useEffect(() => {
+    if (!isAuthenticated || !tokenReady) return;
+
+    const loadCurrentUser = async () => {
+      try {
+        const user = await fetchCurrentUser();
+        setCurrentUserId(user.id);
+      } catch (error) {
+        console.error("Failed to load current user:", error);
+      }
+    };
+
+    loadCurrentUser();
+  }, [isAuthenticated, tokenReady]);
+
   // Calendar state: week start (Sun)
   const [weekStart, setWeekStart] = useState<Date>(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 })
@@ -147,20 +171,36 @@ export default function App() {
   };
 
   // Derived events for the visible week
+  const allEvents: CalEvent[] = useMemo(() => {
+    return backendEvents.map((e) => ({
+      id: e.event_id,
+      title: e.title,
+      start: parseISOBase(e.start_time),
+      end: parseISOBase(e.end_time),
+      kind:
+        (e.event_type === "GROUP"
+          ? "unavailable"
+          : "meeting") as "meeting" | "unavailable",
+      description: e.description,
+      location: e.location,
+      createdBy: e.created_by,
+    }));
+  }, [backendEvents]);
+
+  // Filter events based on view mode and week
   const events: CalEvent[] = useMemo(() => {
-    return backendEvents
-      .map((e) => ({
-        id: e.event_id,
-        title: e.title,
-        start: parseISOBase(e.start_time),
-        end: parseISOBase(e.end_time),
-        kind:
-          (e.event_type === "GROUP"
-            ? "unavailable"
-            : "meeting") as "meeting" | "unavailable",
-      }))
-      .filter((e) => isSameWeek(e.start, weekStart, { weekStartsOn: 0 }));
-  }, [backendEvents, weekStart]);
+    let filtered = allEvents;
+
+    // Filter by view mode
+    if (calendarView === "my" && currentUserId !== undefined) {
+      filtered = filtered.filter((e) => e.createdBy === currentUserId);
+    }
+
+    // Filter by visible week
+    filtered = filtered.filter((e) => isSameWeek(e.start, weekStart, { weekStartsOn: 0 }));
+
+    return filtered;
+  }, [allEvents, calendarView, currentUserId, weekStart]);
 
   // Week navigation
   const prevWeek = () => setWeekStart((d) => addWeeks(d, -1));
@@ -182,24 +222,23 @@ export default function App() {
     refreshEvents();
   }
 
-  // Delete flow
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const requestDelete = (id: string) => setPendingDeleteId(id);
-  const confirmDelete = async () => {
-    if (!pendingDeleteId || isDeleting) return;
+  // Event details and delete flow
+  const handleEventClick = (id: string) => {
+    const event = allEvents.find((e) => e.id === id);
+    if (event) {
+      setSelectedEventForDetails(event);
+    }
+  };
 
-    setIsDeleting(true);
+  const handleDeleteEvent = async (id: string) => {
     try {
-      await deleteEvent(pendingDeleteId);
-      console.log("Event deleted successfully:", pendingDeleteId);
-      await refreshEvents(); // Refresh the events list
-      setPendingDeleteId(null);
+      await deleteEvent(id);
+      console.log("Event deleted successfully:", id);
+      await refreshEvents();
+      setSelectedEventForDetails(null);
     } catch (error) {
       console.error("Failed to delete event:", error);
       alert("Failed to delete event. Please try again.");
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -277,7 +316,8 @@ export default function App() {
                 <CalendarWeek
                   weekStart={weekStart}
                   events={events}
-                  onEventClick={requestDelete}
+                  onEventClick={handleEventClick}
+                  currentUserId={currentUserId}
                 />
               )}
             </>
@@ -300,7 +340,12 @@ export default function App() {
 
         {/* Agenda only for Calendar */}
         {current === "calendar" ? (
-          <Agenda events={events} onDelete={requestDelete} />
+          <Agenda
+            events={events}
+            onEventClick={handleEventClick}
+            calendarView={calendarView}
+            onViewChange={setCalendarView}
+          />
         ) : null}
       </div>
 
@@ -324,18 +369,14 @@ export default function App() {
         onBlocked={handleBlocked}
       />
 
-      {/* Delete confirmation */}
-      <ConfirmModal
-        open={pendingDeleteId !== null}
-        onClose={() => !isDeleting && setPendingDeleteId(null)}
-        title="Delete Event?"
-        confirmText="Delete"
-        confirmVariant="danger"
-        onConfirm={confirmDelete}
-        isLoading={isDeleting}
-      >
-        This will remove the event from your personal calendar. This action can't be undone.
-      </ConfirmModal>
+      {/* Event details modal */}
+      <EventDetailsModal
+        open={selectedEventForDetails !== null}
+        onClose={() => setSelectedEventForDetails(null)}
+        event={selectedEventForDetails}
+        currentUserId={currentUserId}
+        onDelete={handleDeleteEvent}
+      />
     </div>
   );
 }

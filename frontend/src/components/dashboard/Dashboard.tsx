@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceInfoCard } from "./WorkspaceInfoCard";
-import { fetchWorkspaceInformation, type Workspace } from "../../lib/api";
+import { fetchWorkspaceInformation, fetchCurrentUser, type Workspace } from "../../lib/api";
 import { getMessages, formatRelativeTime, type Message } from "../messageboard/MessageBoardApi";
 
 export function Dashboard({
@@ -13,9 +13,26 @@ export function Dashboard({
 }) {
   const { isAuthenticated, isLoading: authLoading } = useAuth0();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [recentMessages, setRecentMessages] = useState<Message[]>([]);
+
+  // Fetch current user ID
+  useEffect(() => {
+    if (!isAuthenticated || authLoading) return;
+
+    const loadCurrentUser = async () => {
+      try {
+        const user = await fetchCurrentUser();
+        setCurrentUserId(user.id);
+      } catch (error) {
+        console.error("Failed to load current user:", error);
+      }
+    };
+
+    loadCurrentUser();
+  }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
     if (authLoading) return; // Wait for Auth0 to finish checking
@@ -58,6 +75,10 @@ export function Dashboard({
     loadRecentMessages();
   }, []);
 
+  const handleWorkspaceUpdate = (updatedWorkspace: Workspace) => {
+    setWorkspace(updatedWorkspace);
+  };
+
   if (loading) return <div className="p-6">Loading workspace...</div>;
   if (error) return <div className="p-6 text-red-500">{error}</div>;
   if (!workspace) return null;
@@ -66,7 +87,11 @@ export function Dashboard({
     <div className="w-full p-6">
       <h1 className="text-2xl font-semibold mb-6">Dashboard</h1>
 
-      <WorkspaceInfoCard workspace={workspace} />
+      <WorkspaceInfoCard
+        workspace={workspace}
+        currentUserId={currentUserId}
+        onWorkspaceUpdate={handleWorkspaceUpdate}
+      />
 
       {/* Recent Messages Section */}
       {recentMessages.length > 0 && (

@@ -35,6 +35,7 @@ export type Workspace = {
   member_count?: number;
   is_member?: boolean;
   is_public?: boolean;
+  owner_id?: number;
 };
 
 export type WorkspaceListItem = {
@@ -193,5 +194,33 @@ export async function createWorkspace(
 
   const data = await response.json();
   console.log("Workspace created successfully:", data);
+  return data;
+}
+
+interface UpdateWorkspacePayload {
+  name?: string;
+  description?: string;
+}
+
+export async function updateWorkspace(
+  workspaceId: string,
+  payload: UpdateWorkspacePayload
+): Promise<Workspace> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to update workspace:", errorText);
+    throw new Error("Failed to update workspace");
+  }
+
+  const data = await response.json();
+  console.log("Workspace updated successfully:", data);
   return data;
 }
