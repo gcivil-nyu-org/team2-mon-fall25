@@ -12,6 +12,7 @@ import {
     start: Date;
     end: Date;
     kind?: "meeting" | "unavailable";
+    createdBy?: number;
   };
   
   const HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 06–20
@@ -20,10 +21,12 @@ import {
     weekStart,
     events,
     onEventClick,
+    currentUserId,
   }: {
     weekStart: Date;
     events: CalendarEvent[];
     onEventClick?: (id: string) => void;
+    currentUserId?: number;
   }) {
     const weekDays = eachDayOfInterval({
       start: weekStart,
@@ -111,20 +114,31 @@ import {
             const width = dayColWidthPct - 0.5;
   
             const isUnavailable = e.kind === "unavailable";
-            const baseColor = isUnavailable
-              ? "border-zinc-300 bg-zinc-200/70 dark:border-zinc-700 dark:bg-zinc-800/60"
-              : "border-blue-200 bg-blue-100/70 dark:border-blue-900/60 dark:bg-blue-900/40";
+            const isOwnEvent = currentUserId !== undefined && e.createdBy === currentUserId;
 
-            const hoverColor = isUnavailable
-              ? "hover:ring-2 hover:ring-zinc-400/60 dark:hover:ring-zinc-600/40"
-              : "hover:ring-2 hover:ring-blue-300/60 dark:hover:ring-blue-600/40";
+            // Color scheme based on ownership and type
+            const baseColor = isOwnEvent
+              ? (isUnavailable
+                  ? "border-zinc-300 bg-zinc-200/70 dark:border-zinc-700 dark:bg-zinc-800/60"
+                  : "border-blue-200 bg-blue-100/70 dark:border-blue-900/60 dark:bg-blue-900/40")
+              : (isUnavailable
+                  ? "border-emerald-300 bg-emerald-200/50 dark:border-emerald-700 dark:bg-emerald-800/40"
+                  : "border-emerald-200 bg-emerald-100/70 dark:border-emerald-900/60 dark:bg-emerald-900/40");
+
+            const hoverColor = isOwnEvent
+              ? (isUnavailable
+                  ? "hover:ring-2 hover:ring-zinc-400/60 dark:hover:ring-zinc-600/40"
+                  : "hover:ring-2 hover:ring-blue-300/60 dark:hover:ring-blue-600/40")
+              : (isUnavailable
+                  ? "hover:ring-2 hover:ring-emerald-400/60 dark:hover:ring-emerald-600/40"
+                  : "hover:ring-2 hover:ring-emerald-300/60 dark:hover:ring-emerald-600/40");
 
             return (
               <button
                 key={e.id}
                 onClick={() => onEventClick?.(e.id)}
                 className={`absolute overflow-hidden rounded-xl p-2 text-xs text-left transition focus:outline-none ${baseColor} ${hoverColor} ${
-                  isUnavailable ? "border-l-4 border-l-zinc-500 dark:border-l-zinc-600" : ""
+                  isUnavailable ? (isOwnEvent ? "border-l-4 border-l-zinc-500 dark:border-l-zinc-600" : "border-l-4 border-l-emerald-500 dark:border-l-emerald-600") : ""
                 }`}
                 style={{
                   top,
