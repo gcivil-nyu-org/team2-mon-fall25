@@ -71,6 +71,7 @@ class WorkspaceCreateView(generics.CreateAPIView):
         ctx["request"] = self.request
         return ctx
 
+
 class WorkspaceDeleteView(APIView):
     permission_classes = [IsAuthenticated]
 
