@@ -194,6 +194,7 @@ class WorkspaceCreateViewTests(APITestCase):
         response = self.client.post(self.url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class WorkspaceDeleteViewTests(APITestCase):
     """Tests for deleting a workspace"""
@@ -204,7 +205,9 @@ class WorkspaceDeleteViewTests(APITestCase):
             username="owner@example.com", email="owner@example.com", password="test123"
         )
         self.other_user = User.objects.create_user(
-            username="member@example.com", email="member@example.com", password="test123"
+            username="member@example.com",
+            email="member@example.com",
+            password="test123",
         )
 
         # Create a workspace owned by 'owner'
