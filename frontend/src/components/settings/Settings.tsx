@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { fetchCurrentUser, fetchWorkspaceInformation, type Workspace } from "../../lib/api";
+import { fetchCurrentUser, fetchWorkspaceInformation, deleteWorkspace, type Workspace } from "../../lib/api";
+
 
 export function Settings({
   workspaceId,
@@ -17,6 +18,8 @@ export function Settings({
   const [loading, setLoading] = useState(true);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [copied, setCopied] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
 
   // Fetch current user data from backend
   useEffect(() => {
@@ -29,6 +32,7 @@ export function Settings({
         setName(userData.full_name || "");
         setEmail(userData.email || "");
         setProfilePic(userData.profile_picture);
+        setCurrentUserId(userData.id);
       } catch (error) {
         console.error("Failed to load user data:", error);
       } finally {
@@ -37,7 +41,7 @@ export function Settings({
     };
 
     loadUserData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUserId]);
 
   // Fetch workspace information for invite code
   useEffect(() => {
@@ -51,10 +55,10 @@ export function Settings({
         console.error("Failed to load workspace data:", error);
       }
     };
-
     loadWorkspaceData();
   }, [isAuthenticated, workspaceId]);
 
+  // Invite Code implementation
   const handleCopyInviteCode = () => {
     if (workspace?.invite_code) {
       navigator.clipboard.writeText(workspace.invite_code);
@@ -63,16 +67,33 @@ export function Settings({
     }
   };
 
-  const handleDeleteWorkspace = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to DELETE this workspace? This will permanently delete the workspace and ALL its data for EVERYONE. This action cannot be undone."
-      )
-    ) {
-      // TODO: Implement delete workspace API call
-      alert("Delete workspace functionality - frontend only (not yet connected to backend)");
+
+// Delete Workspace with particular workspace_id 
+const handleDeleteWorkspace = async () => {
+  if (!workspace) return;
+
+  if (
+    window.confirm(
+      "Are you sure you want to DELETE this workspace? This will permanently delete the workspace and ALL its data for EVERYONE. This action cannot be undone."
+    )
+  ) {
+    try {
+      await deleteWorkspace(workspace.workspace_id);
+
+      alert("✅ Workspace deleted successfully!");
+
+      // clear local state (optional)
+      setWorkspace(null);
+
+      // redirect to dashboard
+       window.location.href = "/";
+
+    } catch (error) {
+      console.error("❌ Error deleting workspace:", error);
+      alert("Failed to delete workspace. Please try again later.");
     }
-  };
+  }
+};
 
   const handleLeaveWorkspace = () => {
     if (
@@ -176,12 +197,12 @@ export function Settings({
           </div>
         </div>
       )}
-
-      {/* Workspace Actions */}
+      {/* Workspace Delete Actions */}
       <div className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
         <h3 className="text-lg font-semibold mb-4">Workspace Actions</h3>
 
         <div className="space-y-3">
+          {workspace?.owner?.id === currentUserId && (
           <button
             onClick={handleDeleteWorkspace}
             className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white py-2 text-sm font-medium transition flex items-center justify-center gap-2"
@@ -200,7 +221,7 @@ export function Settings({
               />
             </svg>
             Delete Workspace
-          </button>
+          </button>)}
 
           <button
             onClick={handleLeaveWorkspace}

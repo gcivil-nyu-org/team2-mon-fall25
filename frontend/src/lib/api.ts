@@ -35,8 +35,13 @@ export type Workspace = {
   member_count?: number;
   is_member?: boolean;
   is_public?: boolean;
-  owner_id?: number;
+  created_by_id?: number;
   invite_code?: string;
+  owner?: {
+  id: number;
+  email: string;
+  username: string;
+};
 };
 
 export type WorkspaceListItem = {
@@ -244,4 +249,21 @@ export async function joinWorkspace(inviteCode: string): Promise<Workspace> {
   const data = await response.json();
   console.log("Joined workspace successfully:", data);
   return data;
+}
+
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/delete/`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to delete workspace:", errorText);
+    throw new Error(`Failed to delete workspace: ${response.statusText}`);
+  }
+
+  console.log(`Workspace ${workspaceId} deleted successfully`);
 }

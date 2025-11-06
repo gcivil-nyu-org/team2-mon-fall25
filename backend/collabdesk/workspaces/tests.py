@@ -193,3 +193,66 @@ class WorkspaceCreateViewTests(APITestCase):
         payload = {"name": "Unauthorized Workspace"}
         response = self.client.post(self.url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceDeleteViewTests(APITestCase):
+    """Tests for deleting a workspace"""
+
+    def setUp(self):
+        # Create two users
+        self.owner = User.objects.create_user(
+            username="owner@example.com", email="owner@example.com", password="test123"
+        )
+        self.other_user = User.objects.create_user(
+            username="member@example.com",
+            email="member@example.com",
+            password="test123",
+        )
+
+        # Create a workspace owned by 'owner'
+        self.workspace = Workspace.objects.create(
+            workspace_id=uuid.uuid4(),
+            name="Test Workspace",
+            description="Sample workspace for testing delete",
+            created_by=self.owner,
+        )
+
+        # Add both as workspace members
+        WorkspaceMember.objects.create(workspace=self.workspace, user=self.owner)
+        WorkspaceMember.objects.create(workspace=self.workspace, user=self.other_user)
+
+        # URL for deletion
+        self.delete_url = reverse(
+            "workspaces:workspace-delete",
+            kwargs={"workspace_id": str(self.workspace.workspace_id)},
+        )
+
+        # Clients
+        self.client_owner = APIClient()
+        self.client_owner.force_authenticate(user=self.owner)
+
+        self.client_other = APIClient()
+        self.client_other.force_authenticate(user=self.other_user)
+
+    def test_delete_workspace_by_owner_success(self):
+        """Owner can delete the workspace successfully"""
+        response = self.client_owner.delete(self.delete_url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Workspace.objects.filter(pk=self.workspace.pk).exists())
+
+    def test_delete_workspace_by_non_owner_forbidden(self):
+        """Non-owner should not be able to delete workspace"""
+        response = self.client_other.delete(self.delete_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("not authorized", response.data["detail"].lower())
+        self.assertTrue(Workspace.objects.filter(pk=self.workspace.pk).exists())
+
+    def test_delete_nonexistent_workspace_returns_404(self):
+        """Returns 404 when workspace doesn't exist"""
+        bad_url = reverse(
+            "workspaces:workspace-delete",
+            kwargs={"workspace_id": str(uuid.uuid4())},
+        )
+        response = self.client_owner.delete(bad_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

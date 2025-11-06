@@ -25,6 +25,7 @@ def current_user(request):
     return Response(
         {
             "user_id": str(user.user_id),
+            "id": user.id,
             "email": user.email,
             "full_name": user.full_name,
             "profile_picture": user.profile_picture,

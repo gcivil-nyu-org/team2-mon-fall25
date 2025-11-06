@@ -70,3 +70,26 @@ class WorkspaceCreateView(generics.CreateAPIView):
         ctx = super().get_serializer_context()
         ctx["request"] = self.request
         return ctx
+
+
+class WorkspaceDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, workspace_id):
+        """Delete a workspace if the current user created it"""
+        user = request.user
+        workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
+
+        # Only allow the creator to delete the workspace
+        if workspace.created_by != user:
+            return Response(
+                {"detail": "You are not authorized to delete this workspace."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Delete the workspace (related members will auto-delete via on_delete=models.CASCADE)
+        workspace.delete()
+        return Response(
+            {"detail": "Workspace deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
