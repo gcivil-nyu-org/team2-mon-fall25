@@ -52,22 +52,35 @@ export function TopBar({
   const [selected, setSelected] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
-
-  useEffect(() => {
+useEffect(() => {
   const loadUsers = async () => {
-    try {
-      const data = await fetchAllUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error("Error fetching users:", error);
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY = 1000; // 1 second
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`🟢 Attempt ${attempt}: Fetching all users...`);
+        const data = await fetchAllUsers();
+        setUsers(data);
+        return; // Exit after success
+      } catch (error) {
+        console.error(`⚠️ Attempt ${attempt} failed:`, error);
+        if (attempt < MAX_RETRIES) {
+          console.log(`⏳ Retrying in ${RETRY_DELAY / 1000}s...`);
+          await new Promise((res) => setTimeout(res, RETRY_DELAY));
+        } else {
+          console.error("❌ Failed to fetch users after retries.");
+        }
+      }
     }
   };
+
   loadUsers();
 }, []);
 
-  const filtered = users.filter((u) =>
-    u.full_name.toLowerCase().includes(search.toLowerCase())
-  );
+const filtered = users.filter((u) =>
+  u.full_name.toLowerCase().includes(search.toLowerCase())
+);
 
 const toggleSelect = (user: User) => {
   setSelected((prev) =>
@@ -236,6 +249,28 @@ const handleJoinWorkspace = async (code: string) => {
               className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
             />
             <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
+  {filtered.map((user) => {
+    const selectedUser = selected.some((s) => s.id === user.id);
+    return (
+      <button
+        key={user.user_id}
+        onClick={() => toggleSelect(user)}
+        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
+          ${
+            selectedUser
+              ? // 🟦 Permanent highlight when selected
+                "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300"
+              : // 🩶 Hover only for unselected
+                "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+          }`}
+      >
+        <span className="font-medium">{user.full_name}</span>
+        <span className="text-xs text-gray-500 ml-2">{user.email}</span>
+      </button>
+    );
+  })}
+</div>
+            {/* <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
               {filtered.map((user) => {
                 const selectedUser = selected.some((s) => s.id === user.id);
                 return (
@@ -251,7 +286,7 @@ const handleJoinWorkspace = async (code: string) => {
                   </button>
                   );
                   })}
-            </div>
+            </div> */}
           </div>
 
           <button
