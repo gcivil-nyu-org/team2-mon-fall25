@@ -15,7 +15,7 @@ export function WorkspaceInfoCard({ workspace, currentUserId, onWorkspaceUpdate 
   const [editedDescription, setEditedDescription] = useState(workspace.description || "");
   const [isSaving, setIsSaving] = useState(false);
 
-  const isOwner = currentUserId !== undefined && workspace.owner_id === currentUserId;
+  const isOwner = currentUserId !== undefined && workspace.created_by_id === currentUserId;
 
   const formattedDate = workspace.created_at
     ? format(new Date(workspace.created_at), "MMMM d, yyyy")
