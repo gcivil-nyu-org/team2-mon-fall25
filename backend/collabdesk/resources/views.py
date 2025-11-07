@@ -1,13 +1,16 @@
 import boto3
-from rest_framework import generics
+from rest_framework import generics, status
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 from .serializers import ResourceSerializer
 from .models import Resource
 from collabdesk.middleware import set_workspace_context
 
 # Create your views here.
+
 
 class ResourcePresignedUrlView(APIView):
     permission_classes = [IsAuthenticated]
@@ -31,6 +34,7 @@ class ResourcePresignedUrlView(APIView):
             ExpiresIn=3600,
         )
         return Response({"url": url})
+
 
 class ResourceCreateView(generics.ListCreateAPIView):
     serializer_class = ResourceSerializer
