@@ -1,17 +1,19 @@
 import { format, compareAsc } from "date-fns";
 
-export type CalEvent = { id: string; title: string; start: Date; end: Date; kind?: "meeting" | "unavailable" };
+export type CalEvent = { id: string; title: string; start: Date; end: Date; kind?: "meeting" | "unavailable"; createdBy?: number; };
 
 export function Agenda({
   events,
   onEventClick,
   calendarView,
   onViewChange,
+  currentUserId,
 }: {
   events: CalEvent[];
   onEventClick?: (id: string) => void;
   calendarView: "my" | "all";
   onViewChange: (view: "my" | "all") => void;
+  currentUserId?: number;
 }) {
   const sorted = [...events].sort((a, b) => compareAsc(a.start, b.start));
   return (
@@ -48,17 +50,36 @@ export function Agenda({
           )}
           {sorted.map((e) => {
             const isUnavailable = e.kind === "unavailable";
-            const borderColor = isUnavailable
-              ? "border-zinc-300 bg-zinc-100/50 dark:border-zinc-700 dark:bg-zinc-800/30"
-              : "border-zinc-200 dark:border-zinc-800";
+            const isOwnEvent = currentUserId !== undefined && e.createdBy === currentUserId;
+
+            // Color scheme based on ownership and type - matching CalendarWeek
+            const borderColor = isOwnEvent
+              ? (isUnavailable
+                  ? "border-zinc-300 bg-zinc-50/50 dark:border-zinc-500 dark:bg-zinc-900/30"
+                  : "border-[#E30B5D] bg-[#E30B5D]/20 dark:border-[#E30B5D] dark:bg-[#E30B5D]/20")
+              : (isUnavailable
+                  ? "border-gray-600 bg-gray-200/60 dark:border-gray-700 dark:bg-gray-950/60"
+                  : "border-[#4169E1] bg-[#4169E1]/20 dark:border-[#4169E1] dark:bg-[#4169E1]/20");
+
+            const leftBorderColor = isUnavailable
+              ? (isOwnEvent
+                  ? "border-l-4 border-l-zinc-400 dark:border-l-zinc-400"
+                  : "border-l-4 border-l-gray-700 dark:border-l-gray-600")
+              : "";
+
+            const hoverColor = isOwnEvent
+              ? (isUnavailable
+                  ? "hover:bg-zinc-100/60 dark:hover:bg-zinc-900/50"
+                  : "hover:bg-[#E30B5D]/30 dark:hover:bg-[#E30B5D]/30")
+              : (isUnavailable
+                  ? "hover:bg-gray-300/60 dark:hover:bg-gray-950/70"
+                  : "hover:bg-[#4169E1]/30 dark:hover:bg-[#4169E1]/30");
 
             return (
               <button
                 key={e.id}
                 onClick={() => onEventClick?.(e.id)}
-                className={`w-full text-left rounded-xl border p-2 ${borderColor} ${
-                  isUnavailable ? "border-l-4 border-l-zinc-500 dark:border-l-zinc-600" : ""
-                } hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer`}
+                className={`w-full text-left rounded-xl border p-2 ${borderColor} ${leftBorderColor} ${hoverColor} transition-colors cursor-pointer`}
                 title={`${e.title} • ${format(e.start, "EEE p")}–${format(e.end, "p")}`}
               >
                 <div className="font-medium">
