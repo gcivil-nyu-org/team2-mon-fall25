@@ -1,0 +1,35 @@
+import uuid
+
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
+# Create your models here.
+class Resource(models.Model):
+    class FileType(models.TextChoices):
+        PDF = "PDF", _("PDF file")
+        DOCX = "DOCX", _("DOCX file")
+        PPTX = "PPTX", _("PPTX file")
+        XLSX = "XLSX", _("XLSX file")
+        JPG = "JPG", _("JPG file")
+        ZIP = "ZIP", _("ZIP file")
+        TXT = "TXT", _("TXT file")
+    profile_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, default="none")
+    type = models.CharField(
+        max_length=15, choices=FileType.choices,
+    )
+    size = models.BigIntegerField()
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=27
+    )
+    uploaded = models.DateTimeField(default=timezone.now)
+    file = models.FileField()
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="resources",
+        default=uuid.UUID("cdb5abfe-dc99-4394-ac0e-e50a2f21d960"),
+    )
+
