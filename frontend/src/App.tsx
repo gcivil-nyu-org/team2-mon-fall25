@@ -488,6 +488,7 @@ export default function App() {
             onEventClick={handleEventClick}
             calendarView={calendarView}
             onViewChange={setCalendarView}
+            currentUserId={currentUserId}
           />
         ) : null}
       </div>
