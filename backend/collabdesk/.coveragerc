@@ -8,6 +8,7 @@ omit =
     */venv/*
     collabdesk/* 
     manage.py
+    resources/*
 
 [report]
 omit =
@@ -17,3 +18,4 @@ omit =
     */tests/*
     */venv/*
     collabdesk/*
+    resources/*
