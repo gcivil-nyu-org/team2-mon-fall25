@@ -26,7 +26,6 @@ urlpatterns = [
     path("api/workspaces/", include("workspaces.urls")),
     path("api/events/", include("events.urls")),
     path("api/profiles/", include("profiles.urls")),
-    path("api/resources/", include("resources.urls")),
     path("api/", include("tasks.urls")),
     path("api/users/me/", current_user, name="current-user"),  # Current user endpoint
     path("api/users/list/", list_users, name="user-list"),
