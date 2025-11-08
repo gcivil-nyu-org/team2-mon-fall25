@@ -28,7 +28,7 @@ urlpatterns = [
     path("api/profiles/", include("profiles.urls")),
     path("api/resources/", include("resources.urls")),
     path("api/", include("tasks.urls")),
-    path('api/messageboard/', include('messageboard.urls')),
+    path("api/messageboard/", include("messageboard.urls")),
     path("api/users/me/", current_user, name="current-user"),  # Current user endpoint
     path("api/users/list/", list_users, name="user-list"),
     path("api/debug/token/", debug_token, name="debug-token"),  # Debug endpoint
