@@ -8,7 +8,7 @@ from .permissions import IsAuthorOrReadOnly
 
 
 class MessageListCreateView(generics.ListCreateAPIView):
-    queryset = Message.objects.filter(parent=None).order_by('-created_at')
+    queryset = Message.objects.filter(parent=None).order_by("-created_at")
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
@@ -27,7 +27,7 @@ class ReactionToggleView(APIView):
 
     def post(self, request, pk):
         message = Message.objects.get(pk=pk)
-        reaction_type = request.data.get('emoji') or request.data.get('reaction_type')
+        reaction_type = request.data.get("emoji") or request.data.get("reaction_type")
 
         existing = Reaction.objects.filter(
             user=request.user, message=message, reaction_type=reaction_type
@@ -35,7 +35,11 @@ class ReactionToggleView(APIView):
 
         if existing.exists():
             existing.delete()
-            return Response({'detail': 'Reaction removed.'}, status=status.HTTP_200_OK)
+            return Response({"detail": "Reaction removed."}, status=status.HTTP_200_OK)
         else:
-            Reaction.objects.create(user=request.user, message=message, reaction_type=reaction_type)
-            return Response({'detail': 'Reaction added.'}, status=status.HTTP_201_CREATED)
+            Reaction.objects.create(
+                user=request.user, message=message, reaction_type=reaction_type
+            )
+            return Response(
+                {"detail": "Reaction added."}, status=status.HTTP_201_CREATED
+            )
