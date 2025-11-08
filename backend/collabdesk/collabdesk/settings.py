@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "workspaces",
     "events",
     "tasks",
+    "messageboard",
     "rest_framework",
     "corsheaders",
     "profiles",
