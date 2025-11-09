@@ -156,7 +156,9 @@ class RecommendTimeSlots(APIView):
                 naive_date = datetime.strptime(event_date, "%Y-%m-%d")
                 base_date = timezone.localtime(timezone.make_aware(naive_date))
             except ValueError:
-                return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+                )
 
             # Validate duration
             if duration <= 0:
