@@ -146,105 +146,131 @@ class RecommendTimeSlots(APIView):
         URL parameters:
         - event_date: Date in YYYY-MM-DD format
         - duration: integer representing event duration in minutes
-        
+
         Returns 3 recommended time slots during working hours (8:00 - 17:00)
         that don't conflict with existing events.
         """
         try:
             # Parse the date
             try:
-                # Parse the date and make it timezone-aware
                 naive_date = datetime.strptime(event_date, "%Y-%m-%d")
-                # Create base date in the current timezone
                 base_date = timezone.localtime(timezone.make_aware(naive_date))
             except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD"},
-                    status=400
-                )
+                return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
 
             # Validate duration
             if duration <= 0:
-                return Response(
-                    {"error": "Duration must be positive"},
-                    status=400
-                )
+                return Response({"error": "Duration must be positive"}, status=400)
 
             # Set working hours bounds in the current timezone
             work_start = base_date.replace(hour=8, minute=0, second=0, microsecond=0)
             work_end = base_date.replace(hour=17, minute=0, second=0, microsecond=0)
 
-            # Parse parameters
-            # Get workspace context
             if not hasattr(request, "workspace") or not request.workspace:
-                    return Response(
-                        {"error": "Workspace context required. Please provide X-Workspace-ID header."},
-                        status=403
-                    )
+                return Response(
+                    {
+                        "error": "Workspace context required. Please provide X-Workspace-ID header."
+                    },
+                    status=403,
+                )
 
-                # Get all events in the workspace for the day
+            # Get all events in the workspace for the day
             existing_events = Event.objects.filter(
                 workspace=request.workspace,
                 start_time__date=base_date.date(),
-            ).order_by('start_time')
+            ).order_by("start_time")
 
             # Convert duration to timedelta
             duration_delta = timedelta(minutes=duration)
 
-            # Define three time periods for better distribution
-            morning_start = work_start
-            morning_end = base_date.replace(hour=11, minute=0, second=0, microsecond=0)
-            early_afternoon_start = base_date.replace(hour=11, minute=0, second=0, microsecond=0)
-            early_afternoon_end = base_date.replace(hour=14, minute=0, second=0, microsecond=0)
-            late_afternoon_start = base_date.replace(hour=14, minute=0, second=0, microsecond=0)
-            late_afternoon_end = work_end
-
-            periods = [
-                (morning_start, morning_end, "morning"),
-                (early_afternoon_start, early_afternoon_end, "early_afternoon"),
-                (late_afternoon_start, late_afternoon_end, "late_afternoon")
-            ]
-
-            recommendations = []
-            
-            # Try to get one recommendation from each period
-            for period_start, period_end, period_name in periods:
-                current_slot = period_start
-                
-                while current_slot + duration_delta <= period_end:
-                    slot_end = current_slot + duration_delta
-                    
-                    # Check if this slot conflicts with any existing events
-                    has_conflict = False
-                    for event in existing_events:
-                        if (current_slot < event.end_time and 
-                            slot_end > event.start_time):
-                            has_conflict = True
-                            break
-                    
-                    if not has_conflict:
-                        recommendations.append({
-                            'start_time': current_slot.isoformat(),
-                            'end_time': slot_end.isoformat(),
-                            'period': period_name
-                        })
-                        break  # Found a slot for this period, move to next period
-                    
-                    # Move to next 30-minute slot within this period
-                    current_slot += timedelta(minutes=30)
+            recommendations = self._generate_recommendations(
+                base_date, duration_delta, existing_events
+            )
 
             if not recommendations:
-                return Response({
-                    "message": "No available time slots found for the specified date and duration during working hours (8:00-17:00)"
-                })
-
-            return Response({
-                "recommended_slots": recommendations
-            })
-
+                return Response(
+                    {
+                        "message": "No available time slots found for the specified date and duration during working hours (8:00-17:00)"
+                    }
+                )
+            return Response({"recommended_slots": recommendations})
         except Exception as e:
             logger.error(f"Error generating time slot recommendations: {str(e)}")
             return Response(
                 {"error": "An error occurred while generating recommendations"},
-                status=500
+                status=500,
             )
+
+    def _generate_recommendations(self, base_date, duration_delta, existing_events):
+        """Return a list of up to 3 recommended slots (one per period).
+
+        Keeps the logic for constructing periods and searching slots in a
+        single place so `get()` can remain a thin orchestrator.
+        """
+        # working hours
+        work_start = base_date.replace(hour=8, minute=0, second=0, microsecond=0)
+        work_end = base_date.replace(hour=17, minute=0, second=0, microsecond=0)
+
+        periods = self._build_periods(base_date, work_start, work_end)
+
+        recommendations = []
+        for period_start, period_end, period_name in periods:
+            slot = self._find_slot_for_period(
+                period_start, period_end, duration_delta, existing_events
+            )
+            if slot:
+                start, end = slot
+                recommendations.append(
+                    {
+                        "start_time": start.isoformat(),
+                        "end_time": end.isoformat(),
+                        "period": period_name,
+                    }
+                )
+
+        return recommendations
+
+    def _build_periods(self, base_date, work_start, work_end):
+        return [
+            (
+                work_start,
+                base_date.replace(hour=11, minute=0, second=0, microsecond=0),
+                "morning",
+            ),
+            (
+                base_date.replace(hour=11, minute=0, second=0, microsecond=0),
+                base_date.replace(hour=14, minute=0, second=0, microsecond=0),
+                "early_afternoon",
+            ),
+            (
+                base_date.replace(hour=14, minute=0, second=0, microsecond=0),
+                work_end,
+                "late_afternoon",
+            ),
+        ]
+
+    def _find_slot_for_period(
+        self, period_start, period_end, duration_delta, existing_events
+    ):
+        """Find the first non-conflicting slot within [period_start, period_end].
+
+        Returns a tuple (start, end) if found, otherwise None.
+        """
+        current_slot = period_start
+        while current_slot + duration_delta <= period_end:
+            slot_end = current_slot + duration_delta
+
+            # check conflict with any existing event
+            conflict = False
+            for ev in existing_events:
+                # ensure both sides comparable (DB events should be aware)
+                if current_slot < ev.end_time and slot_end > ev.start_time:
+                    conflict = True
+                    break
+
+            if not conflict:
+                return current_slot, slot_end
+
+            current_slot += timedelta(minutes=30)
+
+        return None
