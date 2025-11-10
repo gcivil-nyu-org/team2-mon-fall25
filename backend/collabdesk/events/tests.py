@@ -225,6 +225,122 @@ class EventAPITests(TestCase):
         returned_created_by = response.data[0].get("created_by")
         self.assertEqual(returned_created_by, self.user.id)
 
+    def test_recommend_slots_basic(self):
+        """Test basic time slot recommendations with no existing events"""
+        tomorrow = (timezone.now() + datetime.timedelta(days=1)).date()
+        url = reverse("events:recommend-slots", args=[tomorrow.isoformat(), 60])
+
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("recommended_slots", response.data)
+        self.assertEqual(len(response.data["recommended_slots"]), 3)
+
+        # Verify we get one slot from each period
+        periods = set()
+        for slot in response.data["recommended_slots"]:
+            self.assertIn("start_time", slot)
+            self.assertIn("end_time", slot)
+            self.assertIn("period", slot)
+            periods.add(slot["period"])
+
+        self.assertEqual(periods, {"morning", "early_afternoon", "late_afternoon"})
+
+    def test_recommend_slots_with_conflicts(self):
+        """Test recommendations when there are existing events"""
+        tomorrow = timezone.now() + datetime.timedelta(days=1)
+        tomorrow_date = tomorrow.date()
+
+        # Create an event from 10:00 to 12:00 tomorrow
+        event_start = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        event_end = event_start + datetime.timedelta(hours=2)
+
+        createEventWithCunstomizedTime(
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+            start_time=event_start,
+            end_time=event_end,
+        )
+
+        url = reverse("events:recommend-slots", args=[tomorrow_date.isoformat(), 60])
+
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("recommended_slots", response.data)
+
+        # Verify none of the recommended slots overlap with our existing event
+        for slot in response.data["recommended_slots"]:
+            slot_start = datetime.datetime.fromisoformat(slot["start_time"])
+            slot_end = datetime.datetime.fromisoformat(slot["end_time"])
+
+            self.assertFalse(
+                (slot_start < event_end and slot_end > event_start),
+                "Recommended slot overlaps with existing event",
+            )
+
+    def test_recommend_slots_invalid_date(self):
+        """Test recommendations with invalid date format"""
+        url = reverse("events:recommend-slots", args=["invalid-date", 60])
+
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Invalid date format", response.data["error"])
+
+    def test_recommend_slots_invalid_duration(self):
+        """Test recommendations with invalid duration"""
+        tomorrow = (timezone.now() + datetime.timedelta(days=1)).date()
+
+        # Test with zero duration
+        url = reverse("events:recommend-slots", args=[tomorrow.isoformat(), 0])
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.data)
+        self.assertIn("Duration must be positive", response.data["error"])
+
+        # Test with very long duration that won't fit in working hours
+        url = reverse("events:recommend-slots", args=[tomorrow.isoformat(), 1000])
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data.get("recommended_slots", [])), 0)
+        self.assertIn("message", response.data)
+        self.assertIn("No available time slots found", response.data["message"])
+
+    def test_recommend_slots_without_workspace(self):
+        """Test recommendations without workspace context"""
+        tomorrow = (timezone.now() + datetime.timedelta(days=1)).date()
+        url = reverse("events:recommend-slots", args=[tomorrow.isoformat(), 60])
+
+        response = self.client.get(url, follow=True)  # No workspace header
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("error", response.data)
+        self.assertIn("Workspace context required", response.data["error"])
+
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class EventParticipantModelTest(TestCase):
