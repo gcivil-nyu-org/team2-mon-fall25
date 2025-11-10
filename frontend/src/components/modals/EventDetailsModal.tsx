@@ -54,9 +54,13 @@ export function EventDetailsModal({
           <div className="inline-flex items-center gap-2">
             <span
               className={`px-2 py-1 rounded text-xs font-medium ${
-                isUnavailable
-                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                isMyEvent
+                  ? (isUnavailable
+                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                      : "bg-[#E30B5D]/50 dark:bg-[#E30B5D]/50 text-[#E30B5D] dark:text-[#E30B5D]")
+                  : (isUnavailable
+                      ? "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                      : "bg-[#4169E1]/50 dark:bg-[#4169E1]/50 text-[#4169E1] dark:text-[#4169E1]")
               }`}
             >
               {isUnavailable ? "Unavailable" : "Meeting"}
