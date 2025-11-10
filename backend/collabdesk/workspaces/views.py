@@ -94,10 +94,12 @@ class WorkspaceDeleteView(APIView):
             status=status.HTTP_204_NO_CONTENT,
         )
 
+
 class WorkspaceLeaveView(APIView):
     """
     Allow a workspace member (non-owner) to leave the workspace.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, workspace_id):
@@ -105,7 +107,9 @@ class WorkspaceLeaveView(APIView):
         workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
 
         # Try to get membership
-        membership = WorkspaceMember.objects.filter(workspace=workspace, user=user).first()
+        membership = WorkspaceMember.objects.filter(
+            workspace=workspace, user=user
+        ).first()
         if not membership:
             return Response(
                 {"detail": "You are not a member of this workspace."},

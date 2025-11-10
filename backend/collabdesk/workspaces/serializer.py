@@ -77,6 +77,7 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
 
         # Add other members (resolve by user_id field)
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
 
         for member_user_id in members:
