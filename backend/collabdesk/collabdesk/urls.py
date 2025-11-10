@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from users.debug_views import debug_token
-from users.views import current_user
+from users.views import current_user, list_users
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -26,7 +26,10 @@ urlpatterns = [
     path("api/workspaces/", include("workspaces.urls")),
     path("api/events/", include("events.urls")),
     path("api/profiles/", include("profiles.urls")),
+    path("api/resources/", include("resources.urls")),
     path("api/", include("tasks.urls")),
+    path("api/messageboard/", include("messageboard.urls")),
     path("api/users/me/", current_user, name="current-user"),  # Current user endpoint
+    path("api/users/list/", list_users, name="user-list"),
     path("api/debug/token/", debug_token, name="debug-token"),  # Debug endpoint
 ]

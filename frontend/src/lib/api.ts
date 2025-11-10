@@ -1,5 +1,6 @@
 // API utility for backend communication
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE_URL = 'http://localhost:8000';
 
 export type BackendEvent = {
   event_id: string;
@@ -34,6 +35,13 @@ export type Workspace = {
   member_count?: number;
   is_member?: boolean;
   is_public?: boolean;
+  created_by_id?: number;
+  invite_code?: string;
+  owner?: {
+  id: number;
+  email: string;
+  username: string;
+};
 };
 
 export type WorkspaceListItem = {
@@ -143,6 +151,7 @@ export async function deleteEvent(eventId: string): Promise<void> {
 }
 
 export type User = {
+  id: number;
   user_id: string;
   email: string;
   full_name: string;
@@ -156,5 +165,126 @@ export async function fetchCurrentUser(): Promise<User> {
     throw new Error('Failed to fetch current user');
   }
   return response.json();
+}
+
+export async function fetchAllUsers(): Promise<User[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/users/list/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch user list');
+  }
+  const data = await response.json();
+  return data;
+}
+
+interface CreateWorkspacePayload {
+  name: string;
+  description?: string;
+  members?: String[]; // optional, can be empty
+}
+
+export async function createWorkspace(
+  payload: CreateWorkspacePayload
+): Promise<Workspace> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/create/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to create workspace:", errorText);
+  throw new Error("Failed to create workspace");
+  }
+
+  const data = await response.json();
+  console.log("Workspace created successfully:", data);
+  return data;
+}
+
+interface UpdateWorkspacePayload {
+  name?: string;
+  description?: string;
+}
+
+export async function updateWorkspace(
+  workspaceId: string,
+  payload: UpdateWorkspacePayload
+): Promise<Workspace> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to update workspace:", errorText);
+    throw new Error("Failed to update workspace");
+  }
+
+  const data = await response.json();
+  console.log("Workspace updated successfully:", data);
+  return data;
+}
+
+export async function joinWorkspace(inviteCode: string): Promise<Workspace> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/workspaces/join/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ invite_code: inviteCode }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to join workspace:", errorText);
+    throw new Error("Failed to join workspace");
+  }
+
+  const data = await response.json();
+  console.log("Joined workspace successfully:", data);
+  return data;
+}
+
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/delete/`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to delete workspace:", errorText);
+    throw new Error(`Failed to delete workspace: ${response.statusText}`);
+  }
+
+  console.log(`Workspace ${workspaceId} deleted successfully`);
+}
+
+export async function leaveWorkspace(workspaceId: string): Promise<void> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/leave/`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to leave workspace:", errorText);
+    throw new Error("Failed to leave workspace");
+  }
+
+  console.log("Successfully left workspace:", workspaceId);
 }
 

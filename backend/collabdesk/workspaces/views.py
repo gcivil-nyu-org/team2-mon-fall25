@@ -1,10 +1,11 @@
 from rest_framework.views import APIView
+from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Workspace, WorkspaceMember
-from .serializer import WorkspaceSerializer
+from .serializer import WorkspaceSerializer, WorkspaceCreateSerializer
 
 
 class WorkspaceInformationView(APIView):
@@ -58,3 +59,76 @@ class WorkspaceListView(APIView):
         )
 
         return Response(list(workspaces))
+
+
+class WorkspaceCreateView(generics.CreateAPIView):
+    queryset = Workspace.objects.all()
+    serializer_class = WorkspaceCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx["request"] = self.request
+        return ctx
+
+
+class WorkspaceDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, workspace_id):
+        """Delete a workspace if the current user created it"""
+        user = request.user
+        workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
+
+        # Only allow the creator to delete the workspace
+        if workspace.created_by != user:
+            return Response(
+                {"detail": "You are not authorized to delete this workspace."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Delete the workspace (related members will auto-delete via on_delete=models.CASCADE)
+        workspace.delete()
+        return Response(
+            {"detail": "Workspace deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class WorkspaceLeaveView(APIView):
+    """
+    Allow a workspace member (non-owner) to leave the workspace.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, workspace_id):
+        user = request.user
+        workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
+
+        # Try to get membership
+        membership = WorkspaceMember.objects.filter(
+            workspace=workspace, user=user
+        ).first()
+        if not membership:
+            return Response(
+                {"detail": "You are not a member of this workspace."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Prevent the owner from leaving
+        if membership.role == "owner":
+            return Response(
+                {
+                    "detail": "Owners cannot leave the workspace until ownership transfer is implemented."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Delete membership to leave
+        membership.delete()
+
+        return Response(
+            {"detail": "You have successfully left the workspace."},
+            status=status.HTTP_200_OK,
+        )

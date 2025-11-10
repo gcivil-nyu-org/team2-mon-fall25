@@ -5,20 +5,56 @@ import TaskList from "./TaskList";
 import TaskModal from "../modals/TaskModal";
 import { getTasks, createTask, updateTask, deleteTask } from "./TaskApi";
 import { useEffect } from "react";
+import { useAccessToken } from "../../auth/useAccessToken";
 
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const token = useAccessToken(); // Get Auth0 token
+
+  // Get current workspace from localStorage to trigger reload on workspace change
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>(() =>
+    localStorage.getItem("cd.workspace") || localStorage.getItem("workspace_id") || ""
+  );
+
+  // Listen for workspace changes in localStorage
   useEffect(() => {
-  const loadTasks = async () => {
-    try {
-      const data: Task[] = await getTasks();
-      setTasks(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-  loadTasks();
-}, []);
+    const handleStorageChange = () => {
+      const newWorkspace = localStorage.getItem("cd.workspace") || localStorage.getItem("workspace_id") || "";
+      setCurrentWorkspace(newWorkspace);
+    };
+
+    // Listen for storage events from other tabs/windows
+    window.addEventListener("storage", handleStorageChange);
+
+    // Poll for changes in the same tab (since storage events don't fire in the same tab)
+    const interval = setInterval(handleStorageChange, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      if (!token) return; // Wait for token
+      if (!currentWorkspace) {
+        console.log("No workspace selected, skipping task load");
+        setTasks([]);
+        return;
+      }
+
+      try {
+        console.log("Loading tasks for workspace:", currentWorkspace);
+        const data: Task[] = await getTasks(token);
+        setTasks(data);
+      } catch (err) {
+        console.error("Error loading tasks:", err);
+        setTasks([]);
+      }
+    };
+    loadTasks();
+  }, [token, currentWorkspace]); // Reload when token OR workspace changes
   const [searchQuery, setSearchQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("");
   const [tagFilter, setTagFilter] = useState<string>("");
@@ -69,8 +105,8 @@ const Tasks: React.FC = () => {
     return; // stop execution
   }
   try {
-    await createTask(newTask); // save to backend
-    const data = await getTasks(); // refresh tasks
+    await createTask(newTask, token); // save to backend
+    const data = await getTasks(token); // refresh tasks
     setTasks(data);
     setShowModal(false);
   } catch (err) {
@@ -107,7 +143,7 @@ const Tasks: React.FC = () => {
     );
 
     // Update backend
-    await updateTask(taskId, { status: newStatus });
+    await updateTask(taskId, { status: newStatus }, token);
   } catch (err) {
     console.error(err);
   }
@@ -125,7 +161,7 @@ const Tasks: React.FC = () => {
       )
     );
 
-    await updateTask(taskId, { priority: newPriority });
+    await updateTask(taskId, { priority: newPriority }, token);
   } catch (err) {
     console.error(err);
   }
@@ -134,7 +170,7 @@ const Tasks: React.FC = () => {
 
   const handleTaskDelete = async (taskId: string | number) => {
   try {
-    await deleteTask(taskId);
+    await deleteTask(taskId, token);
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
   } catch (err) {
     console.error(err);
@@ -146,12 +182,9 @@ const Tasks: React.FC = () => {
     <div className="w-full">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
           Tasks
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Manage your team's work and track progress
-        </p>
       </div>
 
       {/* Filters and Controls Bar */}

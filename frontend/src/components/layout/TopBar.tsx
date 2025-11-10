@@ -2,8 +2,12 @@ import { useEffect, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import type { Workspace } from "./WorkspaceSwitcher";
-import { fetchWorkspaceList } from "../../lib/api";
+import { fetchWorkspaceList, createWorkspace, fetchAllUsers, joinWorkspace } from "../../lib/api";
 import { Modal } from "../modals/Modal";
+import { WorkspaceActionModal } from "../modals/WorkspaceActionModal";
+import { JoinWorkspaceModal } from "../modals/JoinWorkspaceModal";
+import type { User } from '../../lib/api';
+
 
 function useDarkMode() {
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -39,56 +43,101 @@ export function TopBar({
   const { user, isAuthenticated, isLoading } = useAuth0();
 
   // Modal state
+  const [showActionModal, setShowActionModal] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const [wsName, setWsName] = useState("");
   const [wsDesc, setWsDesc] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
-  // Mock user list for now
-  const mockUsers = [
-    "Alex Johnson",
-    "Sarah Chen",
-    "Mike Ross",
-    "Priya Nair",
-    "John Miller",
-  ];
+useEffect(() => {
+  const loadUsers = async () => {
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY = 1000; // 1 second
 
-  const filtered = mockUsers.filter((u) =>
-    u.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const toggleSelect = (user: string) => {
-    setSelected((prev) =>
-      prev.includes(user)
-        ? prev.filter((s) => s !== user)
-        : [...prev, user]
-    );
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}: Fetching all users...`);
+        const data = await fetchAllUsers();
+        setUsers(data);
+        return; // Exit after success
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error);
+        if (attempt < MAX_RETRIES) {
+          console.log(`Retrying in ${RETRY_DELAY / 1000}s...`);
+          await new Promise((res) => setTimeout(res, RETRY_DELAY));
+        } else {
+          console.error("Failed to fetch users after retries.");
+        }
+      }
+    }
   };
 
-  const handleCreateWorkspace = () => {
-    if (!wsName.trim()) {
-      alert("Please enter a workspace name");
-      return;
+  loadUsers();
+}, []);
+
+const filtered = users.filter((u) =>
+  u.full_name.toLowerCase().includes(search.toLowerCase())
+);
+
+const toggleSelect = (user: User) => {
+  setSelected((prevSelected) => {
+    const alreadySelected = prevSelected.some(
+      (u) => u.user_id === user.user_id
+    );
+    if (alreadySelected) {
+      // Deselect this user
+      return prevSelected.filter((u) => u.user_id !== user.user_id);
+    } else {
+      // Add this user to the selected list
+      return [...prevSelected, user];
     }
-    const newWs = {
-      id: crypto.randomUUID(),
+  });
+};
+
+const handleCreateWorkspace = async () => {
+  try {
+    console.log("Selected users:", selected);
+
+    const members = selected
+      .map((u) => u.user_id || u.id?.toString())
+      .filter(Boolean);
+
+
+    const payload = {
       name: wsName,
       description: wsDesc,
-      members: selected,
+      members: members
     };
-    const existing = JSON.parse(localStorage.getItem("cd.workspaces") || "[]");
-    const updated = [...existing, newWs];
-    localStorage.setItem("cd.workspaces", JSON.stringify(updated));
+    console.log("Workspace created:", payload);
+    const newWorkspace = await createWorkspace(payload);
 
-    // reset state
-    setWsName("");
-    setWsDesc("");
-    setSearch("");
-    setSelected([]);
+    // update UI or local state
     setShowCreate(false);
-    onWorkspace(newWs.id);
-  };
+    onWorkspace(newWorkspace.workspace_id);
+    window.location.href = "/";
+  } catch (error) {
+    console.error("Error creating workspace:", error);
+    alert("Failed to create workspace. Please try again.");
+  }
+};
+
+const handleJoinWorkspace = async (code: string) => {
+  try {
+    const workspace = await joinWorkspace(code);
+    console.log("Joined workspace:", workspace);
+
+    setShowJoin(false);
+    onWorkspace(workspace.workspace_id);
+  } catch (error) {
+    console.error("Error joining workspace:", error);
+    alert("Failed to join workspace. Please check the code and try again.");
+  }
+};
+
+
 
   // Fetch workspace names on mount - only when authenticated
   useEffect(() => {
@@ -140,7 +189,7 @@ export function TopBar({
 
             {/* Add Workspace Button (circle with +) */}
             <button
-              onClick={() => setShowCreate(true)}
+              onClick={() => setShowActionModal(true)}
               className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 text-lg font-medium leading-none hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               title="Add Workspace"
             >
@@ -165,6 +214,14 @@ export function TopBar({
           </div>
         </div>
       </header>
+
+      {/* Workspace Action Selection Modal */}
+      <WorkspaceActionModal
+        open={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        onCreateWorkspace={() => setShowCreate(true)}
+        onJoinWorkspace={() => setShowJoin(true)}
+      />
 
       {/* Create Workspace Modal */}
       <Modal
@@ -195,30 +252,54 @@ export function TopBar({
           </div>
 
           <div>
-            <label className="text-sm font-medium">Add Members</label>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name"
-              className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
-            />
-            <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
+  <label className="text-sm font-medium">Add Members</label>
+  <input
+    type="text"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="Search by name"
+    className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
+  />
+
+  <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
+    {filtered.map((user) => {
+      const isSelected = selected.some((s) => s.user_id === user.user_id);
+      return (
+        <div
+          key={user.user_id}
+          onClick={() => toggleSelect(user)}
+          className={`cursor-pointer w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
+            ${
+              isSelected
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+                : "bg-white text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            }`}
+        >
+          {user.full_name || user.email}
+        </div>
+      );
+    })}
+  </div>
+
+
+
+            {/* <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
               {filtered.map((user) => {
-                const selectedUser = selected.includes(user);
+                const selectedUser = selected.some((s) => s.id === user.id);
                 return (
-                  <button
-                    key={user}
-                    onClick={() => toggleSelect(user)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                      selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
-                    }`}
-                  >
-                    {user}
+                <button
+                key={user.user_id}
+                onClick={() => toggleSelect(user)}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                  selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
+                }`}
+                >
+                  {user.full_name}
+                  <span className="text-xs text-gray-500 ml-2">{user.email}</span>
                   </button>
-                );
-              })}
-            </div>
+                  );
+                  })}
+            </div> */}
           </div>
 
           <button
@@ -229,6 +310,13 @@ export function TopBar({
           </button>
         </div>
       </Modal>
+
+      {/* Join Workspace Modal */}
+      <JoinWorkspaceModal
+        open={showJoin}
+        onClose={() => setShowJoin(false)}
+        onJoin={handleJoinWorkspace}
+      />
     </>
   );
 }

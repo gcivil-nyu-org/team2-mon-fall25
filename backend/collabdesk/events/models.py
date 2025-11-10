@@ -18,7 +18,7 @@ class Event(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     event_type = models.CharField(
-        max_length=20, choices=EventType, default=EventType.GROUP
+        max_length=20, choices=EventType.choices, default=EventType.GROUP
     )
     location = models.CharField(max_length=100, default="none")
     created_by = models.ForeignKey(

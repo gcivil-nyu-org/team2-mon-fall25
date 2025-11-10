@@ -13,4 +13,14 @@ urlpatterns = [
         EventParticipantDetailView.as_view(),
         name="participant-detail",
     ),
+    path(
+        "user/",
+        UserEventListView.as_view(),
+        name="userEvent-detail",
+    ),
+    path(
+        "recommend-slots/<str:event_date>/<int:duration>/",
+        RecommendTimeSlots.as_view(),
+        name="recommend-slots",
+    ),
 ]

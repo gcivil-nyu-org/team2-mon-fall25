@@ -15,6 +15,18 @@ class Workspace(models.Model):
         User, on_delete=models.CASCADE, related_name="created_workspaces"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        from django.utils import timezone
+
+        now = timezone.now()
+        if not self.pk:
+            self.updated_at = now
+        else:
+            self.updated_at = now
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

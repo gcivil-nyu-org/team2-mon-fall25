@@ -127,3 +127,217 @@ class WorkspaceListViewTests(APITestCase):
         response = self.client.get(self.url)
         print(response)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceCreateViewTests(APITestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="createuser", email="createuser@example.com", password="testpass"
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse("workspaces:workspace-create")
+
+    def test_create_workspace_success(self):
+        payload = {
+            "name": "My Test Workspace",
+            "description": "Created via test",
+            "members": [],
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Workspace.objects.filter(name="My Test Workspace").exists())
+
+        workspace = Workspace.objects.get(name="My Test Workspace")
+        self.assertEqual(workspace.created_by, self.user)
+        self.assertTrue(workspace.is_active)
+        self.assertEqual(response.data["name"], "My Test Workspace")
+
+    def test_create_workspace_with_members(self):
+        # create 2 mock users
+        member1 = User.objects.create_user(
+            username="m1", email="m1@ex.com", password="x"
+        )
+        member2 = User.objects.create_user(
+            username="m2", email="m2@ex.com", password="x"
+        )
+
+        payload = {
+            "name": "Team Workspace",
+            "description": "Testing members",
+            "members": [str(member1.user_id), str(member2.user_id)],
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        workspace = Workspace.objects.get(name="Team Workspace")
+
+        # check members got added
+        members = WorkspaceMember.objects.filter(workspace=workspace)
+        self.assertEqual(members.count(), 3)
+        self.assertTrue(members.filter(user=self.user, role="owner").exists())
+        self.assertTrue(members.filter(user=member1).exists())
+
+    def test_create_workspace_missing_name(self):
+        payload = {"description": "No name provided"}
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", response.data)
+
+    def test_unauthenticated_user_cannot_create(self):
+        self.client.logout()
+        payload = {"name": "Unauthorized Workspace"}
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceDeleteViewTests(APITestCase):
+    """Tests for deleting a workspace"""
+
+    def setUp(self):
+        # Create two users
+        self.owner = User.objects.create_user(
+            username="owner@example.com", email="owner@example.com", password="test123"
+        )
+        self.other_user = User.objects.create_user(
+            username="member@example.com",
+            email="member@example.com",
+            password="test123",
+        )
+
+        # Create a workspace owned by 'owner'
+        self.workspace = Workspace.objects.create(
+            workspace_id=uuid.uuid4(),
+            name="Test Workspace",
+            description="Sample workspace for testing delete",
+            created_by=self.owner,
+        )
+
+        # Add both as workspace members
+        WorkspaceMember.objects.create(workspace=self.workspace, user=self.owner)
+        WorkspaceMember.objects.create(workspace=self.workspace, user=self.other_user)
+
+        # URL for deletion
+        self.delete_url = reverse(
+            "workspaces:workspace-delete",
+            kwargs={"workspace_id": str(self.workspace.workspace_id)},
+        )
+
+        # Clients
+        self.client_owner = APIClient()
+        self.client_owner.force_authenticate(user=self.owner)
+
+        self.client_other = APIClient()
+        self.client_other.force_authenticate(user=self.other_user)
+
+    def test_delete_workspace_by_owner_success(self):
+        """Owner can delete the workspace successfully"""
+        response = self.client_owner.delete(self.delete_url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Workspace.objects.filter(pk=self.workspace.pk).exists())
+
+    def test_delete_workspace_by_non_owner_forbidden(self):
+        """Non-owner should not be able to delete workspace"""
+        response = self.client_other.delete(self.delete_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("not authorized", response.data["detail"].lower())
+        self.assertTrue(Workspace.objects.filter(pk=self.workspace.pk).exists())
+
+    def test_delete_nonexistent_workspace_returns_404(self):
+        """Returns 404 when workspace doesn't exist"""
+        bad_url = reverse(
+            "workspaces:workspace-delete",
+            kwargs={"workspace_id": str(uuid.uuid4())},
+        )
+        response = self.client_owner.delete(bad_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceLeaveViewTests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        #  Create users (with usernames — required by Django)
+        self.owner = User.objects.create_user(
+            username="owner_user", email="owner@example.com", password="pass123"
+        )
+        self.member = User.objects.create_user(
+            username="member_user", email="member@example.com", password="pass123"
+        )
+        self.stranger = User.objects.create_user(
+            username="stranger_user", email="stranger@example.com", password="pass123"
+        )
+
+        # Create a workspace
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.owner
+        )
+
+        # Add memberships
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.owner,
+            role="owner",
+            is_active=True,
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role="member",
+            is_active=True,
+        )
+
+        # API endpoint
+        self.leave_url = reverse(
+            "workspaces:leave-workspace", args=[self.workspace.workspace_id]
+        )
+
+    def test_member_can_leave_workspace(self):
+        """Member (non-owner) can leave successfully"""
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.post(self.leave_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["detail"], "You have successfully left the workspace."
+        )
+
+        # Membership deleted
+        self.assertFalse(
+            WorkspaceMember.objects.filter(
+                user=self.member, workspace=self.workspace
+            ).exists()
+        )
+
+    def test_owner_cannot_leave_workspace(self):
+        """Owner cannot leave their own workspace"""
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(self.leave_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn("Owners cannot leave", response.data["detail"])
+
+        # Membership still exists
+        self.assertTrue(
+            WorkspaceMember.objects.filter(
+                user=self.owner, workspace=self.workspace
+            ).exists()
+        )
+
+    def test_non_member_cannot_leave_workspace(self):
+        """Non-member cannot leave"""
+        self.client.force_authenticate(user=self.stranger)
+
+        response = self.client.post(self.leave_url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("You are not a member", response.data["detail"])
+
+        # No memberships accidentally deleted
+        self.assertEqual(WorkspaceMember.objects.count(), 2)

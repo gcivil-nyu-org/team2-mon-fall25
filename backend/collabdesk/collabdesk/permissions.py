@@ -21,42 +21,70 @@ class Auth0Authentication(authentication.BaseAuthentication):
     def _extract_user_info(self, payload, token, logger):
         """Extract user information from token payload"""
         auth0_sub = payload.get("sub")
-        email = payload.get("email") or payload.get(f"{settings.AUTH0_DOMAIN}/email")
-        name = payload.get("name") or payload.get(f"{settings.AUTH0_DOMAIN}/name") or ""
-        picture = (
-            payload.get("picture")
-            or payload.get(f"{settings.AUTH0_DOMAIN}/picture")
+
+        # Try multiple possible claim locations for email
+        email = (
+            payload.get("email")
+            or payload.get(f"{settings.AUTH0_DOMAIN}/email")
+            or payload.get("https://{}/email".format(settings.AUTH0_DOMAIN))
+            or payload.get(
+                "https://dev-5s54nlyerhlsnvj1.us.auth0.com/email"
+            )  # Fallback to actual domain
+        )
+
+        # Try multiple possible claim locations for name
+        name = (
+            payload.get("name")
+            or payload.get(f"{settings.AUTH0_DOMAIN}/name")
+            or payload.get("https://{}/name".format(settings.AUTH0_DOMAIN))
+            or payload.get("nickname")
             or ""
         )
 
-        # If user info is not in token, fetch it from Auth0 userinfo endpoint
-        if not email or not name:
+        # Try multiple possible claim locations for picture
+        picture = (
+            payload.get("picture")
+            or payload.get(f"{settings.AUTH0_DOMAIN}/picture")
+            or payload.get("https://{}/picture".format(settings.AUTH0_DOMAIN))
+            or ""
+        )
+
+        logger.info(f"Auth0 Token Payload keys: {list(payload.keys())}")
+        logger.info(
+            f"Initial extraction - sub: {auth0_sub}, email: {email}, name: {name}, picture: {picture}"
+        )
+
+        # Only fetch from userinfo endpoint as a LAST RESORT if email is still missing
+        # This prevents rate limiting issues
+        if not email:
             try:
                 validator = get_token_validator()
-                user_info = validator.get_user_info(token)
-                email = email or user_info.get("email")
+                # Pass auth0_sub to enable caching
+                user_info = validator.get_user_info(token, auth0_sub=auth0_sub)
+                email = user_info.get("email")
                 name = name or user_info.get("name", "")
                 picture = picture or user_info.get("picture", "")
                 logger.info(
-                    f"Fetched user info from Auth0 userinfo endpoint: {user_info}"
+                    f"Fetched missing user info from Auth0 userinfo endpoint: email={email}"
                 )
             except ValueError as e:
-                logger.warning(f"Failed to fetch user info: {e}")
-
-        logger.info(f"Auth0 Token Payload: {payload}")
-        logger.info(
-            f"Extracted - sub: {auth0_sub}, email: {email}, name: {name}, picture: {picture}"
-        )
+                # Log the error but continue - we'll generate a placeholder email
+                logger.warning(
+                    f"Failed to fetch user info from Auth0 (possibly rate limited): {e}"
+                )
 
         if not auth0_sub:
             raise AuthenticationFailed("Token missing user identifier (sub)")
 
-        # Generate email from auth0_sub if not provided
+        # Generate email from auth0_sub ONLY if we still don't have one
         if not email:
             email = (
                 f"{auth0_sub.replace('|', '_').replace('auth0', 'user')}@auth0-user.com"
             )
-            logger.warning(f"Token missing email, generated: {email}")
+            logger.warning(
+                f"Token missing email even after userinfo fetch, generated placeholder: {email}"
+            )
+            logger.warning(f"Full token payload for debugging: {payload}")
 
         return auth0_sub, email, name, picture
 
