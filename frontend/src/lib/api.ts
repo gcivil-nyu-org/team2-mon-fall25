@@ -172,13 +172,14 @@ export async function fetchAllUsers(): Promise<User[]> {
   if (!response.ok) {
     throw new Error('Failed to fetch user list');
   }
-  return response.json();
+  const data = await response.json();
+  return data;
 }
 
 interface CreateWorkspacePayload {
   name: string;
   description?: string;
-  members?: number[]; // optional, can be empty
+  members?: String[]; // optional, can be empty
 }
 
 export async function createWorkspace(
