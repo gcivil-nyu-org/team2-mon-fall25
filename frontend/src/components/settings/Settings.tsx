@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { fetchCurrentUser, fetchWorkspaceInformation, deleteWorkspace, type Workspace } from "../../lib/api";
+import { fetchCurrentUser, fetchWorkspaceInformation, deleteWorkspace, leaveWorkspace, type Workspace } from "../../lib/api";
 
 
 export function Settings({
@@ -80,7 +80,7 @@ const handleDeleteWorkspace = async () => {
     try {
       await deleteWorkspace(workspace.workspace_id);
 
-      alert("✅ Workspace deleted successfully!");
+      alert("Workspace deleted successfully!");
 
       // clear local state (optional)
       setWorkspace(null);
@@ -89,21 +89,32 @@ const handleDeleteWorkspace = async () => {
        window.location.href = "/";
 
     } catch (error) {
-      console.error("❌ Error deleting workspace:", error);
+      console.error("Error deleting workspace:", error);
       alert("Failed to delete workspace. Please try again later.");
     }
   }
 };
 
-  const handleLeaveWorkspace = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to leave this workspace? You will lose access to its calendar and resources."
-      )
-    ) {
-      onLeaveWorkspace(workspaceId);
-    }
-  };
+
+const handleLeaveWorkspace = async () => {
+  const confirmed = window.confirm(
+    "Are you sure you want to leave this workspace? You will lose access to its calendar and resources."
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await leaveWorkspace(workspaceId);
+    alert("You have left the workspace successfully.");
+    // optionally refresh the workspace list or redirect
+    onLeaveWorkspace(workspaceId);
+    // redirect to dashboard
+    window.location.href = "/";
+  } catch (error) {
+    console.error("Error leaving workspace:", error);
+    alert("Failed to leave workspace. Please try again.");
+  }
+};
 
   if (loading) {
     return (
@@ -223,25 +234,31 @@ const handleDeleteWorkspace = async () => {
             Delete Workspace
           </button>)}
 
-          <button
-            onClick={handleLeaveWorkspace}
-            className="w-full rounded-md border-2 border-red-600 dark:border-red-500 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 py-2 text-sm font-medium transition flex items-center justify-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Leave Workspace
-          </button>
+          {/* Leave workspace*/}
+
+    {/* Show only if the current user is NOT the owner */}
+    {workspace?.owner?.id !== currentUserId && (
+      <button
+        onClick={handleLeaveWorkspace}
+        className="w-full rounded-md border-2 border-red-600 dark:border-red-500 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 py-2 text-sm font-medium transition flex items-center justify-center gap-2"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+          />
+        </svg>
+        Leave Workspace
+      </button>
+       )}
+
         </div>
       </div>
 
