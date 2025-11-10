@@ -117,6 +117,7 @@ const handleCreateWorkspace = async () => {
     // update UI or local state
     setShowCreate(false);
     onWorkspace(newWorkspace.workspace_id);
+    window.location.href = "/";
   } catch (error) {
     console.error("Error creating workspace:", error);
     alert("Failed to create workspace. Please try again.");
