@@ -26,5 +26,9 @@ export type Task = {
   priority: "high" | "medium" | "low";
   tags: string[];
   status: "todo" | "in-progress" | "done";
-  assignedTo?: string; // User initials or name
+  assignedTo?: string; // User email or username (for display)
+  assignedToId?: number; // User ID for API calls
+  createdBy?: string; // Creator email or username (for display)
+  createdById?: number; // Creator user ID
+  workspaceName?: string; // Workspace name for display
 };

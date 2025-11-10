@@ -6,6 +6,7 @@ Fetches public keys from Auth0 and validates JWT tokens.
 import json
 import jwt
 import requests
+import time
 from functools import lru_cache
 from typing import Dict, Optional
 from django.conf import settings
@@ -19,6 +20,10 @@ class Auth0TokenValidator:
         self.audience = settings.AUTH0_AUDIENCE
         self.issuer = f"https://{self.domain}/"
         self.algorithms = ["RS256"]
+        # Cache for userinfo to prevent rate limiting
+        # Format: {auth0_sub: (user_info_dict, timestamp)}
+        self._userinfo_cache = {}
+        self._cache_ttl = 300  # 5 minutes cache
 
     @lru_cache(maxsize=1)
     def get_jwks(self) -> Dict:
@@ -82,11 +87,19 @@ class Auth0TokenValidator:
         except Exception as e:
             raise ValueError(f"Token validation failed: {str(e)}")
 
-    def get_user_info(self, access_token: str) -> Dict:
+    def get_user_info(self, access_token: str, auth0_sub: Optional[str] = None) -> Dict:
         """
         Fetch user info from Auth0 userinfo endpoint
         This contains email, name, picture, etc.
+        Uses caching to prevent rate limiting.
         """
+        # Check cache first if we have the auth0_sub
+        if auth0_sub and auth0_sub in self._userinfo_cache:
+            cached_data, timestamp = self._userinfo_cache[auth0_sub]
+            # Check if cache is still valid
+            if time.time() - timestamp < self._cache_ttl:
+                return cached_data
+
         userinfo_url = f"https://{self.domain}/userinfo"
         try:
             response = requests.get(
@@ -95,7 +108,13 @@ class Auth0TokenValidator:
                 timeout=10,
             )
             response.raise_for_status()
-            return response.json()
+            user_info = response.json()
+
+            # Cache the result if we have the auth0_sub
+            if auth0_sub:
+                self._userinfo_cache[auth0_sub] = (user_info, time.time())
+
+            return user_info
         except requests.RequestException as e:
             raise ValueError(f"Failed to fetch user info: {str(e)}")
 
