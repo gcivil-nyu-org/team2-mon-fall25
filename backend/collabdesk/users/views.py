@@ -43,7 +43,7 @@ def list_users(request):
     excluding the current authenticated user.
     """
     current_user = request.user
-    users = User.objects.exclude(user_id=current_user.user_id).values(
+    users = User.objects.exclude(id=current_user.id).values(
         "user_id", "full_name", "email"
     )
 

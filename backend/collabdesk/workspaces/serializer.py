@@ -52,7 +52,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
 
 class WorkspaceCreateSerializer(serializers.ModelSerializer):
     members = serializers.ListField(
-        child=serializers.IntegerField(), required=False, write_only=True
+        child=serializers.CharField(), required=False, write_only=True
     )
 
     class Meta:
@@ -62,31 +62,44 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context["request"]
-        user = request.user
+        creator = request.user
         members = validated_data.pop("members", [])
-        workspace = Workspace.objects.create(created_by=user, **validated_data)
+        workspace = Workspace.objects.create(created_by=creator, **validated_data)
 
         # Add the creator as the owner
         WorkspaceMember.objects.create(
             workspace=workspace,
-            user=user,
+            user=creator,
             role="owner",
             is_active=True,
-            invited_by=user,
+            invited_by=creator,
         )
 
-        # Add other members if any
-        for member_id in members:
+        # Add other members (resolve by user_id field)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        for member_user_id in members:
             try:
-                if member_id == user.id:
-                    continue
+                if str(member_user_id) == str(creator.user_id):
+                    continue  # Skip creator
+
+                # Find user by user_id (UUID or string)
+                member = User.objects.get(user_id=member_user_id)
+
+                # Add as workspace member
                 WorkspaceMember.objects.create(
                     workspace=workspace,
-                    user_id=member_id,
+                    user=member,
                     role="member",
                     is_active=True,
-                    invited_by=user,
+                    invited_by=creator,
                 )
+                print(f"Added member: {member.email}")
+
+            except User.DoesNotExist:
+                print(f"Skipping invalid user_id: {member_user_id}")
             except Exception as e:
-                print(f"Skipping invalid member ID {member_id}: {e}")
+                print(f"Error adding member {member_user_id}: {e}")
+
         return workspace
