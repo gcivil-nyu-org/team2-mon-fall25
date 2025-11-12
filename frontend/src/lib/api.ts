@@ -288,3 +288,13 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
   console.log("Successfully left workspace:", workspaceId);
 }
 
+export async function getRecommendedSlots(date: string, duration: number): Promise<any> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch recommended slots');
+  }
+  return response.json();
+}
+
