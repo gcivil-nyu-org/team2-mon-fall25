@@ -366,3 +366,58 @@ class EventParticipantModelTest(TestCase):
         response = self.client.post(url, payload, format="json", follow=True)
 
         self.assertEqual(response.status_code, 201)
+
+
+class WorkspaceMembersAPITests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+
+    def test_workspace_members_list_success(self):
+        # Create owner and another member
+        owner = self.User.objects.create(username="owner", email="owner@test.com")
+        member = self.User.objects.create(username="member", email="member@test.com")
+
+        workspace = Workspace.objects.create(
+            name="Team Workspace",
+            description="Test workspace",
+            created_by=owner,
+        )
+
+        # Add memberships
+        WorkspaceMember.objects.create(workspace=workspace, user=owner, role="owner", is_active=True)
+        WorkspaceMember.objects.create(workspace=workspace, user=member, role="member", is_active=True)
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+
+        url = reverse("events:workspace-members")
+        response = client.get(url, HTTP_X_WORKSPACE_ID=str(workspace.workspace_id))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        # Expect two members
+        self.assertEqual(len(response.data), 2)
+
+        usernames = {m["username"] for m in response.data}
+        self.assertIn("owner", usernames)
+        self.assertIn("member", usernames)
+
+    def test_workspace_members_non_member_forbidden(self):
+        owner = self.User.objects.create(username="owner2", email="owner2@test.com")
+        outsider = self.User.objects.create(username="outsider", email="outsider@test.com")
+
+        workspace = Workspace.objects.create(
+            name="Other Workspace",
+            description="Test workspace",
+            created_by=owner,
+        )
+
+        WorkspaceMember.objects.create(workspace=workspace, user=owner, role="owner", is_active=True)
+
+        client = APIClient()
+        client.force_authenticate(user=outsider)
+
+        url = reverse("events:workspace-members")
+        response = client.get(url, HTTP_X_WORKSPACE_ID=str(workspace.workspace_id))
+
+        self.assertEqual(response.status_code, 403)

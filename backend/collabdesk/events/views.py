@@ -9,6 +9,9 @@ from collabdesk.middleware import set_workspace_context
 from datetime import datetime, timedelta
 from django.utils import timezone
 import logging
+from rest_framework import status
+from workspaces.serializer import WorkspaceMemberSerializer
+from workspaces.models import WorkspaceMember
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +179,19 @@ class RecommendTimeSlots(APIView):
                     status=403,
                 )
 
-            # Get all events in the workspace for the day
-            existing_events = Event.objects.filter(
-                workspace=request.workspace,
-                start_time__date=base_date.date(),
-            ).order_by("start_time")
+            # Get all events in the workspace that overlap the working hours for the day.
+            # Previously we only filtered events whose start_time falls on the date
+            # (start_time__date=base_date.date()), which misses multi-day events that
+            # begin before `base_date` but end during or after it. Instead, select any
+            # event that overlaps the working window [work_start, work_end):
+            #   event.start_time < work_end AND event.end_time > work_start
+            # This correctly captures events that start previous days but continue
+            # into the requested date (and vice versa).
+            existing_events = (
+                Event.objects.filter(workspace=request.workspace)
+                .filter(start_time__lt=work_end, end_time__gt=work_start)
+                .order_by("start_time")
+            )
 
             # Convert duration to timedelta
             duration_delta = timedelta(minutes=duration)
@@ -276,3 +287,47 @@ class RecommendTimeSlots(APIView):
             current_slot += timedelta(minutes=30)
 
         return None
+
+
+class WorkspaceMembersView(APIView):
+    """
+    Return all active members for a given workspace_id (UUID).
+
+    URL: /api/events/workspace/<workspace_id>/members/
+
+    Only authenticated users who are members of the workspace may query this.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        """Override to set workspace context after DRF authentication."""
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
+
+    def get(self, request, workspace_id=None):
+        """
+        Use the workspace set by `X-Workspace-ID` header (via set_workspace_context).
+        This endpoint no longer accepts workspace id in URL and requires the header.
+        """
+        try:
+            # Expect workspace to be set by set_workspace_context (from X-Workspace-ID header)
+            if not (hasattr(request, "workspace") and request.workspace):
+                return Response(
+                    {"detail": "Workspace context required. Please provide X-Workspace-ID header."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            members_qs = WorkspaceMember.objects.filter(
+                workspace=request.workspace, is_active=True
+            ).select_related("user")
+
+            serializer = WorkspaceMemberSerializer(members_qs, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error fetching workspace members: {e}")
+            return Response(
+                {"detail": "An error occurred while fetching members."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

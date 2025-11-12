@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Modal } from "./Modal";
 import {
   addMinutes,
@@ -8,14 +8,16 @@ import {
   set,
   startOfDay,
 } from "date-fns";
-import { createEvent, getRecommendedSlots } from "../../lib/api";
+import { createEvent, getRecommendedSlots, getWorkspaceMembers } from "../../lib/api";
 
-// Mock team directory
+// Fallback mock team directory (used if API fails)
 const PEOPLE = [
   { id: "alex", name: "Alex Johnson", avatar: "🧑🏽‍🦱" },
   { id: "sarah", name: "Sarah Chen", avatar: "👩🏻" },
   { id: "mike", name: "Mike Ross", avatar: "🧔🏼" },
 ];
+
+type Member = { id: string; name: string; avatar?: string };
 
 type Recommended = { start: Date; end: Date; score: "Best" | "Good" | "Alternative" };
 
@@ -53,6 +55,45 @@ export function SmartScheduleModal({
   // Store API recommended slots
   const [apiRecs, setApiRecs] = useState<Recommended[]>([]);
   const [noSlotsMessage, setNoSlotsMessage] = useState("");
+
+  // Workspace members fetched from backend
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState("");
+
+  // When modal opens, fetch workspace members (header-based workspace context is added in authenticatedFetch)
+  useEffect(() => {
+    let mounted = true;
+    async function loadMembers() {
+      setMembersLoading(true);
+      setMembersError("");
+      try {
+        const data = await getWorkspaceMembers();
+        if (!mounted) return;
+        const mapped: Member[] = data.map((m) => ({ id: m.user_id, name: m.username, avatar: m.username?.slice(0,1) }));
+        setMembers(mapped);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to load members";
+        setMembersError(msg);
+        setMembers([]);
+      } finally {
+        if (mounted) setMembersLoading(false);
+      }
+    }
+
+    if (open) {
+      loadMembers();
+    } else {
+      // reset when closed
+      setMembers([]);
+      setMembersError("");
+      setMembersLoading(false);
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [open]);
 
   const recs: Recommended[] = useMemo(() => {
     // Prioritize API-returned recommended times
@@ -137,9 +178,10 @@ export function SmartScheduleModal({
     try {
       // Create event via API
       // workspace and created_by are automatically set from X-Workspace-ID header and authenticated user
+      const currentPeople = members.length ? members : PEOPLE;
       const response = await createEvent({
         title: title.trim(),
-        description: `Meeting with ${selected.map(id => PEOPLE.find(p => p.id === id)?.name).join(", ")}`,
+        description: `Meeting with ${selected.map(id => currentPeople.find(p => p.id === id)?.name).join(", ")}`,
         start_time: slot.start.toISOString(),
         end_time: slot.end.toISOString(),
         event_type: "INDIVIDUAL",
@@ -232,28 +274,36 @@ export function SmartScheduleModal({
               </span>
             </div>
             <div className="rounded-xl border border-zinc-300 p-2 dark:border-zinc-700">
-              {PEOPLE.map((p) => {
-                const active = selected.includes(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => toggle(p.id)}
-                    className={`mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left last:mb-0 ${
-                      active
-                        ? "border border-purple-400/70 bg-purple-50/50 dark:border-purple-900/60 dark:bg-purple-900/20"
-                        : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
-                        {p.avatar}
-                      </span>
-                      <span>{p.name}</span>
-                    </span>
-                    <span className="text-purple-500">{active ? "✔" : ""}</span>
-                  </button>
-                );
-              })}
+              {membersLoading ? (
+                <div className="p-3 text-sm text-zinc-500">Loading members…</div>
+              ) : membersError ? (
+                <div className="p-3 text-sm text-red-600">{membersError}</div>
+              ) : (
+                (members.length ? members : PEOPLE).map((p) => (
+                  (() => {
+                    const active = selected.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => toggle(p.id)}
+                        className={`mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left last:mb-0 ${
+                          active
+                            ? "border border-purple-400/70 bg-purple-50/50 dark:border-purple-900/60 dark:bg-purple-900/20"
+                            : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
+                            {p.avatar ?? p.name?.slice(0,1)}
+                          </span>
+                          <span>{p.name}</span>
+                        </span>
+                        <span className="text-purple-500">{active ? "✔" : ""}</span>
+                      </button>
+                    );
+                  })()
+                ))
+              )}
             </div>
           </div>
 

@@ -23,4 +23,9 @@ urlpatterns = [
         RecommendTimeSlots.as_view(),
         name="recommend-slots",
     ),
+    path(
+        "workspace/members/",
+        WorkspaceMembersView.as_view(),
+        name="workspace-members",
+    ),
 ]
