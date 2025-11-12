@@ -384,8 +384,12 @@ class WorkspaceMembersAPITests(TestCase):
         )
 
         # Add memberships
-        WorkspaceMember.objects.create(workspace=workspace, user=owner, role="owner", is_active=True)
-        WorkspaceMember.objects.create(workspace=workspace, user=member, role="member", is_active=True)
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=owner, role="owner", is_active=True
+        )
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=member, role="member", is_active=True
+        )
 
         client = APIClient()
         client.force_authenticate(user=owner)
@@ -404,7 +408,9 @@ class WorkspaceMembersAPITests(TestCase):
 
     def test_workspace_members_non_member_forbidden(self):
         owner = self.User.objects.create(username="owner2", email="owner2@test.com")
-        outsider = self.User.objects.create(username="outsider", email="outsider@test.com")
+        outsider = self.User.objects.create(
+            username="outsider", email="outsider@test.com"
+        )
 
         workspace = Workspace.objects.create(
             name="Other Workspace",
@@ -412,7 +418,9 @@ class WorkspaceMembersAPITests(TestCase):
             created_by=owner,
         )
 
-        WorkspaceMember.objects.create(workspace=workspace, user=owner, role="owner", is_active=True)
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=owner, role="owner", is_active=True
+        )
 
         client = APIClient()
         client.force_authenticate(user=outsider)

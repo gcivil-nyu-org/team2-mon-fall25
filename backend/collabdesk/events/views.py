@@ -314,7 +314,9 @@ class WorkspaceMembersView(APIView):
             # Expect workspace to be set by set_workspace_context (from X-Workspace-ID header)
             if not (hasattr(request, "workspace") and request.workspace):
                 return Response(
-                    {"detail": "Workspace context required. Please provide X-Workspace-ID header."},
+                    {
+                        "detail": "Workspace context required. Please provide X-Workspace-ID header."
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
