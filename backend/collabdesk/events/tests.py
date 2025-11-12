@@ -621,7 +621,9 @@ class RecommendSlotsEdgeCasesTests(TestCase):
         day = base_local.date()
         # Build local-aware datetimes: prev day 23:00 -> today 09:00
         prev_day_date = day - datetime.timedelta(days=1)
-        prev_day = tz.localize(datetime.datetime.combine(prev_day_date, datetime.time(23, 0)))
+        prev_day = tz.localize(
+            datetime.datetime.combine(prev_day_date, datetime.time(23, 0))
+        )
         end_morning = tz.localize(datetime.datetime.combine(day, datetime.time(9, 0)))
 
         # Create overlapping event IN THE SAME WORKSPACE so it is considered
@@ -647,7 +649,11 @@ class RecommendSlotsEdgeCasesTests(TestCase):
 
         # Find morning slot and assert it starts at or after 09:00
         morning = next(
-            (s for s in response.data["recommended_slots"] if s.get("period") == "morning"),
+            (
+                s
+                for s in response.data["recommended_slots"]
+                if s.get("period") == "morning"
+            ),
             None,
         )
         self.assertIsNotNone(morning)
