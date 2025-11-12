@@ -1,13 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Modal } from "./Modal";
-import {
-  addMinutes,
-  format,
-  isValid,
-  parse,
-  set,
-  startOfDay,
-} from "date-fns";
+import { format } from "date-fns";
 import { createEvent, getRecommendedSlots, getWorkspaceMembers } from "../../lib/api";
 
 // Fallback mock team directory (used if API fails)

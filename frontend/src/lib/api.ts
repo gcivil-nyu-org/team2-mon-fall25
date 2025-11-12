@@ -186,7 +186,7 @@ export async function fetchAllUsers(): Promise<User[]> {
 interface CreateWorkspacePayload {
   name: string;
   description?: string;
-  members?: String[]; // optional, can be empty
+  members?: string[]; // optional, can be empty
 }
 
 export async function createWorkspace(
@@ -295,7 +295,16 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
   console.log("Successfully left workspace:", workspaceId);
 }
 
-export async function getRecommendedSlots(date: string, duration: number): Promise<any> {
+export type RecommendedSlotApiResponse = {
+  message?: string;
+  recommended_slots?: {
+    start_time: string; // ISO
+    end_time: string;   // ISO
+    period: string;     // backend-provided label
+  }[];
+};
+
+export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
   );
