@@ -159,6 +159,13 @@ export type User = {
   username: string;
 };
 
+export type WorkspaceMember = {
+  user_id: string; // matches WorkspaceMemberSerializer.user_id
+  username: string;
+  role: string;
+  joined_at: string;
+};
+
 export async function fetchCurrentUser(): Promise<User> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/users/me/`);
   if (!response.ok) {
@@ -179,7 +186,7 @@ export async function fetchAllUsers(): Promise<User[]> {
 interface CreateWorkspacePayload {
   name: string;
   description?: string;
-  members?: String[]; // optional, can be empty
+  members?: string[]; // optional, can be empty
 }
 
 export async function createWorkspace(
@@ -286,5 +293,33 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
   }
 
   console.log("Successfully left workspace:", workspaceId);
+}
+
+export type RecommendedSlotApiResponse = {
+  message?: string;
+  recommended_slots?: {
+    start_time: string; // ISO
+    end_time: string;   // ISO
+    period: string;     // backend-provided label
+  }[];
+};
+
+export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch recommended slots');
+  }
+  return response.json();
+}
+
+export async function getWorkspaceMembers(): Promise<WorkspaceMember[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/workspace/members/`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch workspace members');
+  }
+  return response.json();
 }
 

@@ -1,5 +1,6 @@
 import uuid
 import datetime
+import pytz
 
 from django.utils import timezone
 from django.test import TestCase
@@ -9,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APIClient
 from django.test import override_settings
+from django.conf import settings
 
 
 def createDefaultEvent():
@@ -366,3 +368,296 @@ class EventParticipantModelTest(TestCase):
         response = self.client.post(url, payload, format="json", follow=True)
 
         self.assertEqual(response.status_code, 201)
+
+
+class WorkspaceMembersAPITests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+
+    def test_workspace_members_list_success(self):
+        # Create owner and another member
+        owner = self.User.objects.create(username="owner", email="owner@test.com")
+        member = self.User.objects.create(username="member", email="member@test.com")
+
+        workspace = Workspace.objects.create(
+            name="Team Workspace",
+            description="Test workspace",
+            created_by=owner,
+        )
+
+        # Add memberships
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=owner, role="owner", is_active=True
+        )
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=member, role="member", is_active=True
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=owner)
+
+        url = reverse("events:workspace-members")
+        response = client.get(url, HTTP_X_WORKSPACE_ID=str(workspace.workspace_id))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        # Expect two members
+        self.assertEqual(len(response.data), 2)
+
+        usernames = {m["username"] for m in response.data}
+        self.assertIn("owner", usernames)
+        self.assertIn("member", usernames)
+
+    def test_workspace_members_non_member_forbidden(self):
+        owner = self.User.objects.create(username="owner2", email="owner2@test.com")
+        outsider = self.User.objects.create(
+            username="outsider", email="outsider@test.com"
+        )
+
+        workspace = Workspace.objects.create(
+            name="Other Workspace",
+            description="Test workspace",
+            created_by=owner,
+        )
+
+        WorkspaceMember.objects.create(
+            workspace=workspace, user=owner, role="owner", is_active=True
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=outsider)
+
+        url = reverse("events:workspace-members")
+        response = client.get(url, HTTP_X_WORKSPACE_ID=str(workspace.workspace_id))
+
+        self.assertEqual(response.status_code, 403)
+
+
+class EventAPINegativeAndEdgeTests(TestCase):
+    def setUp(self):
+        # Reuse helper to get a baseline event, user, workspace
+        self.base_event = createDefaultEvent()
+        self.user = self.base_event.created_by
+        self.workspace = self.base_event.workspace
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_post_create_event_without_workspace_header_forbidden(self):
+        created_at = timezone.now()
+        start_time = created_at + datetime.timedelta(hours=2)
+        end_time = start_time + datetime.timedelta(hours=1)
+
+        payload = {
+            "title": "No WS Header Event",
+            "description": "Should be forbidden",
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "event_type": "GROUP",
+            "location": "Library",
+        }
+
+        url = reverse("events:event-list")
+        # No workspace header provided
+        response = self.client.post(url, payload, format="json", follow=True)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_list_events_across_user_workspaces_without_header(self):
+        """When no workspace header is provided, list should aggregate
+        events across all workspaces the user belongs to."""
+        # Create another workspace and add membership for the same user
+        other_ws = Workspace.objects.create(
+            name="Second WS", description="Two", created_by=self.user
+        )
+        WorkspaceMember.objects.create(
+            workspace=other_ws, user=self.user, is_active=True
+        )
+
+        # Create one more event in the other workspace by the same user
+        created_at = timezone.now()
+        start_time = created_at + datetime.timedelta(days=1, hours=1)
+        end_time = start_time + datetime.timedelta(hours=1)
+        Event.objects.create(
+            title="WS2 Event",
+            description="e2",
+            start_time=start_time,
+            end_time=end_time,
+            event_type="GROUP",
+            location="Room B",
+            created_by=self.user,
+            workspace=other_ws,
+        )
+
+        url = reverse("events:event-list")
+        response = self.client.get(url, follow=True)  # No header
+
+        self.assertEqual(response.status_code, 200)
+        # Should at least include both events created above across 2 workspaces
+        self.assertGreaterEqual(len(response.data), 2)
+
+        # Sanity check that titles we created are present
+        titles = {e.get("title") for e in response.data}
+        self.assertIn(self.base_event.title, titles)
+        self.assertIn("WS2 Event", titles)
+
+    def test_update_event_title_success(self):
+        url = reverse("events:event-detail", args=(self.base_event.event_id,))
+        new_title = "Updated Meeting Title"
+        response = self.client.patch(
+            url,
+            {"title": new_title},
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.base_event.refresh_from_db()
+        self.assertEqual(self.base_event.title, new_title)
+
+    def test_update_event_other_user_not_member_404(self):
+        # Create a different user (not a member of the event's workspace)
+        OtherUser = get_user_model()
+        other = OtherUser.objects.create(
+            username=f"other_{uuid.uuid4().hex[:8]}", email="other@test.com"
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=other)
+
+        url = reverse("events:event-detail", args=(self.base_event.event_id,))
+        # Even if header includes workspace id, membership is missing so queryset excludes event
+        response = client.patch(
+            url,
+            {"title": "Try Update"},
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        # Not found (cannot access object outside user's workspaces)
+        self.assertEqual(response.status_code, 404)
+
+    def test_group_events_can_overlap(self):
+        created_at = timezone.now()
+        start_time = created_at + datetime.timedelta(days=1, hours=10)
+        end_time = start_time + datetime.timedelta(hours=2)
+
+        # First create an INDIVIDUAL event at 10-12
+        Event.objects.create(
+            title="Indv",
+            description="First",
+            start_time=start_time,
+            end_time=end_time,
+            event_type="INDIVIDUAL",
+            location="L1",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+
+        # Now try to create a GROUP event that overlaps 11-12 (should be allowed)
+        payload = {
+            "title": "Group Overlap",
+            "description": "Overlap allowed for GROUP",
+            "start_time": (start_time + datetime.timedelta(hours=1)).isoformat(),
+            "end_time": (start_time + datetime.timedelta(hours=2)).isoformat(),
+            "event_type": "GROUP",
+            "location": "L2",
+        }
+        url = reverse("events:event-list")
+        response = self.client.post(
+            url,
+            payload,
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        self.assertEqual(response.status_code, 201)
+
+
+class EventParticipantModelBehaviorTests(TestCase):
+    def test_save_auto_assign_user_from_added_by_when_missing(self):
+        event = createDefaultEvent()
+        added_by = event.created_by
+
+        participant = EventParticipant(
+            event=event,
+            added_by=added_by,
+            # Intentionally omit `user` to exercise save() defaulting logic
+        )
+        participant.save()
+        self.assertEqual(participant.user, added_by)
+
+
+class WorkspaceMembersAuthTests(TestCase):
+    def test_workspace_members_requires_authentication(self):
+        # Prepare a workspace and owner, but do NOT authenticate the request
+        User = get_user_model()
+        owner = User.objects.create(username="ownna", email="ownna@test.com")
+        ws = Workspace.objects.create(
+            name="WS-Auth", description="desc", created_by=owner
+        )
+        WorkspaceMember.objects.create(workspace=ws, user=owner, is_active=True)
+
+        client = APIClient()  # unauthenticated client
+        url = reverse("events:workspace-members")
+        resp = client.get(url, HTTP_X_WORKSPACE_ID=str(ws.workspace_id))
+        # Current view returns 403 when workspace context/auth invalid for this endpoint
+        self.assertEqual(resp.status_code, 403)
+
+
+class RecommendSlotsEdgeCasesTests(TestCase):
+    def setUp(self):
+        self.event = createDefaultEvent()
+        self.user = self.event.created_by
+        self.workspace = self.event.workspace
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_recommend_slots_multiday_overlap(self):
+        """An event from previous day to this morning should block morning slots until it ends."""
+        # Work entirely in the local timezone to avoid UTC/local confusion
+        tz = pytz.timezone(settings.TIME_ZONE)
+        base_local = timezone.localtime(timezone.now() + datetime.timedelta(days=2), tz)
+        day = base_local.date()
+        # Build local-aware datetimes: prev day 23:00 -> today 09:00
+        prev_day_date = day - datetime.timedelta(days=1)
+        prev_day = tz.localize(
+            datetime.datetime.combine(prev_day_date, datetime.time(23, 0))
+        )
+        end_morning = tz.localize(datetime.datetime.combine(day, datetime.time(9, 0)))
+
+        # Create overlapping event IN THE SAME WORKSPACE so it is considered
+        Event.objects.create(
+            title="Overnight",
+            description="prev-day to morning",
+            start_time=prev_day,
+            end_time=end_morning,
+            event_type="GROUP",
+            location="R",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+
+        url = reverse("events:recommend-slots", args=[day.isoformat(), 60])
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("recommended_slots", response.data)
+
+        # Find morning slot and assert it starts at or after 09:00
+        morning = next(
+            (
+                s
+                for s in response.data["recommended_slots"]
+                if s.get("period") == "morning"
+            ),
+            None,
+        )
+        self.assertIsNotNone(morning)
+        start = datetime.datetime.fromisoformat(morning["start_time"])  # aware
+        # Convert to local tz for comparison
+        start_local = start.astimezone(tz)
+        self.assertGreaterEqual(start_local.hour, 9)

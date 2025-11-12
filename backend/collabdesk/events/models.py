@@ -62,7 +62,9 @@ class EventParticipant(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        if not self.user:
+        # Use user_id to avoid RelatedObjectDoesNotExist when unset.
+        # Auto-assign participant's user to added_by if not explicitly provided.
+        if self.user_id is None:
             self.user = self.added_by
         super().save(*args, **kwargs)
 
