@@ -25,6 +25,8 @@ import { LandingPage } from "./components/landing/LandingPage";
 import { Modal } from "./components/modals/Modal";
 import { WorkspaceActionModal } from "./components/modals/WorkspaceActionModal";
 import { JoinWorkspaceModal } from "./components/modals/JoinWorkspaceModal";
+import { Notes } from "./components/notes/Notes";
+import { Chat } from "./components/chat/Chat";
 
 type CalRoute =
   | "dashboard"
@@ -468,17 +470,22 @@ export default function App() {
             <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
+          ) : current === "notes" ? (
+            <Notes />
           ) : current === "tasks" ? (
             <Tasks />
           ) : current === "resources" ? (
             <Resources />
           ) : current === "message" ? (
             <MessageBoard openThreadMessageId={openThreadMessageId} />
-          ) : (
-            <div className="rounded-2xl border border-dashed border-zinc-300 p-8 text-zinc-500 dark:border-zinc-800">
-              {current.toUpperCase()} section
-            </div>
-          )}
+          ) : current === "chat" ? (
+            <>
+              <header className="mb-3">
+                <h1 className="text-2xl font-semibold">AI Chat</h1>
+              </header>
+              <Chat />
+            </>
+          ) : null}
         </main>
 
         {/* Agenda only for Calendar */}

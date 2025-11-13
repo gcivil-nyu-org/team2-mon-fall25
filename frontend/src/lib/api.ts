@@ -63,7 +63,7 @@ export function isTokenReady(): boolean {
   return isTokenGetterReady;
 }
 
-async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
@@ -286,5 +286,136 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
   }
 
   console.log("Successfully left workspace:", workspaceId);
+}
+
+// Workspace Members Management
+const USE_MOCK_MEMBERS = true; // Set to false when backend is ready
+const MEMBERS_STORAGE_KEY_PREFIX = 'collabdesk-workspace-members-';
+
+export type WorkspaceMember = {
+  id: number;
+  user_id: string;
+  email: string;
+  full_name: string;
+  profile_picture: string | null;
+  username: string;
+  role?: 'owner' | 'member';
+  joined_at?: string;
+};
+
+// Mock data helpers
+function getMembersStorageKey(workspaceId: string): string {
+  return `${MEMBERS_STORAGE_KEY_PREFIX}${workspaceId}`;
+}
+
+function getMembersFromStorage(workspaceId: string): WorkspaceMember[] {
+  const stored = localStorage.getItem(getMembersStorageKey(workspaceId));
+  return stored ? JSON.parse(stored) : [];
+}
+
+function saveMembersToStorage(workspaceId: string, members: WorkspaceMember[]): void {
+  localStorage.setItem(getMembersStorageKey(workspaceId), JSON.stringify(members));
+}
+
+/**
+ * Fetch all members of a workspace
+ */
+export async function fetchWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
+  if (USE_MOCK_MEMBERS) {
+    // Check if we have mock data, if not initialize with current user as owner
+    let members = getMembersFromStorage(workspaceId);
+    if (members.length === 0) {
+      try {
+        const currentUser = await fetchCurrentUser();
+        members = [{
+          ...currentUser,
+          role: 'owner',
+          joined_at: new Date().toISOString(),
+        }];
+        saveMembersToStorage(workspaceId, members);
+      } catch (err) {
+        console.warn('Could not fetch current user for mock members');
+      }
+    }
+    return members;
+  }
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/members/`
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch workspace members');
+  }
+
+  return response.json();
+}
+
+/**
+ * Add members to a workspace
+ */
+export async function addWorkspaceMembers(
+  workspaceId: string,
+  userIds: string[]
+): Promise<void> {
+  if (USE_MOCK_MEMBERS) {
+    const currentMembers = getMembersFromStorage(workspaceId);
+    const allUsers = await fetchAllUsers();
+
+    // Filter users to add (not already members)
+    const newMembers: WorkspaceMember[] = allUsers
+      .filter(user => userIds.includes(user.user_id))
+      .filter(user => !currentMembers.some(m => m.user_id === user.user_id))
+      .map(user => ({
+        ...user,
+        role: 'member',
+        joined_at: new Date().toISOString(),
+      }));
+
+    const updatedMembers = [...currentMembers, ...newMembers];
+    saveMembersToStorage(workspaceId, updatedMembers);
+    return;
+  }
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/members/add/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_ids: userIds }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to add workspace members');
+  }
+}
+
+/**
+ * Remove a member from a workspace
+ */
+export async function removeWorkspaceMember(
+  workspaceId: string,
+  userId: string
+): Promise<void> {
+  if (USE_MOCK_MEMBERS) {
+    const currentMembers = getMembersFromStorage(workspaceId);
+    const updatedMembers = currentMembers.filter(m => m.user_id !== userId);
+    saveMembersToStorage(workspaceId, updatedMembers);
+    return;
+  }
+
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/workspaces/${workspaceId}/members/${userId}/`,
+    {
+      method: 'DELETE',
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to remove workspace member');
+  }
 }
 
