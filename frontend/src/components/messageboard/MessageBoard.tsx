@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import type { Message } from "./MessageBoardApi";
+import { useAuth0 } from "@auth0/auth0-react";
+import { fetchAllUsers } from "../../lib/api";
+import type { User as ApiUser } from "../../lib/api";
 import {
   getMessages,
   createMessage,
@@ -8,8 +11,8 @@ import {
   addReaction,
   removeReaction,
   searchMessages,
-  CURRENT_USER,
   extractMentions,
+  getMessage,
 } from "./MessageBoardApi";
 import { MessageFeed } from "./MessageFeed";
 import { MessageComposer } from "./MessageComposer";
@@ -26,11 +29,21 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const messageEndRef = useRef<HTMLDivElement>(null);
+  const { user, getAccessTokenSilently } = useAuth0();
+  console.log("Auth0 user object:", user);
+  const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
+  const currentUser = {
+    id: user?.sub ?? "", // Auth0 Sub ID
+    name: user?.name ?? user?.email ?? "Unknown User", // Display name
+    email: user?.email ?? "", // Logged-in user's email
+  };
 
   // Load messages on mount
   useEffect(() => {
+  if (userMap.size > 0) {
     loadMessages();
-  }, []);
+  }
+}, [searchQuery, userMap]);
 
   // Open thread when openThreadMessageId is provided
   useEffect(() => {
@@ -41,31 +54,67 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       }
     }
   }, [openThreadMessageId, messages]);
+  useEffect(() => {
+    const loadAllUsers = async () => {
+        try {
+            const usersData = await fetchAllUsers(); 
+            const map = new Map<string, string>();
+            usersData.forEach((u: ApiUser) => {
+                map.set(String(u.id), u.full_name); 
+            });
+            setUserMap(map);
+        } catch (error) {
+            console.error("Failed to load all users:", error);
+        }
+    };
+    loadAllUsers();
+}, []);
 
   const loadMessages = async () => {
+    const currentUserId = currentUser.id; 
     try {
       setIsLoading(true);
-      const data = searchQuery.trim()
+      const data = searchQuery
         ? await searchMessages(searchQuery)
         : await getMessages();
-      setMessages(data);
+      const cleanedMessages = data.map(m => {
+          const displayAuthorName = userMap.get(m.authorId) || m.author;
+          const isCurrentUserMessage = m.authorId === currentUserId; 
+          const finalAuthorName = isCurrentUserMessage ? currentUser.name : displayAuthorName;
+          return { 
+              ...m, 
+              authorId: isCurrentUserMessage ? currentUserId : m.authorId,
+              author: finalAuthorName 
+          };
+        });
+      setMessages(cleanedMessages);
     } catch (error) {
       console.error("Failed to load messages:", error);
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Reload messages when search query changes
-  useEffect(() => {
-    loadMessages();
-  }, [searchQuery]);
-
+  
   const handleSendMessage = async (content: string, mentions: string[]) => {
+    if (!content.trim()) return;
+
     try {
       setIsSending(true);
-      const newMessage = await createMessage(content, mentions);
-      setMessages((prev) => [...prev, newMessage]);
+      const token = await getAccessTokenSilently();
+
+      const newMessage = await createMessage(
+        content,
+        mentions,
+        null,
+        token
+      );
+      const messageWithAuthor = {
+        ...newMessage,
+        authorId: currentUser.id,
+        author: "You", 
+      };
+      setMessages((prev) => [...prev, messageWithAuthor]);
+    
     } catch (error) {
       console.error("Failed to send message:", error);
       alert("Failed to send message. Please try again.");
@@ -75,17 +124,28 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   };
 
   const handleEditMessage = async (id: string, content: string) => {
+    const originalMessage = messages.find(m => m.id === id);
+    if (!originalMessage || originalMessage.content === content) return;
+
     try {
-      const mentions = extractMentions(content);
-      const updatedMessage = await updateMessage(id, content, mentions);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? updatedMessage : m))
-      );
+        const token = await getAccessTokenSilently(); 
+        const mentions = extractMentions(content);
+        const updatedMessage = await updateMessage(id, content, mentions, token); 
+        const messageWithAuthorFix = {
+            ...updatedMessage,
+            authorId: currentUser.id, 
+            author: currentUser.name, 
+            reactions: originalMessage.reactions,
+        };
+        
+        setMessages((prev) =>
+          prev.map((m) => (m.id === id ? messageWithAuthorFix : m))
+        );
+        
     } catch (error) {
-      console.error("Failed to edit message:", error);
-      alert("Failed to edit message. Please try again.");
+        console.error("Error updating message:", error);
     }
-  };
+};
 
   const handleDeleteMessage = async (id: string) => {
     setDeleteConfirmId(id);
@@ -94,42 +154,106 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
 
-    try {
-      setIsDeleting(true);
-      await deleteMessage(deleteConfirmId);
-      setMessages((prev) => prev.filter((m) => m.id !== deleteConfirmId));
-      setDeleteConfirmId(null);
-    } catch (error) {
-      console.error("Failed to delete message:", error);
-      alert("Failed to delete message. Please try again.");
-    } finally {
-      setIsDeleting(false);
-    }
+  setIsDeleting(true);
+  try {
+   
+    const token = await getAccessTokenSilently(); 
+    await deleteMessage(deleteConfirmId, token); 
+    setMessages((prev) => prev.filter((m) => m.id !== deleteConfirmId));
+    setDeleteConfirmId(null);
+  } catch (error) {
+    console.error("Error deleting message:", error);
+  } finally {
+    setIsDeleting(false);
+  }
   };
 
-  const handleReaction = async (messageId: string, emoji: string) => {
-    try {
-      const message = messages.find((m) => m.id === messageId);
-      if (!message) return;
+const handleReaction = async (messageId: string, emoji: string) => {
+  const messageToUpdate = messages.find((m) => m.id === messageId);
+  if (!messageToUpdate) return;
+  const hasReacted = messageToUpdate.reactions.some(
+    (r) => r.emoji === emoji && r.users.includes(currentUser.id)
+  );
+  setMessages((prev) =>
+    prev.map((m) => {
+      if (m.id !== messageId) return m;
 
-      // Check if user already reacted with this emoji
-      const reaction = message.reactions.find((r) => r.emoji === emoji);
-      const hasReacted = reaction?.users.includes(CURRENT_USER.name);
+      let newReactions = [...m.reactions];
 
-      let updatedMessage: Message;
       if (hasReacted) {
-        // Remove reaction
-        updatedMessage = await removeReaction(messageId, emoji, CURRENT_USER.name);
+        newReactions = newReactions
+          .map((r) =>
+            r.emoji === emoji
+              ? {
+                  ...r,
+                  users: r.users.filter((u) => u !== currentUser.id),
+                  count: r.users.filter((u) => u !== currentUser.id).length,
+                }
+              : r
+          )
+          .filter((r) => r.count > 0);
       } else {
-        // Add reaction
-        updatedMessage = await addReaction(messageId, emoji, CURRENT_USER.name);
+        const existing = newReactions.find((r) => r.emoji === emoji);
+        if (existing) {
+          if (!existing.users.includes(currentUser.id)) {
+            existing.users.push(currentUser.id);
+            existing.count = existing.users.length;
+          }
+        } else {
+          newReactions.push({ emoji, users: [currentUser.id], count: 1 });
+        }
       }
 
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? updatedMessage : m))
-      );
+      return { ...m, reactions: newReactions };
+    })
+  );
+
+  try {
+    const token = await getAccessTokenSilently();
+    let updatedMessageFromServer: Message;
+    if (hasReacted) {
+      updatedMessageFromServer = await removeReaction(messageId, emoji, token);
+    } else {
+      updatedMessageFromServer = await addReaction(messageId, emoji, token);
+    }
+    setMessages((prev) =>
+        prev.map((m) =>
+            m.id === messageId
+                ? { ...updatedMessageFromServer, author: m.author } 
+                : m
+        )
+    );
+  } catch (error) {
+    console.error("Failed to persist message reaction:", error);
+  }
+};
+
+const handleUpdate = async () => {
+    
+    if (!threadMessage) return; 
+   
+    const currentParentMessage = messages.find(m => m.id === threadMessage.id);
+    const preservedReactions = currentParentMessage ? currentParentMessage.reactions : [];
+    try {
+      const latestParentMessage = await getMessage(threadMessage.id);
+      if (latestParentMessage) {
+        const isCurrentUserAuthor = latestParentMessage.authorId === currentUser.id;
+        const fixedParentMessage = {
+          ...latestParentMessage,
+          authorId: isCurrentUserAuthor ? currentUser.id : latestParentMessage.authorId, 
+          author: isCurrentUserAuthor ?currentUser.name : latestParentMessage.author, 
+          reactions: preservedReactions,
+        };
+
+        setMessages((prev) => 
+          prev.map((m) => 
+            m.id === fixedParentMessage.id ? fixedParentMessage : m
+          )
+        );
+        setThreadMessage(fixedParentMessage);
+      }
     } catch (error) {
-      console.error("Failed to update reaction:", error);
+      console.error("Failed to update parent message in board:", error);
     }
   };
 
@@ -165,6 +289,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
           onDelete={handleDeleteMessage}
           onReaction={handleReaction}
           onReply={(message) => setThreadMessage(message)}
+          currentUser={currentUser}
         />
         <div ref={messageEndRef} />
       </div>
@@ -296,7 +421,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
         open={threadMessage !== null}
         onClose={() => setThreadMessage(null)}
         parentMessage={threadMessage}
-        onUpdate={loadMessages}
+        onUpdate={handleUpdate}
       />
     </div>
   );
