@@ -8,7 +8,6 @@ from messageboard.serializers import SimpleUserSerializer, MessageSerializer
 
 # Then define User model
 User = get_user_model()
-# Helper function (keep this simple setup)
 
 
 def create_auth_user(auth0_sub, **kwargs):
@@ -21,7 +20,7 @@ def create_auth_user(auth0_sub, **kwargs):
     return User.objects.create(
         auth0_sub=auth0_sub,
         username=username,
-        email=email,  # <-- FIX: Now passing a unique email
+        email=email,
         **kwargs,
     )
 
@@ -31,15 +30,9 @@ class SimpleAPITests(APITestCase):
         self.user1 = create_auth_user("auth0|u1")
         self.user2 = create_auth_user("auth0|u2")
         self.message = Message.objects.create(author=self.user1, content="Hello")
-        self.detail_url = reverse(
-            "message-detail", kwargs={"pk": self.message.pk}
-        )
-        self.list_url = reverse(
-            "message-list-create" # Used for LIST calls in this class
-        )
-        self.reaction_url = reverse(
-            "reaction-toggle", kwargs={"pk": self.message.pk}
-        )
+        self.detail_url = reverse("message-detail", kwargs={"pk": self.message.pk})
+        self.list_url = reverse("message-list-create")
+        self.reaction_url = reverse("reaction-toggle", kwargs={"pk": self.message.pk})
 
     # --- MessageDetailView (IsAuthorOrReadOnly) ---
 
