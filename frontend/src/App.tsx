@@ -27,6 +27,7 @@ import { WorkspaceActionModal } from "./components/modals/WorkspaceActionModal";
 import { JoinWorkspaceModal } from "./components/modals/JoinWorkspaceModal";
 import { Notes } from "./components/notes/Notes";
 import { Chat } from "./components/chat/Chat";
+import { Toaster, toast } from "sonner";
 
 type CalRoute =
   | "dashboard"
@@ -321,13 +322,13 @@ export default function App() {
       setSelectedEventForDetails(null);
     } catch (error) {
       console.error("Failed to delete event:", error);
-      alert("Failed to delete event. Please try again.");
+      toast.error("Failed to delete event. Please try again.");
     }
   };
 
   // Leave workspace logic
   const handleLeaveWorkspace = (id: string) => {
-    alert(`You have left workspace: ${id}`);
+    toast.success(`You have left workspace: ${id}`);
     setWorkspace("");
     setCurrent("dashboard");
   };
@@ -355,7 +356,7 @@ export default function App() {
       setSelected([]);
     } catch (error) {
       console.error("Error creating workspace:", error);
-      alert("Failed to create workspace. Please try again.");
+      toast.error("Failed to create workspace. Please try again.");
     }
   };
 
@@ -374,7 +375,7 @@ export default function App() {
       setWorkspace(joinedWorkspace.workspace_id);
     } catch (error) {
       console.error("Error joining workspace:", error);
-      alert("Failed to join workspace. Please check the code and try again.");
+      toast.error("Failed to join workspace. Please check the code and try again.");
     }
   };
 
@@ -630,6 +631,24 @@ export default function App() {
           />
         </>
       )}
+
+      {/* Toast Notifications */}
+      <Toaster
+        position="top-right"
+        expand={false}
+        richColors
+        closeButton
+        toastOptions={{
+          classNames: {
+            toast: 'rounded-xl border-zinc-200 dark:border-zinc-800',
+            title: 'text-sm font-medium',
+            description: 'text-sm text-zinc-600 dark:text-zinc-400',
+            success: 'bg-white dark:bg-zinc-900',
+            error: 'bg-white dark:bg-zinc-900',
+            info: 'bg-white dark:bg-zinc-900',
+          },
+        }}
+      />
     </div>
   );
 }

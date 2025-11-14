@@ -10,6 +10,7 @@ interface ChatWindowProps {
   currentDocument: Document | null;
   onUpload: (file: File, actionType: 'summary' | 'plan') => void;
   isUploading: boolean;
+  onNewChat: () => void;
 }
 
 export function ChatWindow({
@@ -20,6 +21,7 @@ export function ChatWindow({
   currentDocument,
   onUpload,
   isUploading,
+  onNewChat,
 }: ChatWindowProps) {
   const [actionType, setActionType] = useState<'summary' | 'plan' | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

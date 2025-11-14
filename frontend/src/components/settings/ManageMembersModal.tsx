@@ -5,7 +5,7 @@ import {
   fetchAllUsers,
   addWorkspaceMembers,
   removeWorkspaceMember,
-  type WorkspaceMember,
+  type WorkspaceMemberExtended,
   type User,
 } from '../../lib/api';
 
@@ -24,7 +24,7 @@ export function ManageMembersModal({
   currentUserId,
   isOwner,
 }: ManageMembersModalProps) {
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [members, setMembers] = useState<WorkspaceMemberExtended[]>([]);
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());

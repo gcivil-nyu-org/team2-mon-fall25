@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChatWindow } from './ChatWindow';
 import { RecentConversationsSidebar } from './RecentConversationsSidebar';
 import { SaveToNotesModal } from './SaveToNotesModal';
+import { NewChatModal } from './NewChatModal';
 import { ChatApi } from './ChatApi';
 import { NotesApi } from '../notes/NotesApi';
 import type { Conversation, Document, Message } from './types';
@@ -21,6 +22,7 @@ export function Chat() {
   // Modal state
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [messageToSave, setMessageToSave] = useState<Message | null>(null);
+  const [newChatModalOpen, setNewChatModalOpen] = useState(false);
 
   // Load conversations on mount
   useEffect(() => {
@@ -189,12 +191,28 @@ export function Chat() {
   // Handle new chat
   const handleNewChat = () => {
     if (currentDocument || messages.length > 0) {
-      if (window.confirm('Start a new chat? The current conversation will be saved.')) {
-        setActiveConversation(null);
-        setMessages([]);
-        setCurrentDocument(null);
-      }
+      setNewChatModalOpen(true);
     }
+  };
+
+  // Handle save and new chat
+  const handleSaveAndNewChat = () => {
+    // Conversation is already auto-saved, just reset state
+    setActiveConversation(null);
+    setMessages([]);
+    setCurrentDocument(null);
+  };
+
+  // Handle discard and new chat
+  const handleDiscardAndNewChat = async () => {
+    // Delete the current conversation
+    if (activeConversation) {
+      await handleDeleteConversation(activeConversation.id);
+    }
+    // Reset state for new chat
+    setActiveConversation(null);
+    setMessages([]);
+    setCurrentDocument(null);
   };
 
   // Handle delete conversation
@@ -234,10 +252,19 @@ export function Chat() {
         {/* Main Chat Card */}
         <div className="flex-1 flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden min-h-[700px]">
           {currentDocument && (
-            <div className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4">
+            <div className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 📄 {currentDocument.name}
               </p>
+              <button
+                onClick={handleNewChat}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Chat
+              </button>
             </div>
           )}
 
@@ -261,6 +288,7 @@ export function Chat() {
               currentDocument={currentDocument}
               onUpload={handleDocumentUpload}
               isUploading={isUploading}
+              onNewChat={handleNewChat}
             />
           )}
         </div>
@@ -280,6 +308,15 @@ export function Chat() {
         onClose={() => setSaveModalOpen(false)}
         onSave={handleSaveToNotesConfirm}
         message={messageToSave}
+        documentName={currentDocument?.name}
+      />
+
+      {/* New Chat Modal */}
+      <NewChatModal
+        isOpen={newChatModalOpen}
+        onClose={() => setNewChatModalOpen(false)}
+        onSave={handleSaveAndNewChat}
+        onDiscard={handleDiscardAndNewChat}
         documentName={currentDocument?.name}
       />
     </div>

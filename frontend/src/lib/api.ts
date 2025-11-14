@@ -159,6 +159,13 @@ export type User = {
   username: string;
 };
 
+export type WorkspaceMember = {
+  user_id: string; // matches WorkspaceMemberSerializer.user_id
+  username: string;
+  role: string;
+  joined_at: string;
+};
+
 export async function fetchCurrentUser(): Promise<User> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/users/me/`);
   if (!response.ok) {
@@ -179,7 +186,7 @@ export async function fetchAllUsers(): Promise<User[]> {
 interface CreateWorkspacePayload {
   name: string;
   description?: string;
-  members?: String[]; // optional, can be empty
+  members?: string[]; // optional, can be empty
 }
 
 export async function createWorkspace(
@@ -292,7 +299,7 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
 const USE_MOCK_MEMBERS = true; // Set to false when backend is ready
 const MEMBERS_STORAGE_KEY_PREFIX = 'collabdesk-workspace-members-';
 
-export type WorkspaceMember = {
+export type WorkspaceMemberExtended = {
   id: number;
   user_id: string;
   email: string;
@@ -308,19 +315,19 @@ function getMembersStorageKey(workspaceId: string): string {
   return `${MEMBERS_STORAGE_KEY_PREFIX}${workspaceId}`;
 }
 
-function getMembersFromStorage(workspaceId: string): WorkspaceMember[] {
+function getMembersFromStorage(workspaceId: string): WorkspaceMemberExtended[] {
   const stored = localStorage.getItem(getMembersStorageKey(workspaceId));
   return stored ? JSON.parse(stored) : [];
 }
 
-function saveMembersToStorage(workspaceId: string, members: WorkspaceMember[]): void {
+function saveMembersToStorage(workspaceId: string, members: WorkspaceMemberExtended[]): void {
   localStorage.setItem(getMembersStorageKey(workspaceId), JSON.stringify(members));
 }
 
 /**
- * Fetch all members of a workspace
+ * Fetch all members of a workspace (for Settings page)
  */
-export async function fetchWorkspaceMembers(workspaceId: string): Promise<WorkspaceMember[]> {
+export async function fetchWorkspaceMembers(workspaceId: string): Promise<WorkspaceMemberExtended[]> {
   if (USE_MOCK_MEMBERS) {
     // Check if we have mock data, if not initialize with current user as owner
     let members = getMembersFromStorage(workspaceId);
@@ -363,12 +370,12 @@ export async function addWorkspaceMembers(
     const allUsers = await fetchAllUsers();
 
     // Filter users to add (not already members)
-    const newMembers: WorkspaceMember[] = allUsers
+    const newMembers: WorkspaceMemberExtended[] = allUsers
       .filter(user => userIds.includes(user.user_id))
       .filter(user => !currentMembers.some(m => m.user_id === user.user_id))
       .map(user => ({
         ...user,
-        role: 'member',
+        role: 'member' as const,
         joined_at: new Date().toISOString(),
       }));
 
@@ -417,5 +424,37 @@ export async function removeWorkspaceMember(
   if (!response.ok) {
     throw new Error('Failed to remove workspace member');
   }
+}
+
+// Calendar Recommended Slots API
+export type RecommendedSlotApiResponse = {
+  message?: string;
+  recommended_slots?: {
+    start_time: string; // ISO
+    end_time: string;   // ISO
+    period: string;     // backend-provided label
+  }[];
+};
+
+export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch recommended slots');
+  }
+  return response.json();
+}
+
+/**
+ * Get workspace members for calendar events (simpler version)
+ */
+export async function getWorkspaceMembers(): Promise<WorkspaceMember[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/workspace/members/`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch workspace members');
+  }
+  return response.json();
 }
 
