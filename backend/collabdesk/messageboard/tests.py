@@ -11,9 +11,19 @@ User = get_user_model()
 # Helper function (keep this simple setup)
 
 
-def create_auth_user(auth0_sub):
-    """Creates a user with a required auth0_sub for testing."""
-    return User.objects.create(auth0_sub=auth0_sub, username=f"user_{auth0_sub[-4:]}")
+def create_auth_user(auth0_sub, **kwargs):
+    """Creates a user with unique username and email."""
+    # Ensure a unique username is always created
+    username = kwargs.pop('username', f"user_{auth0_sub[-4:]}")
+    # Ensure a unique email is always created to satisfy the UNIQUE constraint
+    email = kwargs.pop('email', f"{auth0_sub}@test.com") 
+    
+    return User.objects.create(
+        auth0_sub=auth0_sub, 
+        username=username, 
+        email=email, # <-- FIX: Now passing a unique email
+        **kwargs
+    )
 
 
 class SimpleAPITests(APITestCase):
@@ -22,11 +32,11 @@ class SimpleAPITests(APITestCase):
         self.user2 = create_auth_user("auth0|u2")
         self.message = Message.objects.create(author=self.user1, content="Hello")
         self.detail_url = reverse(
-            "messageboard:message-detail", kwargs={"pk": self.message.pk}
+            "message-detail", kwargs={"pk": self.message.pk}
         )
-        self.list_url = reverse("messageboard:message-list")
+        self.list_url = reverse("message-list")
         self.reaction_url = reverse(
-            "messageboard:reaction-toggle", kwargs={"pk": self.message.pk}
+            "reaction-toggle", kwargs={"pk": self.message.pk}
         )
 
     # --- MessageDetailView (IsAuthorOrReadOnly) ---
