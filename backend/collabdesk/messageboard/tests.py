@@ -3,8 +3,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
-from collabdesk.messageboard.models import Message, Reaction
-from collabdesk.messageboard.serializers import SimpleUserSerializer, MessageSerializer
+from messageboard.models import Message, Reaction
+from messageboard.serializers import SimpleUserSerializer, MessageSerializer
 
 # Then define User model
 User = get_user_model()
