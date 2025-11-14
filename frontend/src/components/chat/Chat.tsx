@@ -34,8 +34,8 @@ export function Chat() {
     try {
       const data = await ChatApi.getConversations();
       setConversations(data);
-    } catch (err) {
-      console.error('Failed to load conversations:', err);
+    } catch (_err) {
+      console.error('Failed to load conversations:', _err);
     }
   };
 
@@ -226,16 +226,9 @@ export function Chat() {
         setMessages([]);
         setCurrentDocument(null);
       }
-    } catch (err) {
+    } catch {
       alert('Failed to delete conversation');
     }
-  };
-
-  // Handle remove document
-  const handleRemoveDocument = () => {
-    setCurrentDocument(null);
-    setActiveConversation(null);
-    setMessages([]);
   };
 
   // Show chat interface
@@ -288,7 +281,6 @@ export function Chat() {
               currentDocument={currentDocument}
               onUpload={handleDocumentUpload}
               isUploading={isUploading}
-              onNewChat={handleNewChat}
             />
           )}
         </div>
