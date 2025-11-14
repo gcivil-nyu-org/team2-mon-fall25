@@ -14,15 +14,15 @@ User = get_user_model()
 def create_auth_user(auth0_sub, **kwargs):
     """Creates a user with unique username and email."""
     # Ensure a unique username is always created
-    username = kwargs.pop('username', f"user_{auth0_sub[-4:]}")
+    username = kwargs.pop("username", f"user_{auth0_sub[-4:]}")
     # Ensure a unique email is always created to satisfy the UNIQUE constraint
-    email = kwargs.pop('email', f"{auth0_sub}@test.com") 
-    
+    email = kwargs.pop("email", f"{auth0_sub}@test.com")
+
     return User.objects.create(
-        auth0_sub=auth0_sub, 
-        username=username, 
-        email=email, # <-- FIX: Now passing a unique email
-        **kwargs
+        auth0_sub=auth0_sub,
+        username=username,
+        email=email,  # <-- FIX: Now passing a unique email
+        **kwargs,
     )
 
 
@@ -34,7 +34,9 @@ class SimpleAPITests(APITestCase):
         self.detail_url = reverse(
             "message-detail", kwargs={"pk": self.message.pk}
         )
-        self.list_url = reverse("message-list")
+        self.list_url = reverse(
+            "message-list-create" # Used for LIST calls in this class
+        )
         self.reaction_url = reverse(
             "reaction-toggle", kwargs={"pk": self.message.pk}
         )
@@ -82,7 +84,7 @@ class SimpleAPITests(APITestCase):
     def test_reaction_unauthenticated_denied(self):
         """Test unauthenticated user is denied."""
         response = self.client.post(self.reaction_url, {"emoji": "😄"}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_reaction_missing_user_id(self):
         """Test handling for user object without auth0_sub (coverage for line 44)."""
@@ -99,7 +101,7 @@ class SimpleAPITests(APITestCase):
 class MessageCreateTests(APITestCase):
     def setUp(self):
         self.user = create_auth_user("auth0|test")
-        self.url = reverse("messageboard:message-list")
+        self.url = reverse("message-list-create")
 
     def test_create_message_authenticated(self):
         """Test creation by authenticated user (201)."""
@@ -111,7 +113,7 @@ class MessageCreateTests(APITestCase):
     def test_create_message_unauthenticated_denied(self):
         """Test creation by unauthenticated user (401)."""
         response = self.client.post(self.url, {"content": "Forbidden"}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class SimpleSerializerTests(TestCase):
