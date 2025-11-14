@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "./MessageBoardApi";
 import { useAuth0 } from "@auth0/auth0-react";
 import { fetchAllUsers } from "../../lib/api";
@@ -11,6 +11,7 @@ import {
   addReaction,
   removeReaction,
   searchMessages,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extractMentions,
   getMessage,
 } from "./MessageBoardApi";
@@ -30,20 +31,13 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const [showSearch, setShowSearch] = useState(false);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
-  console.log("Auth0 user object:", user);
+  // console.log("Auth0 user object:", user);
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
-  const currentUser = {
+  const currentUser = useMemo(() => ({
     id: user?.sub ?? "", // Auth0 Sub ID
     name: user?.name ?? user?.email ?? "Unknown User", // Display name
     email: user?.email ?? "", // Logged-in user's email
-  };
-
-  // Load messages on mount
-  useEffect(() => {
-  if (userMap.size > 0) {
-    loadMessages();
-  }
-}, [searchQuery, userMap]);
+  }), [user]);  
 
   // Open thread when openThreadMessageId is provided
   useEffect(() => {
@@ -70,7 +64,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     loadAllUsers();
 }, []);
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     const currentUserId = currentUser.id; 
     try {
       setIsLoading(true);
@@ -93,8 +87,13 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  }, [searchQuery, userMap, currentUser]);
+  useEffect(() => {
+  if (userMap.size > 0) {
+    loadMessages();
+  }
+}, [searchQuery, userMap, currentUser]);
+
   const handleSendMessage = async (content: string, mentions: string[]) => {
     if (!content.trim()) return;
 
@@ -111,7 +110,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       const messageWithAuthor = {
         ...newMessage,
         authorId: currentUser.id,
-        author: "You", 
+        author: currentUser.name, 
       };
       setMessages((prev) => [...prev, messageWithAuthor]);
     

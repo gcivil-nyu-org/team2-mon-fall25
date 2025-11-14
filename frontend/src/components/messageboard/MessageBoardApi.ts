@@ -37,8 +37,8 @@ export const getMessage = async (id: string): Promise<Message | null> => {
   try {
     const { data } = await axios.get(`${API_URL}/api/messageboard/messages/${id}/`);
     return transformMessage(data);
-  } catch (err: any) {
-    if (err.response?.status === 404) return null;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return null;
     throw err;
   }
 };
@@ -50,8 +50,8 @@ export const getReplies = async (parentId: string): Promise<Message[]> => {
     return (data.replies || [])
       .map(transformMessage)
       .sort((a: Message, b: Message) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  } catch (err: any) {
-    if (err.response?.status === 404) return [];
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return [];
     throw err;
   }
 };
@@ -154,6 +154,7 @@ export const searchMessages = async (query: string): Promise<Message[]> => {
 // ======================
 
 // Transform backend message format to frontend format
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const transformMessage = (msg: any): Message => {
   const authorEmail = msg.user?.name || "unknown@example.com";
   const authorId = msg.user?.id.toString() || "unknown";
@@ -165,8 +166,10 @@ const transformMessage = (msg: any): Message => {
     authorId: authorId,
     authorEmail: authorEmail,
     timestamp: msg.createdAt,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     reactions: (msg.reactions || []).map((r: any) => ({
       emoji: r.emoji,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       users: (r.users || []).map((u: any) => u.id.toString()), 
       count: (r.users || []).length,
     })),

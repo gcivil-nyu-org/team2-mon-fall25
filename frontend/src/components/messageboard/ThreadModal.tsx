@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "./MessageBoardApi";
 import { useAuth0 } from "@auth0/auth0-react";
 import {
@@ -8,6 +8,7 @@ import {
   deleteMessage,
   addReaction,
   removeReaction,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extractMentions,
   formatRelativeTime,
 } from "./MessageBoardApi";
@@ -35,31 +36,31 @@ export function ThreadModal({
   const repliesEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
   const [parent, setParent] = useState<Message | null>(parentMessage);
-  const CURRENT_USER = {
+  const CURRENT_USER = useMemo(() => ({
     id: user?.sub ?? "",  // Auth0 sub is the unique ID
     name: user?.name ?? user?.nickname ?? user?.email ?? "Unknown User",
     email: user?.email ?? "", 
-  };
+  }), [user]);
   useEffect(() => {
   setParent(parentMessage);
 }, [parentMessage]);
 
-  useEffect(() => {
-    if (open && parentMessage) {
-      loadReplies();
-    } else {
-      setReplies([]);
-      setReplyContent("");
-    }
-  }, [open, parentMessage]);
+  // useEffect(() => {
+  //   if (open && parentMessage) {
+  //     loadReplies();
+  //   } else {
+  //     setReplies([]);
+  //     setReplyContent("");
+  //   }
+  // }, [open, parentMessage]);
 
-  useEffect(() => {
-    if (repliesEndRef.current) {
-      repliesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [replies.length]);
+  // useEffect(() => {
+  //   if (repliesEndRef.current) {
+  //     repliesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  //   }
+  // }, [replies.length]);
 
-  const loadReplies = async () => {
+  const loadReplies = useCallback(async () => {
     if (!parentMessage) return;
     try {
       setIsLoading(true);
@@ -70,8 +71,23 @@ export function ThreadModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [parentMessage, getAccessTokenSilently, CURRENT_USER]);
 
+  useEffect(() => {
+    if (open && parentMessage) {
+      loadReplies();
+    } else {
+      setReplies([]);
+      setReplyContent("");
+    }
+  }, [open, parentMessage, loadReplies]);
+ 
+  useEffect(() => {
+    if (repliesEndRef.current) {
+      repliesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [replies.length]);
+  
   const handleSendReply = async () => {
   if (!replyContent.trim() || !parentMessage || isSending) return;
 
