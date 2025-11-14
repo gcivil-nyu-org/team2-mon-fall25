@@ -89,7 +89,7 @@ export const updateMessage = async (
 
   const { data } = await axios.patch(
     `${API_URL}/api/messageboard/messages/${id}/`,
-    { content },
+    { content, mentions },
     config 
   );
   return transformMessage(data);

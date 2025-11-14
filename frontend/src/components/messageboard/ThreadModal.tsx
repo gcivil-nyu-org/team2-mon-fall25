@@ -8,7 +8,6 @@ import {
   deleteMessage,
   addReaction,
   removeReaction,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extractMentions,
   formatRelativeTime,
 } from "./MessageBoardApi";
@@ -71,7 +70,7 @@ export function ThreadModal({
     } finally {
       setIsLoading(false);
     }
-  }, [parentMessage, getAccessTokenSilently, CURRENT_USER]);
+  }, [parentMessage]);
 
   useEffect(() => {
     if (open && parentMessage) {
@@ -87,7 +86,7 @@ export function ThreadModal({
       repliesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [replies.length]);
-  
+
   const handleSendReply = async () => {
   if (!replyContent.trim() || !parentMessage || isSending) return;
 

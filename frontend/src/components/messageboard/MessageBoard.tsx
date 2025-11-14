@@ -11,7 +11,6 @@ import {
   addReaction,
   removeReaction,
   searchMessages,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   extractMentions,
   getMessage,
 } from "./MessageBoardApi";
@@ -92,7 +91,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   if (userMap.size > 0) {
     loadMessages();
   }
-}, [searchQuery, userMap, currentUser]);
+}, [searchQuery, userMap, currentUser, loadMessages]);
 
   const handleSendMessage = async (content: string, mentions: string[]) => {
     if (!content.trim()) return;
