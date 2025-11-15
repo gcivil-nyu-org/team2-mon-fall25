@@ -9,6 +9,7 @@ interface MessageFeedProps {
   onDelete: (id: string) => void;
   onReaction: (messageId: string, emoji: string) => void;
   onReply?: (message: Message) => void;
+  currentUser: { id: string; name: string; email: string };
 }
 
 export function MessageFeed({
@@ -18,6 +19,7 @@ export function MessageFeed({
   onDelete,
   onReaction,
   onReply,
+  currentUser,
 }: MessageFeedProps) {
   const feedEndRef = useRef<HTMLDivElement>(null);
   const feedContainerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,7 @@ export function MessageFeed({
           onDelete={onDelete}
           onReaction={onReaction}
           onReply={onReply}
+          currentUser={currentUser}
         />
       ))}
       {/* Invisible element to scroll to */}

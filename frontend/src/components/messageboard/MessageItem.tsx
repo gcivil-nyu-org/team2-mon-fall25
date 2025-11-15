@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import type { Message } from "./MessageBoardApi";
 import {
   formatRelativeTime,
-  CURRENT_USER,
   REACTION_EMOJIS,
 } from "./MessageBoardApi";
 
@@ -12,6 +11,7 @@ interface MessageItemProps {
   onDelete: (id: string) => void;
   onReaction: (messageId: string, emoji: string) => void;
   onReply?: (message: Message) => void;
+  currentUser: { id: string; name: string; email: string };
 }
 
 export function MessageItem({
@@ -20,14 +20,14 @@ export function MessageItem({
   onDelete,
   onReaction,
   onReply,
+  currentUser,
 }: MessageItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
-
-  const isCurrentUser = message.authorId === CURRENT_USER.id;
-
+  const isCurrentUser = message.authorId === currentUser.id;
+  
   // Close reaction picker when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -147,7 +147,7 @@ export function MessageItem({
           {message.reactions.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {message.reactions.map((reaction, index) => {
-                const hasReacted = reaction.users.includes(CURRENT_USER.name);
+                const hasReacted = reaction.users.includes(currentUser.id);
                 return (
                   <button
                     key={index}
