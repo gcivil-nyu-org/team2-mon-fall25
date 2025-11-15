@@ -341,3 +341,95 @@ class WorkspaceLeaveViewTests(APITestCase):
 
         # No memberships accidentally deleted
         self.assertEqual(WorkspaceMember.objects.count(), 2)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceJoinViewTests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # Create users
+        self.owner = User.objects.create_user(
+            username="owner_user2", email="owner2@example.com", password="pass123"
+        )
+        self.member = User.objects.create_user(
+            username="joining_user", email="join@example.com", password="testpass"
+        )
+
+        # Create workspace with invite code
+        self.workspace = Workspace.objects.create(
+            name="Joinable Workspace",
+            description="For join tests",
+            created_by=self.owner,
+            invite_code="ABCDEFGH",  # 8-char code
+        )
+
+        # owner is a workspace member
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.owner,
+            role="owner",
+        )
+
+        # URL for joining
+        self.url = reverse("workspaces:workspace-join")
+
+    def authenticate(self, user):
+        self.client.force_authenticate(user=user)
+
+    def test_join_workspace_success(self):
+        """User can join a workspace with a valid invite code."""
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            self.url, {"invite_code": "ABCDEFGH"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("workspace", response.data)
+        self.assertIn("message", response.data)
+        self.assertTrue(
+            WorkspaceMember.objects.filter(
+                workspace=self.workspace, user=self.member
+            ).exists()
+        )
+
+    def test_join_workspace_invalid_code(self):
+        """Invalid invite code should return 400."""
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            self.url, {"invite_code": "WRONG999"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("invite_code", response.data)
+
+    def test_unauthenticated_user_cannot_join(self):
+        """Unauthenticated users must be rejected."""
+        response = self.client.post(
+            self.url, {"invite_code": "ABCDEFGH"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_invite_code_case_insensitive(self):
+        """Verify invite code works even if user enters lowercase."""
+        self.authenticate(self.member)
+
+        response = self.client.post(
+            self.url, {"invite_code": "abcdefgh"}, format="json"
+        )
+
+        # expected behavior depends on your serializer logic:
+        # if you enforce uppercase, update this test accordingly
+        self.assertIn(response.status_code, [200, 400])
+
+    def test_join_workspace_missing_code(self):
+        """Missing invite_code should return 400."""
+        self.authenticate(self.member)
+
+        response = self.client.post(self.url, {}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

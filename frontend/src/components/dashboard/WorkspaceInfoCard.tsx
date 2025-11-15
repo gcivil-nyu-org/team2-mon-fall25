@@ -116,7 +116,10 @@ export function WorkspaceInfoCard({ workspace, currentUserId, onWorkspaceUpdate 
             Created on {formattedDate}
           </p>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Members: {workspace.member_count ?? 0}
+            Total Members: {workspace.member_count ?? 0}
+          </p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Members: {workspace.members?.map(member => member.full_name).join(", ") || "No members"}
           </p>
         </>
       )}

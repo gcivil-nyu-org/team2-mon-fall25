@@ -367,7 +367,7 @@ export class ChatApi {
       }
       return response.json();
     } catch (error) {
-      console.warn('Chat API not available, returning empty array');
+      console.warn('Chat API not available, returning empty array',error);
       return [];
     }
   }

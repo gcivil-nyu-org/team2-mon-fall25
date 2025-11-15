@@ -1,8 +1,15 @@
 from django.db import models
 from django.conf import settings
 import uuid
+import random
+import string
 
 User = settings.AUTH_USER_MODEL
+
+
+def generate_invite_code():
+    """Generate a unique 8-character invite code."""
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
 class Workspace(models.Model):
@@ -17,6 +24,10 @@ class Workspace(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     updated_at = models.DateTimeField(blank=True, null=True)
+
+    invite_code = models.CharField(
+        max_length=8, unique=True, default=generate_invite_code, editable=False
+    )
 
     def save(self, *args, **kwargs):
         from django.utils import timezone
