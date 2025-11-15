@@ -342,6 +342,7 @@ class WorkspaceLeaveViewTests(APITestCase):
         # No memberships accidentally deleted
         self.assertEqual(WorkspaceMember.objects.count(), 2)
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class WorkspaceJoinViewTests(APITestCase):
 
@@ -350,14 +351,10 @@ class WorkspaceJoinViewTests(APITestCase):
 
         # Create users
         self.owner = User.objects.create_user(
-            username="owner_user2",
-            email="owner2@example.com",
-            password="pass123"
+            username="owner_user2", email="owner2@example.com", password="pass123"
         )
         self.member = User.objects.create_user(
-            username="joining_user",
-            email="join@example.com",
-            password="testpass"
+            username="joining_user", email="join@example.com", password="testpass"
         )
 
         # Create workspace with invite code
@@ -365,7 +362,7 @@ class WorkspaceJoinViewTests(APITestCase):
             name="Joinable Workspace",
             description="For join tests",
             created_by=self.owner,
-            invite_code="ABCDEFGH"  # 8-char code
+            invite_code="ABCDEFGH",  # 8-char code
         )
 
         # owner is a workspace member
@@ -386,9 +383,7 @@ class WorkspaceJoinViewTests(APITestCase):
         self.authenticate(self.member)
 
         response = self.client.post(
-            self.url,
-            {"invite_code": "ABCDEFGH"},
-            format="json"
+            self.url, {"invite_code": "ABCDEFGH"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -396,8 +391,7 @@ class WorkspaceJoinViewTests(APITestCase):
         self.assertIn("message", response.data)
         self.assertTrue(
             WorkspaceMember.objects.filter(
-                workspace=self.workspace,
-                user=self.member
+                workspace=self.workspace, user=self.member
             ).exists()
         )
 
@@ -406,9 +400,7 @@ class WorkspaceJoinViewTests(APITestCase):
         self.authenticate(self.member)
 
         response = self.client.post(
-            self.url,
-            {"invite_code": "WRONG999"},
-            format="json"
+            self.url, {"invite_code": "WRONG999"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -417,9 +409,7 @@ class WorkspaceJoinViewTests(APITestCase):
     def test_unauthenticated_user_cannot_join(self):
         """Unauthenticated users must be rejected."""
         response = self.client.post(
-            self.url,
-            {"invite_code": "ABCDEFGH"},
-            format="json"
+            self.url, {"invite_code": "ABCDEFGH"}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -429,9 +419,7 @@ class WorkspaceJoinViewTests(APITestCase):
         self.authenticate(self.member)
 
         response = self.client.post(
-            self.url,
-            {"invite_code": "abcdefgh"},
-            format="json"
+            self.url, {"invite_code": "abcdefgh"}, format="json"
         )
 
         # expected behavior depends on your serializer logic:
