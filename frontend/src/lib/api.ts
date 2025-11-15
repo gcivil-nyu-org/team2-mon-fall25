@@ -1,6 +1,6 @@
 // API utility for backend communication
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-// const API_BASE_URL = 'http://localhost:8000';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 export type BackendEvent = {
   event_id: string;
@@ -67,6 +67,7 @@ export type WorkspaceMember = {
   joined_at: string;
 };
 
+// Calendar Recommended Slots API
 export type RecommendedSlotApiResponse = {
   message?: string;
   recommended_slots?: {
@@ -166,6 +167,7 @@ export async function fetchWorkspaceInformation(
   }
   return response.json();
 }
+
 
 export async function deleteEvent(eventId: string): Promise<void> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/events/${eventId}/`, {
@@ -268,7 +270,7 @@ export async function joinWorkspace(inviteCode: string): Promise<Workspace> {
 
   const data = await response.json();
   console.log("Joined workspace successfully:", data);
-  return data;
+  return data.workspace;
 }
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {

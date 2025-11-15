@@ -51,6 +51,8 @@ export function TopBar({
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [refreshList, setRefreshList] = useState(0);
+
 
 useEffect(() => {
   const loadUsers = async () => {
@@ -127,15 +129,24 @@ const handleCreateWorkspace = async () => {
 const handleJoinWorkspace = async (code: string) => {
   try {
     const workspace = await joinWorkspace(code);
+
     console.log("Joined workspace:", workspace);
 
+    // Close the modal
     setShowJoin(false);
-    onWorkspace(workspace.workspace_id);
-  } catch (error) {
+    setRefreshList((prev) => prev + 1); 
+
+    // Redirect or refresh workspace list
+    if (onWorkspace) {
+      onWorkspace(workspace.workspace_id);
+    }
+
+  } catch (error: any) {
     console.error("Error joining workspace:", error);
-    alert("Failed to join workspace. Please check the code and try again.");
+    alert(error.message || "Invalid invite code. Please try again.");
   }
 };
+
 
 
 
@@ -171,7 +182,7 @@ const handleJoinWorkspace = async (code: string) => {
     }, 100); // Small delay to let token getter initialize
 
     return () => clearTimeout(timer);
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, refreshList]);
 
   return (
     <>
