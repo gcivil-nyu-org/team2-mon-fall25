@@ -141,10 +141,10 @@ const handleJoinWorkspace = async (code: string) => {
       onWorkspace(workspace.workspace_id);
     }
 
-  } catch (error: any) {
-    console.error("Error joining workspace:", error);
-    alert(error.message || "Invalid invite code. Please try again.");
-  }
+} catch (error: unknown) {
+  console.error("Error joining workspace:", error);
+  alert(error instanceof Error ? error.message : "Invalid invite code. Please try again.");
+}
 };
 
 

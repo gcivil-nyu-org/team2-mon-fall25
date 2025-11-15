@@ -5,7 +5,11 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Workspace, WorkspaceMember
-from .serializer import WorkspaceSerializer, WorkspaceCreateSerializer, WorkspaceJoinSerializer
+from .serializer import (
+    WorkspaceSerializer,
+    WorkspaceCreateSerializer,
+    WorkspaceJoinSerializer,
+)
 
 
 class WorkspaceInformationView(APIView):
@@ -132,6 +136,8 @@ class WorkspaceLeaveView(APIView):
             {"detail": "You have successfully left the workspace."},
             status=status.HTTP_200_OK,
         )
+
+
 class WorkspaceJoinView(generics.GenericAPIView):
     serializer_class = WorkspaceJoinSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -151,7 +157,7 @@ class WorkspaceJoinView(generics.GenericAPIView):
         return Response(
             {
                 "message": "Joined workspace successfully",
-                "workspace": WorkspaceSerializer(workspace).data
+                "workspace": WorkspaceSerializer(workspace).data,
             },
-            status=200
+            status=200,
         )

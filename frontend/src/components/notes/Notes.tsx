@@ -120,7 +120,7 @@ export function Notes() {
       try {
         await NotesApi.deleteNote(note.id);
         await loadNotes();
-      } catch (err) {
+      } catch{
         alert('Failed to delete note');
       }
     }

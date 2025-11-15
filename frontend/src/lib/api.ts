@@ -1,6 +1,6 @@
 // API utility for backend communication
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-// const API_BASE_URL = 'http://localhost:8000';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 export type BackendEvent = {
   event_id: string;
@@ -355,7 +355,7 @@ export async function fetchWorkspaceMembers(workspaceId: string): Promise<Worksp
         }];
         saveMembersToStorage(workspaceId, members);
       } catch (err) {
-        console.warn('Could not fetch current user for mock members');
+        console.warn('Could not fetch current user for mock members', err);
       }
     }
     return members;

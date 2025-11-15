@@ -51,7 +51,7 @@ export class NotesApi {
       }
       return response.json();
     } catch (error) {
-      console.warn('Notes API not available, returning empty array');
+      console.warn('Notes API not available, returning empty array', error);
       return [];
     }
   }
@@ -75,7 +75,7 @@ export class NotesApi {
       }
       return response.json();
     } catch (error) {
-      console.warn('Notes API not available, returning empty array');
+      console.warn('Notes API not available, returning empty array',error);
       return [];
     }
   }

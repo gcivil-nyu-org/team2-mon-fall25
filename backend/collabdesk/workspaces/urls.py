@@ -25,5 +25,5 @@ urlpatterns = [
         WorkspaceLeaveView.as_view(),
         name="leave-workspace",
     ),
-     path("join/", WorkspaceJoinView.as_view(), name="workspace-join")
+    path("join/", WorkspaceJoinView.as_view(), name="workspace-join"),
 ]

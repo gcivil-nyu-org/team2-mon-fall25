@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 # from torch import obj
 from .models import Workspace, WorkspaceMember, Role
 
@@ -109,6 +110,7 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
 
         return workspace
 
+
 class WorkspaceJoinSerializer(serializers.Serializer):
     invite_code = serializers.CharField(max_length=12)
 
@@ -137,7 +139,7 @@ class WorkspaceJoinSerializer(serializers.Serializer):
             user=user,
             role="member",
             invited_by=None,
-            is_active=True
+            is_active=True,
         )
 
         return workspace
