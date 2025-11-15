@@ -24,6 +24,7 @@ class ResourcePresignedUrlView(APIView):
         except Resource.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         key = resource.file.name
+        print(key)
 
         # If an S3 bucket is configured, generate a presigned S3 URL.
         if getattr(settings, "AWS_STORAGE_BUCKET_NAME", None):

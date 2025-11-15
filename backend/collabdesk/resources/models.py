@@ -10,6 +10,16 @@ logger = logging.getLogger(__name__)
 
 
 # Create your models here.
+class Tag(models.Model):
+    name = models.CharField(max_length=50)
+
+    class Meta:
+        indexes = [models.Index(fields=["name"])]
+
+    def __str__(self):
+        return self.name
+
+
 class Resource(models.Model):
     class FileType(models.TextChoices):
         PDF = "PDF", _("PDF file")
@@ -17,16 +27,17 @@ class Resource(models.Model):
         PPTX = "PPTX", _("PPTX file")
         XLSX = "XLSX", _("XLSX file")
         JPG = "JPG", _("JPG file")
+        PNG = "PNG", _("PNG file")
         ZIP = "ZIP", _("ZIP file")
         TXT = "TXT", _("TXT file")
 
     def resource_upload_to(instance, filename):
-        workspace_id = getattr(instance, "workspace_id", None)
-        if not workspace_id:
+        ws_id = getattr(instance, "workspace_id", None)
+        if not ws_id:
             ws = getattr(instance, "workspace", None)
-            workspace_id = getattr(ws, "id", "unknown")
-        ident = getattr(instance, "id", None) or uuid.uuid4()
-        return f"resources/{workspace_id}/resources/{ident}/{filename}"
+            ws_id = getattr(ws, "workspace_id", "unknown")
+        ident = getattr(instance, "profile_id", None) or uuid.uuid4()
+        return f"resources/{ws_id}/resources/{ident}/{filename}"
 
     profile_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, default="none")
@@ -46,6 +57,7 @@ class Resource(models.Model):
         related_name="resources",
         # default=uuid.UUID("cdb5abfe-dc99-4394-ac0e-e50a2f21d960"),
     )
+    tags = models.ManyToManyField(Tag, related_name="resources", blank=True)
 
     def save(self, *args, **kwargs):
         if self.file and hasattr(self.file, "size"):
