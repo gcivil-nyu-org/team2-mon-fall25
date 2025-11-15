@@ -23,18 +23,10 @@ class Migration(migrations.Migration):
             name="user_id",
             field=models.UUIDField(null=True),
         ),
-        migrations.RunPython(
-            generate_user_ids, 
-            reverse_code=migrations.RunPython.noop
-        ),
+        migrations.RunPython(generate_user_ids, reverse_code=migrations.RunPython.noop),
         migrations.AlterField(
-            model_name='user',
-            name='user_id',
+            model_name="user",
+            name="user_id",
             field=models.UUIDField(unique=True),
         ),
     ]
-
-
-
-    
-
