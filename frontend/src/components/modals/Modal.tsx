@@ -27,7 +27,7 @@ export function Modal({
     <div
       aria-modal="true"
       role="dialog"
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
     >
       {/* Backdrop */}
       <div
@@ -36,12 +36,12 @@ export function Modal({
       />
       {/* Panel */}
       <div
-        className={`relative mx-4 rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 ${
+        className={`relative my-8 rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 ${
           wide ? "max-w-3xl" : "max-w-xl"
-        } w-full`}
+        } w-full max-h-[90vh] flex flex-col`}
       >
         {title ? (
-          <div className="flex items-center justify-between gap-4 border-b border-zinc-200 p-4 dark:border-zinc-800">
+          <div className="flex-shrink-0 flex items-center justify-between gap-4 border-b border-zinc-200 p-4 dark:border-zinc-800">
             <div className="text-lg font-semibold">{title}</div>
             <button
               onClick={onClose}
@@ -52,7 +52,7 @@ export function Modal({
             </button>
           </div>
         ) : null}
-        <div className="p-4">{children}</div>
+        <div className="p-4 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );
