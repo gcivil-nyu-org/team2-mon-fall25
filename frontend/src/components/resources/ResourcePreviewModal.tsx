@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "../modals/Modal";
 import type { Resource } from "./ResourceApi";
 import { getResourcePreviewUrl } from "./ResourceApi";
@@ -16,7 +16,7 @@ export function ResourcePreviewModal({
 }: ResourcePreviewModalProps) {
   const [imageError, setImageError] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [revokeFn, setRevokeFn] = useState<(() => void) | undefined>(undefined);
+  const revokeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -30,7 +30,7 @@ export function ResourcePreviewModal({
         const { url, revoke } = await getResourcePreviewUrl(resource);
         if (!isMounted) return;
         setPreviewUrl(url);
-        setRevokeFn(() => revoke);
+        revokeRef.current = revoke ?? null;
       } catch (e) {
         console.error("Failed to get preview URL", e);
         setPreviewUrl(null);
@@ -39,11 +39,17 @@ export function ResourcePreviewModal({
 
     return () => {
       isMounted = false;
-      if (revokeFn) {
-        try { revokeFn(); } catch {}
+      if (revokeRef.current) {
+        try {
+          revokeRef.current();
+        } catch (err) {
+          console.debug("Failed to revoke preview URL", err);
+        } finally {
+          revokeRef.current = null;
+        }
       }
     };
-  }, [open, resource?.id]);
+  }, [open, resource]);
 
   if (!resource) return null;
 
