@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from torch import obj
 from .models import Workspace, WorkspaceMember, Role
 
 
@@ -12,10 +13,14 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(source="user.id")
     username = serializers.CharField(source="user.username")
     role = serializers.CharField()  # role is a CharField on the model, not a ForeignKey
+    full_name = serializers.CharField(source="user.full_name")
 
     class Meta:
         model = WorkspaceMember
-        fields = ["user_id", "username", "role", "joined_at"]
+        fields = ["user_id", "username", "role", "joined_at", "full_name"]
+    
+    def get_full_name(self, obj):
+        return obj.user.full_name
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -40,6 +45,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "id": obj.created_by.id,
             "username": obj.created_by.username,
             "email": obj.created_by.email,
+            "full_name": obj.created_by.full_name,
         }
 
     def get_members(self, obj):

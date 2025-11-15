@@ -37,6 +37,7 @@ export type Workspace = {
   is_public?: boolean;
   created_by_id?: number;
   invite_code?: string;
+  members?: WorkspaceMember[];
   owner?: {
   id: number;
   email: string;
@@ -48,6 +49,33 @@ export type WorkspaceListItem = {
   workspace_id: string;
   name: string;
 };
+
+export type User = {
+  id: number;
+  user_id: string;
+  email: string;
+  full_name: string;
+  profile_picture: string | null;
+  username: string;
+};
+
+export type WorkspaceMember = {
+  user_id: string; // matches WorkspaceMemberSerializer.user_id
+  username: string;
+  full_name: string;
+  role: string;
+  joined_at: string;
+};
+
+export type RecommendedSlotApiResponse = {
+  message?: string;
+  recommended_slots?: {
+    start_time: string; // ISO
+    end_time: string;   // ISO
+    period: string;     // backend-provided label
+  }[];
+};
+
 
 // Helper to make authenticated requests
 let getAccessToken: (() => Promise<string | null>) | null = null;
@@ -149,22 +177,6 @@ export async function deleteEvent(eventId: string): Promise<void> {
     throw new Error(errorData.message || 'Failed to delete event');
   }
 }
-
-export type User = {
-  id: number;
-  user_id: string;
-  email: string;
-  full_name: string;
-  profile_picture: string | null;
-  username: string;
-};
-
-export type WorkspaceMember = {
-  user_id: string; // matches WorkspaceMemberSerializer.user_id
-  username: string;
-  role: string;
-  joined_at: string;
-};
 
 export async function fetchCurrentUser(): Promise<User> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/users/me/`);
@@ -425,16 +437,6 @@ export async function removeWorkspaceMember(
     throw new Error('Failed to remove workspace member');
   }
 }
-
-// Calendar Recommended Slots API
-export type RecommendedSlotApiResponse = {
-  message?: string;
-  recommended_slots?: {
-    start_time: string; // ISO
-    end_time: string;   // ISO
-    period: string;     // backend-provided label
-  }[];
-};
 
 export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
   const response = await authenticatedFetch(

@@ -44,7 +44,7 @@ def list_users(request):
     """
     current_user = request.user
     users = User.objects.exclude(id=current_user.id).values(
-        "user_id", "full_name", "email"
+        "user_id", "full_name", "email", "id"
     )
 
     return Response(list(users), status=status.HTTP_200_OK)
