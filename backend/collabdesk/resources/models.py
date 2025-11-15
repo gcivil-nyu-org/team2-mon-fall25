@@ -26,7 +26,7 @@ class Resource(models.Model):
             ws = getattr(instance, "workspace", None)
             workspace_id = getattr(ws, "id", "unknown")
         ident = getattr(instance, "id", None) or uuid.uuid4()
-        return f"workspaces/{workspace_id}/resources/{ident}/{filename}"
+        return f"resources/{workspace_id}/resources/{ident}/{filename}"
 
     profile_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, default="none")
