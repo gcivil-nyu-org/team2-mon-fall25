@@ -3,6 +3,9 @@ from .models import Resource, Tag
 from django.conf import settings
 import pytz
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ResourceSerializer(serializers.ModelSerializer):
@@ -41,6 +44,8 @@ class ResourceSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        from .s3_utils import upload_file_to_s3
+
         tag_names = validated_data.pop("tags", [])
         # Normalize tags into a list of strings
         if isinstance(tag_names, str):
@@ -53,11 +58,33 @@ class ResourceSerializer(serializers.ModelSerializer):
         if tag_names is None:
             tag_names = []
 
+        # Handle file upload to S3 if file is provided
+        file_field = validated_data.get("file")
+        if file_field and hasattr(file_field, "file"):
+            # Upload to S3
+            content_type = getattr(file_field, "content_type", None)
+            result = upload_file_to_s3(file_field.file, file_field.name, content_type)
+
+            if not result["success"]:
+                logger.error(f"Failed to upload file to S3: {result.get('error')}")
+                raise serializers.ValidationError(
+                    f"Failed to upload file: {result.get('error')}"
+                )
+
+            # Replace file field with S3 key
+            validated_data["file"] = result["file_key"]
+            logger.info(f"File uploaded to S3: {result['file_key']}")
+
         # Auto-detect file type from filename if not provided
         if not validated_data.get("type"):
             file = validated_data.get("file")
-            if file and hasattr(file, "name"):
-                ext = os.path.splitext(file.name)[1].lower().lstrip(".")
+            filename = (
+                file
+                if isinstance(file, str)
+                else (file.name if file and hasattr(file, "name") else "")
+            )
+            if filename:
+                ext = os.path.splitext(filename)[1].lower().lstrip(".")
                 inferred = (
                     "JPG"
                     if ext in ("jpg", "jpeg")
@@ -84,6 +111,7 @@ class ResourceSerializer(serializers.ModelSerializer):
                     )
                 )
                 validated_data["type"] = inferred
+
         resource = super().create(validated_data)
         if tag_names:
             tags = [
