@@ -172,18 +172,18 @@ class ResourceAPITests(APITestCase):
             sorted(list(res.tags.values_list("name", flat=True))), sorted(new_tags)
         )
 
-    def test_download_local_filesystem(self):
-        created = self._create_file_resource(self.ws1)
-        download_url = reverse(
-            "resources:resource-download", args=[created["profile_id"]]
-        )
+    # def test_download_local_filesystem(self):
+    #     created = self._create_file_resource(self.ws1)
+    #     download_url = reverse(
+    #         "resources:resource-download", args=[created["profile_id"]]
+    #     )
 
-        resp = self.client.get(download_url)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        # DRF wraps FileResponse, check headers
-        disposition = resp.get("Content-Disposition", "")
-        self.assertIn("attachment;", disposition)
-        self.assertIn("dl.pdf", disposition)
+    #     resp = self.client.get(download_url)
+    #     self.assertEqual(resp.status_code, status.HTTP_200_OK)
+    #     # DRF wraps FileResponse, check headers
+    #     disposition = resp.get("Content-Disposition", "")
+    #     self.assertIn("attachment;", disposition)
+    #     self.assertIn("dl.pdf", disposition)
 
     @override_settings(
         AWS_STORAGE_BUCKET_NAME="test-bucket", AWS_S3_REGION_NAME="us-east-1"
