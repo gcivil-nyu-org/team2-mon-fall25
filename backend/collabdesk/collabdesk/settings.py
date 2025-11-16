@@ -220,12 +220,8 @@ REST_FRAMEWORK = {
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
-AWS_STORAGE_BUCKET_NAME = (
-    os.environ.get("AWS_STORAGE_BUCKET_NAME")
-    or os.environ.get("S3_BUCKET")
-    or os.environ.get("bucket_name")
-    or os.environ.get("BUCKET_NAME")
-)
+AWS_STORAGE_BUCKET_NAME = "collabdesk-resources"
+
 AWS_S3_REGION_NAME = os.environ.get("region", "us-east-1")
 
 # S3 settings (only used if AWS_STORAGE_BUCKET_NAME is set)
