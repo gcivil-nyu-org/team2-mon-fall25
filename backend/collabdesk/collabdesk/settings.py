@@ -229,14 +229,16 @@ AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_DEFAULT_ACL = None
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 AWS_S3_VERIFY = True
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_SIGNATURE_VERSION = "s3v4"
 
 # Choose storage backend based on whether a bucket name is configured.
-if AWS_STORAGE_BUCKET_NAME:
-    DEFAULT_FILE_STORAGE = "collabdesk.storage_backends.S3MediaStorage"
-    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
-else:
-    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
-    MEDIA_URL = "/media/"
+# if AWS_STORAGE_BUCKET_NAME:
+#    DEFAULT_FILE_STORAGE = "collabdesk.storage_backends.S3MediaStorage"
+#    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+# else:
+#    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+#    MEDIA_URL = "/media/"
 
 if "test" in sys.argv:
     print("Using in-memory SQLite database for tests.")

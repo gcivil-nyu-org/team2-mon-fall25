@@ -31,13 +31,13 @@ class Resource(models.Model):
         ZIP = "ZIP", _("ZIP file")
         TXT = "TXT", _("TXT file")
 
-    def resource_upload_to(instance, filename):
-        ws_id = getattr(instance, "workspace_id", None)
-        if not ws_id:
-            ws = getattr(instance, "workspace", None)
-            ws_id = getattr(ws, "workspace_id", "unknown")
-        ident = getattr(instance, "profile_id", None) or uuid.uuid4()
-        return f"resources/{ws_id}/resources/{ident}/{filename}"
+    #    def resource_upload_to(instance, filename):
+    #        ws_id = getattr(instance, "workspace_id", None)
+    #        if not ws_id:
+    #            ws = getattr(instance, "workspace", None)
+    #            ws_id = getattr(ws, "workspace_id", "unknown")
+    #        ident = getattr(instance, "profile_id", None) or uuid.uuid4()
+    #        return f"resources/{ws_id}/resources/{ident}/{filename}"
 
     profile_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, default="none")
@@ -50,7 +50,8 @@ class Resource(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=1
     )
     uploaded = models.DateTimeField(default=timezone.now)
-    file = models.FileField(max_length=200, upload_to=resource_upload_to)
+    #    file = models.FileField(max_length=200, upload_to=resource_upload_to)
+    file = models.FileField(max_length=200)
     workspace = models.ForeignKey(
         "workspaces.Workspace",
         on_delete=models.CASCADE,
