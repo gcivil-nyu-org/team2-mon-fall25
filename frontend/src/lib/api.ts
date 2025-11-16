@@ -462,3 +462,110 @@ export async function getWorkspaceMembers(): Promise<WorkspaceMember[]> {
   return response.json();
 }
 
+// Resources API
+export type BackendResource = {
+  profile_id: string;
+  name: string;
+  type: string;
+  size: number;
+  uploaded_by: number;
+  uploaded: string;
+  file: string;
+  workspace: string;
+  tags?: string[];
+};
+
+export async function fetchResources(): Promise<BackendResource[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch resources');
+  }
+  return response.json();
+}
+
+export async function uploadResource(file: File, name: string, tags?: string[]): Promise<BackendResource> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('name', name);
+  formData.append('type', file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN');
+  if (tags && tags.length > 0) {
+    formData.append('tags', JSON.stringify(tags));
+  }
+
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/`, {
+    method: 'POST',
+    body: formData,
+    // Don't set Content-Type header - browser will set it automatically with boundary
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to upload resource');
+  }
+
+  return response.json();
+}
+
+export async function downloadResource(resourceId: string): Promise<Blob> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/download/`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to download resource');
+  }
+  
+  // Check if response is JSON (presigned URL) or file blob
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    // S3 presigned URL response
+    const data = await response.json();
+    if (data.url) {
+      // Fetch from presigned URL
+      const fileResponse = await fetch(data.url);
+      if (!fileResponse.ok) {
+        throw new Error('Failed to download file from presigned URL');
+      }
+      return fileResponse.blob();
+    }
+  }
+  
+  // Direct file download
+  return response.blob();
+}
+
+export async function deleteResourceById(resourceId: string): Promise<void> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete resource');
+  }
+}
+
+// Get a previewable URL for a resource: presigned URL or local blob URL
+export async function getResourcePreviewUrlById(resourceId: string): Promise<{
+  url: string;
+  revoke?: () => void;
+}> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/download/`);
+
+  if (!response.ok) {
+    const err = await response.text().catch(() => '');
+    throw new Error(err || 'Failed to get preview URL');
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await response.json();
+    if (data.url) {
+      return { url: data.url };
+    }
+    throw new Error('Missing presigned URL in response');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  return { url, revoke: () => window.URL.revokeObjectURL(url) };
+}
+

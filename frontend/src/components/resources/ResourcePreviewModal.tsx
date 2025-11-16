@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "../modals/Modal";
 import type { Resource } from "./ResourceApi";
+import { getResourcePreviewUrl } from "./ResourceApi";
 
 interface ResourcePreviewModalProps {
   open: boolean;
@@ -14,6 +15,41 @@ export function ResourcePreviewModal({
   resource,
 }: ResourcePreviewModalProps) {
   const [imageError, setImageError] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const revokeRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    // Reset when resource or modal changes
+    setImageError(false);
+    setPreviewUrl(null);
+    if (!open || !resource) return;
+
+    (async () => {
+      try {
+        const { url, revoke } = await getResourcePreviewUrl(resource);
+        if (!isMounted) return;
+        setPreviewUrl(url);
+        revokeRef.current = revoke ?? null;
+      } catch (e) {
+        console.error("Failed to get preview URL", e);
+        setPreviewUrl(null);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+      if (revokeRef.current) {
+        try {
+          revokeRef.current();
+        } catch (err) {
+          console.debug("Failed to revoke preview URL", err);
+        } finally {
+          revokeRef.current = null;
+        }
+      }
+    };
+  }, [open, resource]);
 
   if (!resource) return null;
 
@@ -83,7 +119,7 @@ export function ResourcePreviewModal({
             ) : (
               <div className="flex items-center justify-center">
                 <img
-                  src={resource.fileUrl}
+                  src={previewUrl || ''}
                   alt={resource.name}
                   className="max-w-full h-auto rounded-lg shadow-sm"
                   onError={() => setImageError(true)}
@@ -94,7 +130,7 @@ export function ResourcePreviewModal({
             <div className="space-y-3">
               <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <iframe
-                  src={`${resource.fileUrl}#view=FitH`}
+                  src={previewUrl ? `${previewUrl}#view=FitH` : undefined}
                   className="w-full h-[50vh]"
                   title={`Preview of ${resource.name}`}
                   onError={() => {
@@ -103,7 +139,7 @@ export function ResourcePreviewModal({
                 />
               </div>
               <div className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-                PDF preview • In production, this would display the actual document
+                PDF preview
               </div>
             </div>
           ) : (

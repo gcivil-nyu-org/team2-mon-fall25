@@ -76,18 +76,8 @@ export function ResourceUploadModal({
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      // Get file extension
-      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "unknown";
-
-      // Create resource via API
-      const newResource = await createResource({
-        name: name.trim(),
-        fileName: file.name,
-        fileType: fileExtension,
-        fileSize: file.size,
-        fileUrl: `/uploads/${file.name}`, // Mock URL
-        tags: tagArray,
-      });
+      // Upload file with name to backend; persist tags locally
+      const newResource = await createResource(file, name.trim(), tagArray);
 
       onUpload(newResource);
 
