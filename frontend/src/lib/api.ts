@@ -11,6 +11,7 @@ export type BackendEvent = {
   event_type: 'INDIVIDUAL' | 'GROUP';
   location: string;
   created_by: number;
+  created_by_name?: string;
   workspace_id: string;
   created_at: string;
   updated_at: string;

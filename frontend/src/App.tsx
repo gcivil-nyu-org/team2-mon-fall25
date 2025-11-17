@@ -275,6 +275,7 @@ export default function App() {
       description: e.description,
       location: e.location,
       createdBy: e.created_by,
+      createdByName: e.created_by_name,
     }));
   }, [backendEvents]);
 
