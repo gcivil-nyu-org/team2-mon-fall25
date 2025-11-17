@@ -9,6 +9,77 @@ interface ResourcePreviewModalProps {
   resource: Resource | null;
 }
 
+// Component to preview text files
+function TextPreview({ url, fileType }: { url: string | null; fileType: string }) {
+  const [textContent, setTextContent] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!url) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+
+    fetch(url)
+      .then((res) => res.text())
+      .then((text) => {
+        setTextContent(text);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load text file:", err);
+        setError(true);
+        setLoading(false);
+      });
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+        Loading preview...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
+        Failed to load text preview
+      </div>
+    );
+  }
+
+  // Determine syntax highlighting class based on file type
+  const getLanguageClass = () => {
+    switch (fileType) {
+      case "json":
+      case "js":
+      case "jsx":
+        return "language-javascript";
+      case "py":
+        return "language-python";
+      case "html":
+        return "language-html";
+      case "css":
+        return "language-css";
+      case "xml":
+        return "language-xml";
+      case "md":
+        return "language-markdown";
+      default:
+        return "language-text";
+    }
+  };
+
+  return (
+    <pre className="text-xs overflow-auto max-h-[45vh] whitespace-pre-wrap break-words">
+      <code className={getLanguageClass()}>{textContent}</code>
+    </pre>
+  );
+}
+
 export function ResourcePreviewModal({
   open,
   onClose,
@@ -53,10 +124,14 @@ export function ResourcePreviewModal({
 
   if (!resource) return null;
 
-  const isImage = ["png", "jpg", "jpeg", "gif", "svg"].includes(
-    resource.fileType.toLowerCase()
-  );
-  const isPDF = resource.fileType.toLowerCase() === "pdf";
+  const fileTypeLower = resource.fileType.toLowerCase();
+  
+  // Categorize file types
+  const isImage = ["png", "jpg", "jpeg", "gif", "svg", "bmp", "webp", "ico"].includes(fileTypeLower);
+  const isPDF = fileTypeLower === "pdf";
+  const isVideo = ["mp4", "webm", "ogg", "mov"].includes(fileTypeLower);
+  const isText = ["txt", "csv", "json", "xml", "md", "html", "css", "js", "py"].includes(fileTypeLower);
+  const isOfficeDoc = ["docx", "doc", "pptx", "ppt", "xlsx", "xls"].includes(fileTypeLower);
 
   return (
     <Modal
@@ -140,6 +215,40 @@ export function ResourcePreviewModal({
               </div>
               <div className="text-center text-xs text-zinc-500 dark:text-zinc-400">
                 PDF preview
+              </div>
+            </div>
+          ) : isVideo ? (
+            <div className="flex items-center justify-center">
+              <video
+                src={previewUrl || ''}
+                controls
+                className="max-w-full h-auto rounded-lg shadow-sm"
+                style={{ maxHeight: '50vh' }}
+                onError={() => {
+                  console.error("Failed to load video preview");
+                }}
+              >
+                Your browser does not support video preview.
+              </video>
+            </div>
+          ) : isText ? (
+            <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
+              <TextPreview url={previewUrl} fileType={fileTypeLower} />
+            </div>
+          ) : isOfficeDoc ? (
+            <div className="space-y-3">
+              <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                <iframe
+                  src={previewUrl ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}` : undefined}
+                  className="w-full h-[50vh]"
+                  title={`Preview of ${resource.name}`}
+                  onError={() => {
+                    console.error("Failed to load Office document preview");
+                  }}
+                />
+              </div>
+              <div className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                Office document preview powered by Microsoft
               </div>
             </div>
           ) : (

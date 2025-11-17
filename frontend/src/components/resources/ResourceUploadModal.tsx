@@ -67,6 +67,13 @@ export function ResourceUploadModal({
       return;
     }
 
+    // Check file size (100MB limit)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
+    if (file.size > maxSize) {
+      alert(`File size exceeds the maximum limit of 100MB. Selected file is ${(file.size / 1024 / 1024).toFixed(2)}MB.`);
+      return;
+    }
+
     setIsUploading(true);
 
     try {

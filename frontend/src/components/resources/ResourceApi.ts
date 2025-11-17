@@ -233,6 +233,7 @@ export const formatDate = (isoString: string): string => {
 // Helper to get file icon emoji
 export const getFileIcon = (fileType: string): string => {
   const icons: Record<string, string> = {
+    // Documents
     pdf: "📄",
     docx: "📝",
     doc: "📝",
@@ -240,26 +241,55 @@ export const getFileIcon = (fileType: string): string => {
     xls: "📊",
     pptx: "📽️",
     ppt: "📽️",
+    // Images
     png: "🖼️",
     jpg: "🖼️",
     jpeg: "🖼️",
     gif: "🖼️",
     svg: "🖼️",
+    bmp: "🖼️",
+    webp: "🖼️",
+    ico: "🖼️",
+    // Videos
+    mp4: "🎥",
+    mov: "🎥",
+    avi: "🎥",
+    wmv: "🎥",
+    webm: "🎥",
+    // Audio
+    mp3: "🎵",
+    wav: "🎵",
+    ogg: "🎵",
+    // Archives
     zip: "📦",
     rar: "📦",
+    tar: "📦",
+    gz: "📦",
+    // Text/Code
     txt: "📃",
     csv: "📊",
     json: "📋",
     xml: "📋",
-    mp4: "🎥",
-    mov: "🎥",
-    avi: "🎥",
+    md: "📝",
+    html: "🌐",
+    css: "🎨",
+    js: "⚙️",
+    py: "🐍",
   };
   return icons[fileType.toLowerCase()] || "📁";
 };
 
 // Helper to check if file type can be previewed
 export const canPreview = (fileType: string): boolean => {
-  const previewableTypes = ["pdf", "png", "jpg", "jpeg", "gif", "svg"];
+  const previewableTypes = [
+    // Documents
+    "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls",
+    // Images
+    "png", "jpg", "jpeg", "gif", "svg", "bmp", "webp", "ico",
+    // Videos
+    "mp4", "webm", "ogg", "mov",
+    // Text/Code files
+    "txt", "csv", "json", "xml", "md", "html", "css", "js", "py",
+  ];
   return previewableTypes.includes(fileType.toLowerCase());
 };
