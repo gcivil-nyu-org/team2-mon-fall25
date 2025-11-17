@@ -48,6 +48,8 @@ type CalEvent = {
   description?: string;
   location?: string;
   createdBy?: number;
+  createdByName?: string;
+  attendeesNames?: string[];
 };
 
 export default function App() {
@@ -276,6 +278,7 @@ export default function App() {
       location: e.location,
       createdBy: e.created_by,
       createdByName: e.created_by_name,
+      attendeesNames: (e.attendees_detail || []).map((p) => p.full_name).filter(Boolean),
     }));
   }, [backendEvents]);
 
