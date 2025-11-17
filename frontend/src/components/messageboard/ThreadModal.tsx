@@ -63,14 +63,15 @@ export function ThreadModal({
     if (!parentMessage) return;
     try {
       setIsLoading(true);
-      const data = await getReplies(parentMessage.id);
+      const token = await getAccessTokenSilently();
+      const data = await getReplies(parentMessage.id, token);
       setReplies(data);
     } catch (error) {
       console.error("Failed to load replies:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [parentMessage]);
+  }, [parentMessage, getAccessTokenSilently]);
 
   useEffect(() => {
     if (open && parentMessage) {

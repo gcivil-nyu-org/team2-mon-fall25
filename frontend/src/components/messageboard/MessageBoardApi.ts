@@ -2,6 +2,27 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
+// Helper to get workspace ID from localStorage
+const getWorkspaceId = (): string | null => {
+  return localStorage.getItem("workspace_id") || localStorage.getItem("cd.workspace");
+};
+
+// Helper to build headers with auth and workspace context
+const buildHeaders = (token?: string): Record<string, string> => {
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const workspaceId = getWorkspaceId();
+  if (workspaceId) {
+    headers["X-Workspace-ID"] = workspaceId;
+  }
+
+  return headers;
+};
+
 export interface Message {
   id: string;
   content: string;
@@ -27,15 +48,19 @@ export interface Reaction {
 // ======================
 
 // Get all top-level messages
-export const getMessages = async (): Promise<Message[]> => {
-  const { data } = await axios.get(`${API_URL}/api/messageboard/messages/`);
+export const getMessages = async (token?: string): Promise<Message[]> => {
+  const { data } = await axios.get(`${API_URL}/api/messageboard/messages/`, {
+    headers: buildHeaders(token),
+  });
   return data.map(transformMessage);
 };
 
 // Get a single message (can include replies)
-export const getMessage = async (id: string): Promise<Message | null> => {
+export const getMessage = async (id: string, token?: string): Promise<Message | null> => {
   try {
-    const { data } = await axios.get(`${API_URL}/api/messageboard/messages/${id}/`);
+    const { data } = await axios.get(`${API_URL}/api/messageboard/messages/${id}/`, {
+      headers: buildHeaders(token),
+    });
     return transformMessage(data);
   } catch (err: unknown) {
     if (axios.isAxiosError(err) && err.response?.status === 404) return null;
@@ -44,9 +69,11 @@ export const getMessage = async (id: string): Promise<Message | null> => {
 };
 
 // Get replies for a specific message
-export const getReplies = async (parentId: string): Promise<Message[]> => {
+export const getReplies = async (parentId: string, token?: string): Promise<Message[]> => {
   try {
-    const { data } = await axios.get(`${API_URL}/api/messageboard/messages/${parentId}/`);
+    const { data } = await axios.get(`${API_URL}/api/messageboard/messages/${parentId}/`, {
+      headers: buildHeaders(token),
+    });
     return (data.replies || [])
       .map(transformMessage)
       .sort((a: Message, b: Message) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -63,14 +90,10 @@ export const createMessage = async (
   parentId: string | null = null,
   token?: string
 ): Promise<Message> => {
-  const config = token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined;
-
   const { data } = await axios.post(
     `${API_URL}/api/messageboard/messages/`,
     { content, mentions, parent: parentId },
-    config
+    { headers: buildHeaders(token) }
   );
 
   return transformMessage(data);
@@ -81,16 +104,12 @@ export const updateMessage = async (
   id: string,
   content: string,
   mentions: string[],
-  token?: string // 
+  token?: string
 ): Promise<Message> => {
-  const config = token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined;
-
   const { data } = await axios.patch(
     `${API_URL}/api/messageboard/messages/${id}/`,
     { content, mentions },
-    config 
+    { headers: buildHeaders(token) }
   );
   return transformMessage(data);
 };
@@ -98,15 +117,11 @@ export const updateMessage = async (
 // Delete a message
 export const deleteMessage = async (
   id: string,
-  token?: string 
+  token?: string
 ): Promise<void> => {
-  const config = token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined;
-
   await axios.delete(
     `${API_URL}/api/messageboard/messages/${id}/`,
-    config 
+    { headers: buildHeaders(token) }
   );
 };
 
@@ -115,14 +130,13 @@ export const addReaction = async (
   reactionType: string,
   token?: string
 ): Promise<Message> => {
-  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
   const payload = { emoji: reactionType };
   const { data } = await axios.post(
     `${API_URL}/api/messageboard/messages/${messageId}/react/`,
-    payload, 
-    config  
+    payload,
+    { headers: buildHeaders(token) }
   );
-  
+
   return transformMessage(data);
 };
 
@@ -131,21 +145,23 @@ export const removeReaction = async (
   reactionType: string,
   token?: string
 ): Promise<Message> => {
-  const config = { headers: { Authorization: `Bearer ${token}` } };
   const payload = { emoji: reactionType, action: "remove" };
   const { data } = await axios.post(
     `${API_URL}/api/messageboard/messages/${messageId}/react/`,
-    payload, 
-    config
+    payload,
+    { headers: buildHeaders(token) }
   );
 
   return transformMessage(data);
 };
 
 // Search messages by content or author
-export const searchMessages = async (query: string): Promise<Message[]> => {
-  if (!query.trim()) return getMessages();
-  const { data } = await axios.get(`${API_URL}/api/messageboard/messages/`, { params: { search: query } });
+export const searchMessages = async (query: string, token?: string): Promise<Message[]> => {
+  if (!query.trim()) return getMessages(token);
+  const { data } = await axios.get(`${API_URL}/api/messageboard/messages/`, {
+    params: { search: query },
+    headers: buildHeaders(token),
+  });
   return data.map(transformMessage);
 };
 
@@ -162,7 +178,7 @@ const transformMessage = (msg: any): Message => {
   return ({
     id: msg.id.toString(),
     content: msg.content,
-    author: authorEmail, 
+    author: authorEmail,
     authorId: authorId,
     authorEmail: authorEmail,
     timestamp: msg.createdAt,
@@ -170,7 +186,7 @@ const transformMessage = (msg: any): Message => {
     reactions: (msg.reactions || []).map((r: any) => ({
       emoji: r.emoji,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      users: (r.users || []).map((u: any) => u.id.toString()), 
+      users: (r.users || []).map((u: any) => u.id.toString()),
       count: (r.users || []).length,
     })),
     mentions: extractMentions(msg.content),
@@ -211,5 +227,7 @@ export const formatRelativeTime = (isoString: string): string => {
     year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
   });
 };
+
 // Available reaction emojis
 export const REACTION_EMOJIS = ["👍", "❤️", "😊", "🎉", "🚀", "👏", "🔥", "✅"];
+
