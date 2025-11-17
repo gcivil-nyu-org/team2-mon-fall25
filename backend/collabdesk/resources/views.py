@@ -24,7 +24,9 @@ from .s3_utils import (
 # Create your views here.
 
 
-class ResourcePresignedUrlView(APIView):
+class ResourceDownloadView(APIView):
+    """Generate presigned URL for downloading (forces attachment)."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -43,9 +45,15 @@ class ResourcePresignedUrlView(APIView):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                 region_name=settings.AWS_S3_REGION_NAME,
             )
+            # Extract original filename from the S3 key (remove UUID prefix)
+            filename = key.split("_", 1)[1] if "_" in key else key
             url = s3.generate_presigned_url(
                 ClientMethod="get_object",
-                Params={"Bucket": settings.AWS_STORAGE_BUCKET_NAME, "Key": key},
+                Params={
+                    "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                    "Key": key,
+                    "ResponseContentDisposition": f'attachment; filename="{filename}"',
+                },
                 ExpiresIn=3600,
             )
             return Response({"url": url})
@@ -60,6 +68,52 @@ class ResourcePresignedUrlView(APIView):
 
         filename = os.path.basename(key)
         response = FileResponse(file_obj, as_attachment=True, filename=filename)
+        return response
+
+
+class ResourcePreviewView(APIView):
+    """Generate presigned URL for previewing (inline display in browser)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            resource = Resource.objects.get(pk=pk)
+        except Resource.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        key = resource.file.name
+
+        # If an S3 bucket is configured, generate a presigned S3 URL.
+        if getattr(settings, "AWS_STORAGE_BUCKET_NAME", None):
+            s3 = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME,
+            )
+            # Extract original filename from the S3 key (remove UUID prefix)
+            filename = key.split("_", 1)[1] if "_" in key else key
+            url = s3.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={
+                    "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                    "Key": key,
+                    "ResponseContentDisposition": f'inline; filename="{filename}"',
+                },
+                ExpiresIn=3600,
+            )
+            return Response({"url": url})
+
+        # Otherwise assume local FileSystemStorage (local testing) and stream the file
+        # back to the client using FileResponse.
+        try:
+            file_obj = default_storage.open(key, "rb")
+        except Exception:
+            # Could not open the file from storage
+            raise Http404("File not found")
+
+        filename = os.path.basename(key)
+        response = FileResponse(file_obj, as_attachment=False, filename=filename)
         return response
 
 

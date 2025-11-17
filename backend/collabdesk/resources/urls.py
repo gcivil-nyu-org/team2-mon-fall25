@@ -9,8 +9,13 @@ urlpatterns = [
     path("<uuid:pk>/", ResourceDetailView.as_view(), name="resource-detail"),
     path(
         "<uuid:pk>/download/",
-        ResourcePresignedUrlView.as_view(),
+        ResourceDownloadView.as_view(),
         name="resource-download",
+    ),
+    path(
+        "<uuid:pk>/preview/",
+        ResourcePreviewView.as_view(),
+        name="resource-preview",
     ),
     # Temporary function-based views (backup/alternative)
     path("upload/", views.upload_file, name="upload"),

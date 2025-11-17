@@ -506,7 +506,7 @@ export async function uploadResource(file: File, name: string, tags?: string[]):
   return response.json();
 }
 
-export async function downloadResource(resourceId: string): Promise<Blob> {
+export async function downloadResource(resourceId: string): Promise<void> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/download/`);
   
   if (!response.ok) {
@@ -519,17 +519,23 @@ export async function downloadResource(resourceId: string): Promise<Blob> {
     // S3 presigned URL response
     const data = await response.json();
     if (data.url) {
-      // Fetch from presigned URL
-      const fileResponse = await fetch(data.url);
-      if (!fileResponse.ok) {
-        throw new Error('Failed to download file from presigned URL');
-      }
-      return fileResponse.blob();
+      // Open presigned URL in new window to trigger download
+      // The ResponseContentDisposition header in the presigned URL will force download
+      window.open(data.url, '_blank');
+      return;
     }
   }
   
-  // Direct file download
-  return response.blob();
+  // Direct file download (local storage)
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'download'; // Browser will use filename from Content-Disposition
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
 }
 
 export async function deleteResourceById(resourceId: string): Promise<void> {
@@ -548,7 +554,7 @@ export async function getResourcePreviewUrlById(resourceId: string): Promise<{
   url: string;
   revoke?: () => void;
 }> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/download/`);
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/preview/`);
 
   if (!response.ok) {
     const err = await response.text().catch(() => '');

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class ResourceSerializer(serializers.ModelSerializer):
     workspace = serializers.PrimaryKeyRelatedField(read_only=True)
-    uploaded_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    uploaded_by = serializers.SerializerMethodField(read_only=True)
     size = serializers.IntegerField(read_only=True)
     # Represent tags as a JSON list (accepts JSON string in multipart)
     tags = serializers.JSONField(required=False)
@@ -21,6 +21,12 @@ class ResourceSerializer(serializers.ModelSerializer):
         model = Resource
         fields = "__all__"
         read_only_fields = ["workspace", "size", "uploaded_by"]
+
+    def get_uploaded_by(self, obj):
+        """Return the full_name of the user who uploaded the resource."""
+        if obj.uploaded_by:
+            return obj.uploaded_by.full_name or obj.uploaded_by.username
+        return None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

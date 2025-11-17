@@ -181,19 +181,7 @@ export const deleteResource = async (id: string): Promise<void> => {
 // Download a resource
 export const downloadResource = async (resource: Resource): Promise<void> => {
   try {
-    const blob = await apiDownloadResource(resource.id);
-    
-    // Create a temporary URL for the blob and trigger download
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = resource.fileName;
-    document.body.appendChild(a);
-    a.click();
-    
-    // Cleanup
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    await apiDownloadResource(resource.id);
   } catch (error) {
     console.error('Failed to download resource:', error);
     throw error;
