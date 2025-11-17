@@ -82,7 +82,7 @@ export default function App() {
       }
     });
     setTokenReady(true);
-  }, [isAuthenticated, getAccessTokenSilently, logout, setTokenGetter]);
+  }, [isAuthenticated, getAccessTokenSilently, logout]);
 
   // Route + workspace
   const [current, setCurrent] = useState<CalRoute>("dashboard");
