@@ -12,6 +12,7 @@ export type BackendEvent = {
   location: string;
   created_by: number;
   created_by_name?: string;
+  attendees_detail?: { id: number; user_id: string; full_name: string }[];
   workspace_id: string;
   created_at: string;
   updated_at: string;
@@ -24,6 +25,7 @@ export type CreateEventPayload = {
   end_time: string; // ISO string
   event_type: 'INDIVIDUAL' | 'GROUP';
   location?: string;
+  attendees?: (number | string)[]; // Prefer numeric user.id; fallback to users.user_id (UUID string)
   // workspace and created_by are now set automatically by the backend
   // from the X-Workspace-ID header and authenticated user
 };

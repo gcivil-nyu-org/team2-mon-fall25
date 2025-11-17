@@ -11,6 +11,7 @@ export type CalEvent = {
   location?: string;
   createdBy?: number;
   createdByName?: string;
+  attendeesNames?: string[];
 };
 
 interface EventDetailsModalProps {
@@ -90,6 +91,24 @@ export function EventDetailsModal({
             {event.createdByName || "Unknown User"}
             {currentUserId !== undefined && event.createdBy === currentUserId && (
               <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">(You)</span>
+            )}
+          </div>
+        </div>
+
+        {/* Attendees */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+            Attendees
+          </label>
+          <div className="text-sm text-zinc-900 dark:text-zinc-100">
+            {event.attendeesNames && event.attendeesNames.length > 0 ? (
+              <ul className="list-disc list-inside space-y-0.5">
+                {event.attendeesNames.map((name, idx) => (
+                  <li key={idx}>{name}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-zinc-600 dark:text-zinc-400">No attendees</span>
             )}
           </div>
         </div>

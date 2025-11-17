@@ -14,6 +14,7 @@ function TextPreview({ url, fileType }: { url: string | null; fileType: string }
   const [textContent, setTextContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
 
   useEffect(() => {
     if (!url) {
@@ -22,15 +23,33 @@ function TextPreview({ url, fileType }: { url: string | null; fileType: string }
       return;
     }
 
-    fetch(url)
-      .then((res) => res.text())
+    // Reset states when URL changes
+    setLoading(true);
+    setError(false);
+    setTextContent("");
+    setUseFallback(false);
+
+    // Try to fetch the text content
+    fetch(url, {
+      method: 'GET',
+      // Don't include credentials for S3 presigned URLs
+      credentials: 'omit',
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.text();
+      })
       .then((text) => {
         setTextContent(text);
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load text file:", err);
-        setError(true);
+        console.error("Failed to load text file via fetch:", err);
+        // If fetch fails (likely due to CORS), use iframe fallback
+        console.log("Using iframe fallback for text preview");
+        setUseFallback(true);
         setLoading(false);
       });
   }, [url]);
@@ -46,8 +65,21 @@ function TextPreview({ url, fileType }: { url: string | null; fileType: string }
   if (error) {
     return (
       <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
-        Failed to load text preview
+        <p className="mb-2">Failed to load text preview</p>
+        <p className="text-xs">Please check browser console for details</p>
       </div>
+    );
+  }
+
+  // If we're using fallback (iframe), display it
+  if (useFallback) {
+    return (
+      <iframe
+        src={url || ''}
+        className="w-full h-[45vh] border-0 bg-white dark:bg-zinc-900"
+        title="Text file preview"
+        sandbox="allow-same-origin"
+      />
     );
   }
 

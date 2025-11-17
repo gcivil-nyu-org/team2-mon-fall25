@@ -111,7 +111,7 @@ export function ResourceList({
 
               {/* Upload Date Column (hidden on mobile, tablet, and medium desktop) */}
               <td className="py-3 px-4 text-sm text-zinc-600 dark:text-zinc-400 hidden xl:table-cell">
-                {formatDate(resource.uploadedAt)}
+                {formatDate(resource.uploaded)}
               </td>
 
               {/* Tags Column (hidden on mobile, tablet, and medium desktop) */}

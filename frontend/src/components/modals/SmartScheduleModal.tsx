@@ -179,6 +179,7 @@ export function SmartScheduleModal({
         end_time: slot.end.toISOString(),
         event_type: "INDIVIDUAL",
         location: "none",
+        attendees: selected,
       });
 
       // Call the parent callback with the scheduled meeting
