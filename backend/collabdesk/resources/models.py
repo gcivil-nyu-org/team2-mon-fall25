@@ -61,8 +61,13 @@ class Resource(models.Model):
     tags = models.ManyToManyField(Tag, related_name="resources", blank=True)
 
     def save(self, *args, **kwargs):
-        if self.file and hasattr(self.file, "size"):
-            self.size = self.file.size
-        else:
-            logger.info("Don't find the file size")
+        # Avoid touching storage for size; only use in-memory uploaded file object if present
+        if (self.size is None or self.size == 0) and getattr(self, "file", None):
+            file_obj = getattr(self.file, "file", None)
+            if file_obj is not None and hasattr(file_obj, "size"):
+                self.size = file_obj.size
+            else:
+                logger.info(
+                    "File size not available on in-memory object; preserving existing size"
+                )
         super().save(*args, **kwargs)

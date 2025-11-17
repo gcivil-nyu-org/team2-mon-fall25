@@ -4,6 +4,8 @@ from django.conf import settings
 import pytz
 import os
 import logging
+from .s3_utils import upload_file_to_s3
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +46,11 @@ class ResourceSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        from .s3_utils import upload_file_to_s3
 
         tag_names = validated_data.pop("tags", [])
         # Normalize tags into a list of strings
         if isinstance(tag_names, str):
             try:
-                import json
 
                 tag_names = json.loads(tag_names)
             except Exception:
@@ -60,6 +60,8 @@ class ResourceSerializer(serializers.ModelSerializer):
 
         # Handle file upload to S3 if file is provided
         file_field = validated_data.get("file")
+        # Capture original size from the uploaded file object (storage-agnostic)
+        validated_data["size"] = file_field.size
         if file_field and hasattr(file_field, "file"):
             # Upload to S3
             content_type = getattr(file_field, "content_type", None)
@@ -162,6 +164,9 @@ class ResourceSerializer(serializers.ModelSerializer):
                     )
                 )
                 validated_data["type"] = inferred
+            # Also update size when a new file is uploaded
+            if file and hasattr(file, "size"):
+                validated_data["size"] = file.size
         resource = super().update(instance, validated_data)
         if tag_names is not None:
             tags = [
