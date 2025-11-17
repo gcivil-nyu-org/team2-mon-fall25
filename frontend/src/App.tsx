@@ -51,7 +51,7 @@ type CalEvent = {
 };
 
 export default function App() {
-  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated, isLoading, logout } = useAuth0();
   const [tokenReady, setTokenReady] = useState(false);
 
   useEffect(() => {
@@ -71,11 +71,18 @@ export default function App() {
         return token;
       } catch (error) {
         console.error("Failed to get access token:", error);
+
+        logout({
+          logoutParams: {
+            returnTo: window.location.origin
+          }
+        });
+
         return null;
       }
     });
     setTokenReady(true);
-  }, [isAuthenticated, getAccessTokenSilently]);
+  }, [isAuthenticated, getAccessTokenSilently, logout, setTokenGetter]);
 
   // Route + workspace
   const [current, setCurrent] = useState<CalRoute>("dashboard");
