@@ -5,6 +5,7 @@ from rest_framework import status
 from django.urls import reverse
 from messageboard.models import Message, Reaction
 from messageboard.serializers import SimpleUserSerializer, MessageSerializer
+from workspaces.models import Workspace, WorkspaceMember
 
 # Then define User model
 User = get_user_model()
@@ -29,7 +30,21 @@ class SimpleAPITests(APITestCase):
     def setUp(self):
         self.user1 = create_auth_user("auth0|u1")
         self.user2 = create_auth_user("auth0|u2")
-        self.message = Message.objects.create(author=self.user1, content="Hello")
+
+        # Create workspace and add users as members
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user1
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user1, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user2, role="member"
+        )
+
+        self.message = Message.objects.create(
+            author=self.user1, content="Hello", workspace=self.workspace
+        )
         self.detail_url = reverse("message-detail", kwargs={"pk": self.message.pk})
         self.list_url = reverse("message-list-create")
         self.reaction_url = reverse("reaction-toggle", kwargs={"pk": self.message.pk})
@@ -37,19 +52,23 @@ class SimpleAPITests(APITestCase):
     # --- MessageDetailView (IsAuthorOrReadOnly) ---
 
     def test_detail_read_ok(self):
-        """Test GET method is always allowed (ReadOnly)."""
+        """Test GET method is allowed for authenticated workspace members (ReadOnly)."""
+        self.client.force_authenticate(user=self.user2)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.get(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_detail_update_by_author(self):
         """Test author can update (Author)."""
         self.client.force_authenticate(user=self.user1)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.put(self.detail_url, {"content": "New"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_detail_update_by_other_user_denied(self):
         """Test other user cannot update (Forbidden)."""
         self.client.force_authenticate(user=self.user2)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.put(
             self.detail_url, {"content": "Denied"}, format="json"
         )
@@ -60,6 +79,7 @@ class SimpleAPITests(APITestCase):
     def test_reaction_add_successful(self):
         """Test adding a reaction creates a 201 response."""
         self.client.force_authenticate(user=self.user2)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.reaction_url, {"emoji": "😄"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Reaction.objects.count(), 1)
@@ -70,19 +90,25 @@ class SimpleAPITests(APITestCase):
             user=self.user2, message=self.message, reaction_type="😄"
         )
         self.client.force_authenticate(user=self.user2)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.reaction_url, {"emoji": "😄"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Reaction.objects.count(), 0)
 
     def test_reaction_unauthenticated_denied(self):
         """Test unauthenticated user is denied."""
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.reaction_url, {"emoji": "😄"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_reaction_missing_user_id(self):
         """Test handling for user object without auth0_sub (coverage for line 44)."""
         bad_user = User.objects.create(username="no_sub")
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=bad_user, role="member"
+        )
         self.client.force_authenticate(user=bad_user)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.reaction_url, {"emoji": "😄"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("User identifier missing", response.data["detail"])
@@ -96,15 +122,25 @@ class MessageCreateTests(APITestCase):
         self.user = create_auth_user("auth0|test")
         self.url = reverse("message-list-create")
 
+        # Create workspace and add user as member
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+
     def test_create_message_authenticated(self):
         """Test creation by authenticated user (201)."""
         self.client.force_authenticate(user=self.user)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.url, {"content": "New Msg"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Message.objects.count(), 1)
 
     def test_create_message_unauthenticated_denied(self):
         """Test creation by unauthenticated user (401)."""
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
         response = self.client.post(self.url, {"content": "Forbidden"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -123,7 +159,15 @@ class SimpleSerializerTests(TestCase):
         self.user3 = User.objects.create(
             auth0_sub="sub3", full_name="", username="", email="emailonly@test.com"
         )
-        self.message = Message.objects.create(author=self.user1, content="Hi")
+
+        # Create workspace for message
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user1
+        )
+
+        self.message = Message.objects.create(
+            author=self.user1, content="Hi", workspace=self.workspace
+        )
         Reaction.objects.create(
             user=self.user1, message=self.message, reaction_type="A"
         )

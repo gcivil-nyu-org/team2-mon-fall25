@@ -28,15 +28,107 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const [searchQuery, setSearchQuery] = useState("");
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
   const messageEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
-  // console.log("Auth0 user object:", user);
-  const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
+
+  // Track current workspace to trigger reload on workspace change
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>(() =>
+    localStorage.getItem("cd.workspace") || localStorage.getItem("workspace_id") || ""
+  );
+
   const currentUser = useMemo(() => ({
-    id: user?.sub ?? "", // Auth0 Sub ID
-    name: user?.name ?? user?.email ?? "Unknown User", // Display name
-    email: user?.email ?? "", // Logged-in user's email
-  }), [user]);  
+    id: user?.sub ?? "",
+    name: user?.name ?? user?.email ?? "Unknown User",
+    email: user?.email ?? "",
+  }), [user]);
+
+  // Listen for workspace changes in localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newWorkspace = localStorage.getItem("cd.workspace") || localStorage.getItem("workspace_id") || "";
+      if (newWorkspace !== currentWorkspace) {
+        console.log("Workspace changed from", currentWorkspace, "to", newWorkspace);
+        setCurrentWorkspace(newWorkspace);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    const interval = setInterval(handleStorageChange, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [currentWorkspace]);
+
+  // Load all users for mentions
+  useEffect(() => {
+    const loadAllUsers = async () => {
+      try {
+        const usersData = await fetchAllUsers();
+        const map = new Map<string, string>();
+        usersData.forEach((u: ApiUser) => {
+          map.set(String(u.id), u.full_name);
+        });
+        setUserMap(map);
+      } catch (error) {
+        console.error("Failed to load all users:", error);
+      }
+    };
+    loadAllUsers();
+  }, []);
+
+  // Load messages
+  const loadMessages = useCallback(async (token?: string) => {
+    const currentUserId = currentUser.id;
+
+    if (!currentWorkspace) {
+      console.log("No workspace selected, skipping message load");
+      setMessages([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log("Loading messages for workspace:", currentWorkspace);
+      const data = searchQuery
+        ? await searchMessages(searchQuery, token)
+        : await getMessages(token);
+      const cleanedMessages = data.map(m => {
+        const displayAuthorName = userMap.get(m.authorId) || m.author;
+        const isCurrentUserMessage = m.authorId === currentUserId;
+        const finalAuthorName = isCurrentUserMessage ? currentUser.name : displayAuthorName;
+        return {
+          ...m,
+          authorId: isCurrentUserMessage ? currentUserId : m.authorId,
+          author: finalAuthorName
+        };
+      });
+      setMessages(cleanedMessages);
+    } catch (error) {
+      console.error("Failed to load messages:", error);
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, userMap, currentUser, currentWorkspace]);
+
+  // Reload messages when dependencies change
+  useEffect(() => {
+    const loadMessagesWithToken = async () => {
+      if (userMap.size > 0) {
+        try {
+          const token = await getAccessTokenSilently();
+          await loadMessages(token);
+        } catch (error) {
+          console.error("Failed to get token:", error);
+        }
+      }
+    };
+    loadMessagesWithToken();
+  }, [searchQuery, userMap, currentUser, loadMessages, currentWorkspace, getAccessTokenSilently]);
 
   // Open thread when openThreadMessageId is provided
   useEffect(() => {
@@ -47,51 +139,6 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       }
     }
   }, [openThreadMessageId, messages]);
-  useEffect(() => {
-    const loadAllUsers = async () => {
-        try {
-            const usersData = await fetchAllUsers(); 
-            const map = new Map<string, string>();
-            usersData.forEach((u: ApiUser) => {
-                map.set(String(u.id), u.full_name); 
-            });
-            setUserMap(map);
-        } catch (error) {
-            console.error("Failed to load all users:", error);
-        }
-    };
-    loadAllUsers();
-}, []);
-
-  const loadMessages = useCallback(async () => {
-    const currentUserId = currentUser.id; 
-    try {
-      setIsLoading(true);
-      const data = searchQuery
-        ? await searchMessages(searchQuery)
-        : await getMessages();
-      const cleanedMessages = data.map(m => {
-          const displayAuthorName = userMap.get(m.authorId) || m.author;
-          const isCurrentUserMessage = m.authorId === currentUserId; 
-          const finalAuthorName = isCurrentUserMessage ? currentUser.name : displayAuthorName;
-          return { 
-              ...m, 
-              authorId: isCurrentUserMessage ? currentUserId : m.authorId,
-              author: finalAuthorName 
-          };
-        });
-      setMessages(cleanedMessages);
-    } catch (error) {
-      console.error("Failed to load messages:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchQuery, userMap, currentUser]);
-  useEffect(() => {
-  if (userMap.size > 0) {
-    loadMessages();
-  }
-}, [searchQuery, userMap, currentUser, loadMessages]);
 
   const handleSendMessage = async (content: string, mentions: string[]) => {
     if (!content.trim()) return;
@@ -100,19 +147,13 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       setIsSending(true);
       const token = await getAccessTokenSilently();
 
-      const newMessage = await createMessage(
-        content,
-        mentions,
-        null,
-        token
-      );
+      const newMessage = await createMessage(content, mentions, null, token);
       const messageWithAuthor = {
         ...newMessage,
         authorId: currentUser.id,
-        author: currentUser.name, 
+        author: currentUser.name,
       };
       setMessages((prev) => [...prev, messageWithAuthor]);
-    
     } catch (error) {
       console.error("Failed to send message:", error);
       alert("Failed to send message. Please try again.");
@@ -126,24 +167,23 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     if (!originalMessage || originalMessage.content === content) return;
 
     try {
-        const token = await getAccessTokenSilently(); 
-        const mentions = extractMentions(content);
-        const updatedMessage = await updateMessage(id, content, mentions, token); 
-        const messageWithAuthorFix = {
-            ...updatedMessage,
-            authorId: currentUser.id, 
-            author: currentUser.name, 
-            reactions: originalMessage.reactions,
-        };
-        
-        setMessages((prev) =>
-          prev.map((m) => (m.id === id ? messageWithAuthorFix : m))
-        );
-        
+      const token = await getAccessTokenSilently();
+      const mentions = extractMentions(content);
+      const updatedMessage = await updateMessage(id, content, mentions, token);
+      const messageWithAuthorFix = {
+        ...updatedMessage,
+        authorId: currentUser.id,
+        author: currentUser.name,
+        reactions: originalMessage.reactions,
+      };
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? messageWithAuthorFix : m))
+      );
     } catch (error) {
-        console.error("Error updating message:", error);
+      console.error("Error updating message:", error);
     }
-};
+  };
 
   const handleDeleteMessage = async (id: string) => {
     setDeleteConfirmId(id);
@@ -152,84 +192,82 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
 
-  setIsDeleting(true);
-  try {
-   
-    const token = await getAccessTokenSilently(); 
-    await deleteMessage(deleteConfirmId, token); 
-    setMessages((prev) => prev.filter((m) => m.id !== deleteConfirmId));
-    setDeleteConfirmId(null);
-  } catch (error) {
-    console.error("Error deleting message:", error);
-  } finally {
-    setIsDeleting(false);
-  }
+    setIsDeleting(true);
+    try {
+      const token = await getAccessTokenSilently();
+      await deleteMessage(deleteConfirmId, token);
+      setMessages((prev) => prev.filter((m) => m.id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+    } catch (error) {
+      console.error("Error deleting message:", error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-const handleReaction = async (messageId: string, emoji: string) => {
-  const messageToUpdate = messages.find((m) => m.id === messageId);
-  if (!messageToUpdate) return;
-  const hasReacted = messageToUpdate.reactions.some(
-    (r) => r.emoji === emoji && r.users.includes(currentUser.id)
-  );
-  setMessages((prev) =>
-    prev.map((m) => {
-      if (m.id !== messageId) return m;
+  const handleReaction = async (messageId: string, emoji: string) => {
+    const messageToUpdate = messages.find((m) => m.id === messageId);
+    if (!messageToUpdate) return;
+    const hasReacted = messageToUpdate.reactions.some(
+      (r) => r.emoji === emoji && r.users.includes(currentUser.id)
+    );
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
 
-      let newReactions = [...m.reactions];
+        let newReactions = [...m.reactions];
 
-      if (hasReacted) {
-        newReactions = newReactions
-          .map((r) =>
-            r.emoji === emoji
-              ? {
+        if (hasReacted) {
+          newReactions = newReactions
+            .map((r) =>
+              r.emoji === emoji
+                ? {
                   ...r,
                   users: r.users.filter((u) => u !== currentUser.id),
                   count: r.users.filter((u) => u !== currentUser.id).length,
                 }
-              : r
-          )
-          .filter((r) => r.count > 0);
-      } else {
-        const existing = newReactions.find((r) => r.emoji === emoji);
-        if (existing) {
-          if (!existing.users.includes(currentUser.id)) {
-            existing.users.push(currentUser.id);
-            existing.count = existing.users.length;
-          }
+                : r
+            )
+            .filter((r) => r.count > 0);
         } else {
-          newReactions.push({ emoji, users: [currentUser.id], count: 1 });
+          const existing = newReactions.find((r) => r.emoji === emoji);
+          if (existing) {
+            if (!existing.users.includes(currentUser.id)) {
+              existing.users.push(currentUser.id);
+              existing.count = existing.users.length;
+            }
+          } else {
+            newReactions.push({ emoji, users: [currentUser.id], count: 1 });
+          }
         }
-      }
 
-      return { ...m, reactions: newReactions };
-    })
-  );
-
-  try {
-    const token = await getAccessTokenSilently();
-    let updatedMessageFromServer: Message;
-    if (hasReacted) {
-      updatedMessageFromServer = await removeReaction(messageId, emoji, token);
-    } else {
-      updatedMessageFromServer = await addReaction(messageId, emoji, token);
-    }
-    setMessages((prev) =>
-        prev.map((m) =>
-            m.id === messageId
-                ? { ...updatedMessageFromServer, author: m.author } 
-                : m
-        )
+        return { ...m, reactions: newReactions };
+      })
     );
-  } catch (error) {
-    console.error("Failed to persist message reaction:", error);
-  }
-};
 
-const handleUpdate = async () => {
-    
-    if (!threadMessage) return; 
-   
+    try {
+      const token = await getAccessTokenSilently();
+      let updatedMessageFromServer: Message;
+      if (hasReacted) {
+        updatedMessageFromServer = await removeReaction(messageId, emoji, token);
+      } else {
+        updatedMessageFromServer = await addReaction(messageId, emoji, token);
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...updatedMessageFromServer, author: m.author }
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Failed to persist message reaction:", error);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!threadMessage) return;
+
     const currentParentMessage = messages.find(m => m.id === threadMessage.id);
     const preservedReactions = currentParentMessage ? currentParentMessage.reactions : [];
     try {
@@ -238,13 +276,13 @@ const handleUpdate = async () => {
         const isCurrentUserAuthor = latestParentMessage.authorId === currentUser.id;
         const fixedParentMessage = {
           ...latestParentMessage,
-          authorId: isCurrentUserAuthor ? currentUser.id : latestParentMessage.authorId, 
-          author: isCurrentUserAuthor ?currentUser.name : latestParentMessage.author, 
+          authorId: isCurrentUserAuthor ? currentUser.id : latestParentMessage.authorId,
+          author: isCurrentUserAuthor ? currentUser.name : latestParentMessage.author,
           reactions: preservedReactions,
         };
 
-        setMessages((prev) => 
-          prev.map((m) => 
+        setMessages((prev) =>
+          prev.map((m) =>
             m.id === fixedParentMessage.id ? fixedParentMessage : m
           )
         );
@@ -260,77 +298,44 @@ const handleUpdate = async () => {
   };
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Header - Sticky at top */}
-      <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4 sticky top-0 z-10">
+    <div className="h-full w-full flex flex-col bg-white dark:bg-zinc-950">
+      {/* HEADER - Fixed at top */}
+      <header className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               Message Board
             </h1>
           </div>
-
-          {/* Message count */}
-          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            <span>{messages.length} messages</span>
+          <div className="flex items-center gap-4">
+            {/* Search Toggle */}
+            <button
+              onClick={() => setShowSearch(!showSearch)}
+              className={`p-2 rounded-lg transition-colors ${
+                showSearch
+                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+              title="Search messages"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            {/* Message count */}
+            <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+              <span>{messages.length} messages</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Message Feed - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <MessageFeed
-          messages={messages}
-          isLoading={isLoading}
-          onEdit={handleEditMessage}
-          onDelete={handleDeleteMessage}
-          onReaction={handleReaction}
-          onReply={(message) => setThreadMessage(message)}
-          currentUser={currentUser}
-        />
-        <div ref={messageEndRef} />
-      </div>
-
-      {/* Scroll to Bottom Button */}
-      <button
-        onClick={scrollToBottom}
-        className="fixed bottom-24 right-8 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors z-20"
-        title="Scroll to latest messages"
-      >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"
-          />
-        </svg>
-      </button>
-
-      {/* Message Composer with Search - Sticky at bottom */}
-      <div className="flex-shrink-0 bg-white dark:bg-zinc-950 sticky bottom-0 z-10 border-t border-zinc-200 dark:border-zinc-800">
-        {/* Search Bar Popup */}
+        {/* Search Bar - Shows under header when toggled */}
         {showSearch && (
-          <div className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
+          <div className="mt-4">
             <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
                 type="text"
@@ -338,68 +343,54 @@ const handleUpdate = async () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search messages..."
                 autoFocus
-                className="w-full pl-9 pr-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
+                className="w-full pl-9 pr-10 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
             </div>
           </div>
         )}
+      </header>
 
-        {/* Composer with Search Toggle */}
-        <div className="px-4 pb-4 pt-4">
-          <div className="flex items-end gap-2 mb-2">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
-                showSearch
-                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                  : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              }`}
-              title="Search messages"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </button>
-            <div className="flex-1">
-              <MessageComposer onSend={handleSendMessage} disabled={isSending} />
-            </div>
-          </div>
-          {/* Helper text */}
-          <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-[calc(40px+0.5rem)]">
-            <span>Press Enter to send, Shift+Enter for new line</span>
-          </div>
+      {/* MESSAGES - Scrollable middle section */}
+      <main className="flex-1 min-h-0 relative">
+        <div className="h-full overflow-y-auto overflow-x-hidden">
+          <MessageFeed
+            messages={messages}
+            isLoading={isLoading}
+            onEdit={handleEditMessage}
+            onDelete={handleDeleteMessage}
+            onReaction={handleReaction}
+            onReply={(message) => setThreadMessage(message)}
+            currentUser={currentUser}
+          />
+          <div ref={messageEndRef} />
         </div>
-      </div>
+
+        {/* Scroll to Bottom Button */}
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-4 right-4 p-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors"
+          title="Scroll to latest messages"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </button>
+      </main>
+
+      {/* FOOTER - Fixed at bottom with composer */}
+      <footer className="flex-shrink-0 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+        <MessageComposer onSend={handleSendMessage} disabled={isSending} />
+      </footer>
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
@@ -424,3 +415,4 @@ const handleUpdate = async () => {
     </div>
   );
 }
+

@@ -65,6 +65,8 @@ class MessageSerializer(serializers.ModelSerializer):
     reactions = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    workspace = serializers.PrimaryKeyRelatedField(read_only=True)
+    workspace_name = serializers.CharField(source="workspace.name", read_only=True)
 
     class Meta:
         model = Message
@@ -73,6 +75,8 @@ class MessageSerializer(serializers.ModelSerializer):
             "user",
             "content",
             "parent",
+            "workspace",
+            "workspace_name",
             "createdAt",
             "updatedAt",
             "deleted",
