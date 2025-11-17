@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+# from torch import obj
 from .models import Workspace, WorkspaceMember, Role
 
 
@@ -12,10 +14,11 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(source="user.id")
     username = serializers.CharField(source="user.username")
     role = serializers.CharField()  # role is a CharField on the model, not a ForeignKey
+    full_name = serializers.CharField(source="user.full_name")
 
     class Meta:
         model = WorkspaceMember
-        fields = ["user_id", "username", "role", "joined_at"]
+        fields = ["user_id", "username", "role", "joined_at", "full_name"]
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -33,6 +36,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "owner",
             "members",
             "member_count",
+            "invite_code",
         ]
 
     def get_owner(self, obj):
@@ -40,6 +44,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "id": obj.created_by.id,
             "username": obj.created_by.username,
             "email": obj.created_by.email,
+            "full_name": obj.created_by.full_name,
         }
 
     def get_members(self, obj):
@@ -102,5 +107,39 @@ class WorkspaceCreateSerializer(serializers.ModelSerializer):
                 print(f"Skipping invalid user_id: {member_user_id}")
             except Exception as e:
                 print(f"Error adding member {member_user_id}: {e}")
+
+        return workspace
+
+
+class WorkspaceJoinSerializer(serializers.Serializer):
+    invite_code = serializers.CharField(max_length=12)
+
+    def validate_invite_code(self, value):
+        value = value.upper().strip()
+        try:
+            workspace = Workspace.objects.get(invite_code=value)
+        except Workspace.DoesNotExist:
+            raise serializers.ValidationError("Invalid invite code")
+        return value
+
+    def save(self, **kwargs):
+        request = self.context["request"]
+        user = request.user
+        invite_code = self.validated_data["invite_code"]
+
+        workspace = Workspace.objects.get(invite_code=invite_code)
+
+        # Already member?
+        if WorkspaceMember.objects.filter(workspace=workspace, user=user).exists():
+            return workspace
+
+        # Add new member
+        WorkspaceMember.objects.create(
+            workspace=workspace,
+            user=user,
+            role="member",
+            invited_by=None,
+            is_active=True,
+        )
 
         return workspace

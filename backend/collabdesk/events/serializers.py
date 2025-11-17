@@ -16,11 +16,19 @@ class EventSerializer(serializers.ModelSerializer):
     workspace = serializers.PrimaryKeyRelatedField(read_only=True)
     # Make created_by read-only since it's set automatically from request.user
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Add created_by_name to return the creator's full name
+    created_by_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Event
         fields = "__all__"
         read_only_fields = ["workspace", "created_by", "created_at", "updated_at"]
+
+    def get_created_by_name(self, obj):
+        """Return the full_name of the user who created the event."""
+        if obj.created_by:
+            return obj.created_by.full_name or obj.created_by.username
+        return None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

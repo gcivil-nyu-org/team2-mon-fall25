@@ -7,11 +7,16 @@ User = get_user_model()
 
 
 class SimpleUserSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source="username")
+    # name = serializers.CharField(source="full_name")
+    name = serializers.SerializerMethodField()
+    id = serializers.CharField(source="auth0_sub", read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "name"]
+        fields = ["id", "username", "email", "auth0_sub", "full_name", "name"]
+
+    def get_name(self, obj):
+        return obj.full_name or obj.username or obj.email
 
 
 class ReactionUserListSerializer(serializers.Serializer):
@@ -19,9 +24,8 @@ class ReactionUserListSerializer(serializers.Serializer):
     users = SimpleUserSerializer(many=True)
 
 
-class MessageSerializer(serializers.ModelSerializer):
+class ReplySerializer(serializers.ModelSerializer):
     user = SimpleUserSerializer(source="author", read_only=True)
-    replies = serializers.SerializerMethodField()
     reactions = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
@@ -36,19 +40,58 @@ class MessageSerializer(serializers.ModelSerializer):
             "createdAt",
             "updatedAt",
             "deleted",
+            "reactions",
+        ]
+
+    def get_reactions(self, obj):
+        reactions_qs = obj.reactions.filter(message=obj)
+        reaction_groups = {}
+        for reaction in reactions_qs.select_related("user"):
+            emoji = reaction.reaction_type
+            if emoji not in reaction_groups:
+                reaction_groups[emoji] = []
+            reaction_groups[emoji].append(reaction.user)
+
+        formatted = [
+            {"emoji": emoji, "users": SimpleUserSerializer(users, many=True).data}
+            for emoji, users in reaction_groups.items()
+        ]
+        return formatted
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    user = SimpleUserSerializer(source="author", read_only=True)
+    replies = serializers.SerializerMethodField()
+    reactions = serializers.SerializerMethodField()
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    workspace = serializers.PrimaryKeyRelatedField(read_only=True)
+    workspace_name = serializers.CharField(source="workspace.name", read_only=True)
+
+    class Meta:
+        model = Message
+        fields = [
+            "id",
+            "user",
+            "content",
+            "parent",
+            "workspace",
+            "workspace_name",
+            "createdAt",
+            "updatedAt",
+            "deleted",
             "replies",
             "reactions",
         ]
 
     def get_replies(self, obj):
         replies = obj.replies.all().order_by("created_at")
-        return MessageSerializer(replies, many=True, context=self.context).data
+        return ReplySerializer(replies, many=True, context=self.context).data
 
     def get_reactions(self, obj):
-        # Convert to frontend’s expected shape:
-        # [{ emoji: "👍", users: [{id, name}, ...] }]
+        reactions_qs = obj.reactions.filter(message=obj)
         reaction_groups = {}
-        for reaction in obj.reactions.select_related("user"):
+        for reaction in reactions_qs.select_related("user"):
             emoji = reaction.reaction_type
             if emoji not in reaction_groups:
                 reaction_groups[emoji] = []

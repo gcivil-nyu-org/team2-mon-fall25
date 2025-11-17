@@ -73,6 +73,11 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Only enable SSL redirect in production, not in development
 SECURE_SSL_REDIRECT = not DEBUG
 
+# File Upload Settings
+# Allow up to 100MB file uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -195,6 +200,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+# Media files (User uploaded content)
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -216,21 +224,26 @@ REST_FRAMEWORK = {
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-# Set AWS_STORAGE_BUCKET_NAME
-AWS_STORAGE_BUCKET_NAME = os.environ.get(
-    "AWS_STORAGE_BUCKET_NAME", os.environ.get("S3_BUCKET")
-)
-AWS_S3_REGION_NAME = os.environ.get("AWS_S3_REGION_NAME", "us-east-1")
 
-# S3 settings
+AWS_STORAGE_BUCKET_NAME = "collabdesk-resources"
+
+AWS_S3_REGION_NAME = os.environ.get("region", "us-east-1")
+
+# S3 settings (only used if AWS_STORAGE_BUCKET_NAME is set)
 AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_DEFAULT_ACL = None
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 AWS_S3_VERIFY = True
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_SIGNATURE_VERSION = "s3v4"
 
-# storage backend
-DEFAULT_FILE_STORAGE = "collabdesk.storage_backends.S3MediaStorage"
-MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+# Choose storage backend based on whether a bucket name is configured.
+# if AWS_STORAGE_BUCKET_NAME:
+#    DEFAULT_FILE_STORAGE = "collabdesk.storage_backends.S3MediaStorage"
+#    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+# else:
+#    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+#    MEDIA_URL = "/media/"
 
 if "test" in sys.argv:
     print("Using in-memory SQLite database for tests.")

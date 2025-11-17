@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { extractMentions } from "./MessageBoardApi";
 
+
 interface MessageComposerProps {
   onSend: (content: string, mentions: string[]) => void;
   disabled?: boolean;

@@ -12,7 +12,7 @@ import { ResourceUploadModal } from "./ResourceUploadModal";
 import { ResourcePreviewModal } from "./ResourcePreviewModal";
 import { ResourceEditModal } from "./ResourceEditModal";
 
-export function Resources() {
+export function Resources({ workspace }: { workspace: string }) {
   // State
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,8 +30,9 @@ export function Resources() {
 
   // Load resources
   useEffect(() => {
+    if (!workspace) return;
     loadResources();
-  }, []);
+  }, [workspace]);
 
   const loadResources = async () => {
     try {

@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { key: "calendar", label: "Calendar", emoji: "🗓️" },
   { key: "resources", label: "Resources", emoji: "📁" },
   { key: "message", label: "Message Board", emoji: "💬" },
-  { key: "chat", label: "Chat", emoji: "🤖" },
+  { key: "chat", label: "AI Chat", emoji: "🤖" },
   { key: "settings", label: "Settings", emoji: "⚙️" },
 ];
 
