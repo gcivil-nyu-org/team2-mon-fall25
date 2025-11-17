@@ -200,20 +200,47 @@ def upload_file(request):
             # Map file extension to FileType
             ext_map = {
                 # Images
-                "jpg": "JPG", "jpeg": "JPEG", "png": "PNG", "gif": "GIF",
-                "svg": "SVG", "bmp": "BMP", "webp": "WEBP", "ico": "ICO",
+                "jpg": "JPG",
+                "jpeg": "JPEG",
+                "png": "PNG",
+                "gif": "GIF",
+                "svg": "SVG",
+                "bmp": "BMP",
+                "webp": "WEBP",
+                "ico": "ICO",
                 # Documents
-                "pdf": "PDF", "docx": "DOCX", "doc": "DOC",
-                "pptx": "PPTX", "ppt": "PPT", "xlsx": "XLSX", "xls": "XLS",
+                "pdf": "PDF",
+                "docx": "DOCX",
+                "doc": "DOC",
+                "pptx": "PPTX",
+                "ppt": "PPT",
+                "xlsx": "XLSX",
+                "xls": "XLS",
                 # Videos
-                "mp4": "MP4", "avi": "AVI", "mov": "MOV", "wmv": "WMV", "webm": "WEBM",
+                "mp4": "MP4",
+                "avi": "AVI",
+                "mov": "MOV",
+                "wmv": "WMV",
+                "webm": "WEBM",
                 # Audio
-                "mp3": "MP3", "wav": "WAV", "ogg": "OGG",
+                "mp3": "MP3",
+                "wav": "WAV",
+                "ogg": "OGG",
                 # Text/Code
-                "txt": "TXT", "csv": "CSV", "json": "JSON", "xml": "XML",
-                "md": "MD", "html": "HTML", "css": "CSS", "js": "JS", "py": "PY",
+                "txt": "TXT",
+                "csv": "CSV",
+                "json": "JSON",
+                "xml": "XML",
+                "md": "MD",
+                "html": "HTML",
+                "css": "CSS",
+                "js": "JS",
+                "py": "PY",
                 # Archives
-                "zip": "ZIP", "rar": "RAR", "tar": "TAR", "gz": "GZ",
+                "zip": "ZIP",
+                "rar": "RAR",
+                "tar": "TAR",
+                "gz": "GZ",
             }
             file_type = ext_map.get(ext, "OTHER")
 
