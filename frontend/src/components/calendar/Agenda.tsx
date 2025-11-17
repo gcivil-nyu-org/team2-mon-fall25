@@ -15,7 +15,10 @@ export function Agenda({
   onViewChange: (view: "my" | "all") => void;
   currentUserId?: number;
 }) {
-  const sorted = [...events].sort((a, b) => compareAsc(a.start, b.start));
+  const now = new Date();
+  // Filter out past events (events that have already ended)
+  const upcomingEvents = events.filter((e) => e.end > now);
+  const sorted = [...upcomingEvents].sort((a, b) => compareAsc(a.start, b.start));
   return (
     <aside className="hidden lg:block w-[300px] shrink-0 sticky top-14 self-start">
       <div className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -46,7 +49,7 @@ export function Agenda({
         <div className="mb-2 text-sm font-semibold">Upcoming</div>
         <div className="space-y-2 text-sm">
           {sorted.length === 0 && (
-            <div className="text-zinc-500">No events this week.</div>
+            <div className="text-zinc-500">No upcoming events.</div>
           )}
           {sorted.map((e) => {
             const isUnavailable = e.kind === "unavailable";
