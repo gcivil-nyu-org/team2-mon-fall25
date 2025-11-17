@@ -197,31 +197,25 @@ def upload_file(request):
 
             # Infer file type from extension
             ext = os.path.splitext(uploaded_file.name)[1].lower().lstrip(".")
-            file_type = (
-                "JPG"
-                if ext in ("jpg", "jpeg")
-                else (
-                    "PNG"
-                    if ext == "png"
-                    else (
-                        "PDF"
-                        if ext == "pdf"
-                        else (
-                            "DOCX"
-                            if ext in ("docx", "doc")
-                            else (
-                                "PPTX"
-                                if ext in ("pptx", "ppt")
-                                else (
-                                    "XLSX"
-                                    if ext in ("xlsx", "xls", "csv")
-                                    else "ZIP" if ext in ("zip", "rar") else "TXT"
-                                )
-                            )
-                        )
-                    )
-                )
-            )
+            # Map file extension to FileType
+            ext_map = {
+                # Images
+                "jpg": "JPG", "jpeg": "JPEG", "png": "PNG", "gif": "GIF",
+                "svg": "SVG", "bmp": "BMP", "webp": "WEBP", "ico": "ICO",
+                # Documents
+                "pdf": "PDF", "docx": "DOCX", "doc": "DOC",
+                "pptx": "PPTX", "ppt": "PPT", "xlsx": "XLSX", "xls": "XLS",
+                # Videos
+                "mp4": "MP4", "avi": "AVI", "mov": "MOV", "wmv": "WMV", "webm": "WEBM",
+                # Audio
+                "mp3": "MP3", "wav": "WAV", "ogg": "OGG",
+                # Text/Code
+                "txt": "TXT", "csv": "CSV", "json": "JSON", "xml": "XML",
+                "md": "MD", "html": "HTML", "css": "CSS", "js": "JS", "py": "PY",
+                # Archives
+                "zip": "ZIP", "rar": "RAR", "tar": "TAR", "gz": "GZ",
+            }
+            file_type = ext_map.get(ext, "OTHER")
 
             # Get workspace_id and user from request (if available)
             workspace_id = request.POST.get("workspace_id") or request.GET.get(

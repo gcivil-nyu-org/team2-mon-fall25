@@ -22,14 +22,50 @@ class Tag(models.Model):
 
 class Resource(models.Model):
     class FileType(models.TextChoices):
+        # Documents
         PDF = "PDF", _("PDF file")
         DOCX = "DOCX", _("DOCX file")
+        DOC = "DOC", _("DOC file")
         PPTX = "PPTX", _("PPTX file")
+        PPT = "PPT", _("PPT file")
         XLSX = "XLSX", _("XLSX file")
+        XLS = "XLS", _("XLS file")
+        # Images
         JPG = "JPG", _("JPG file")
+        JPEG = "JPEG", _("JPEG file")
         PNG = "PNG", _("PNG file")
-        ZIP = "ZIP", _("ZIP file")
+        GIF = "GIF", _("GIF file")
+        SVG = "SVG", _("SVG file")
+        BMP = "BMP", _("BMP file")
+        WEBP = "WEBP", _("WEBP file")
+        ICO = "ICO", _("ICO file")
+        # Videos
+        MP4 = "MP4", _("MP4 file")
+        AVI = "AVI", _("AVI file")
+        MOV = "MOV", _("MOV file")
+        WMV = "WMV", _("WMV file")
+        WEBM = "WEBM", _("WEBM file")
+        # Audio
+        MP3 = "MP3", _("MP3 file")
+        WAV = "WAV", _("WAV file")
+        OGG = "OGG", _("OGG file")
+        # Text/Code
         TXT = "TXT", _("TXT file")
+        CSV = "CSV", _("CSV file")
+        JSON = "JSON", _("JSON file")
+        XML = "XML", _("XML file")
+        MD = "MD", _("Markdown file")
+        HTML = "HTML", _("HTML file")
+        CSS = "CSS", _("CSS file")
+        JS = "JS", _("JavaScript file")
+        PY = "PY", _("Python file")
+        # Archives
+        ZIP = "ZIP", _("ZIP file")
+        RAR = "RAR", _("RAR file")
+        TAR = "TAR", _("TAR file")
+        GZ = "GZ", _("GZ file")
+        # Other
+        OTHER = "OTHER", _("Other file")
 
     #    def resource_upload_to(instance, filename):
     #        ws_id = getattr(instance, "workspace_id", None)

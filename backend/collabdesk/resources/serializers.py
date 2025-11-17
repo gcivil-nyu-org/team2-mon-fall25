@@ -93,31 +93,25 @@ class ResourceSerializer(serializers.ModelSerializer):
             )
             if filename:
                 ext = os.path.splitext(filename)[1].lower().lstrip(".")
-                inferred = (
-                    "JPG"
-                    if ext in ("jpg", "jpeg")
-                    else (
-                        "PNG"
-                        if ext == "png"
-                        else (
-                            "PDF"
-                            if ext == "pdf"
-                            else (
-                                "DOCX"
-                                if ext in ("docx", "doc")
-                                else (
-                                    "PPTX"
-                                    if ext in ("pptx", "ppt")
-                                    else (
-                                        "XLSX"
-                                        if ext in ("xlsx", "xls", "csv")
-                                        else "ZIP" if ext in ("zip", "rar") else "TXT"
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
+                # Map file extension to FileType
+                ext_map = {
+                    # Images
+                    "jpg": "JPG", "jpeg": "JPEG", "png": "PNG", "gif": "GIF",
+                    "svg": "SVG", "bmp": "BMP", "webp": "WEBP", "ico": "ICO",
+                    # Documents
+                    "pdf": "PDF", "docx": "DOCX", "doc": "DOC",
+                    "pptx": "PPTX", "ppt": "PPT", "xlsx": "XLSX", "xls": "XLS",
+                    # Videos
+                    "mp4": "MP4", "avi": "AVI", "mov": "MOV", "wmv": "WMV", "webm": "WEBM",
+                    # Audio
+                    "mp3": "MP3", "wav": "WAV", "ogg": "OGG",
+                    # Text/Code
+                    "txt": "TXT", "csv": "CSV", "json": "JSON", "xml": "XML",
+                    "md": "MD", "html": "HTML", "css": "CSS", "js": "JS", "py": "PY",
+                    # Archives
+                    "zip": "ZIP", "rar": "RAR", "tar": "TAR", "gz": "GZ",
+                }
+                inferred = ext_map.get(ext, "OTHER")
                 validated_data["type"] = inferred
 
         resource = super().create(validated_data)
@@ -144,31 +138,25 @@ class ResourceSerializer(serializers.ModelSerializer):
             file = validated_data.get("file")
             if file and hasattr(file, "name"):
                 ext = os.path.splitext(file.name)[1].lower().lstrip(".")
-                inferred = (
-                    "JPG"
-                    if ext in ("jpg", "jpeg")
-                    else (
-                        "PNG"
-                        if ext == "png"
-                        else (
-                            "PDF"
-                            if ext == "pdf"
-                            else (
-                                "DOCX"
-                                if ext in ("docx", "doc")
-                                else (
-                                    "PPTX"
-                                    if ext in ("pptx", "ppt")
-                                    else (
-                                        "XLSX"
-                                        if ext in ("xlsx", "xls", "csv")
-                                        else "ZIP" if ext in ("zip", "rar") else "TXT"
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
+                # Map file extension to FileType
+                ext_map = {
+                    # Images
+                    "jpg": "JPG", "jpeg": "JPEG", "png": "PNG", "gif": "GIF",
+                    "svg": "SVG", "bmp": "BMP", "webp": "WEBP", "ico": "ICO",
+                    # Documents
+                    "pdf": "PDF", "docx": "DOCX", "doc": "DOC",
+                    "pptx": "PPTX", "ppt": "PPT", "xlsx": "XLSX", "xls": "XLS",
+                    # Videos
+                    "mp4": "MP4", "avi": "AVI", "mov": "MOV", "wmv": "WMV", "webm": "WEBM",
+                    # Audio
+                    "mp3": "MP3", "wav": "WAV", "ogg": "OGG",
+                    # Text/Code
+                    "txt": "TXT", "csv": "CSV", "json": "JSON", "xml": "XML",
+                    "md": "MD", "html": "HTML", "css": "CSS", "js": "JS", "py": "PY",
+                    # Archives
+                    "zip": "ZIP", "rar": "RAR", "tar": "TAR", "gz": "GZ",
+                }
+                inferred = ext_map.get(ext, "OTHER")
                 validated_data["type"] = inferred
             # Also update size when a new file is uploaded
             if file and hasattr(file, "size"):

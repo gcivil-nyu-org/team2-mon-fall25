@@ -73,6 +73,11 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Only enable SSL redirect in production, not in development
 SECURE_SSL_REDIRECT = not DEBUG
 
+# File Upload Settings
+# Allow up to 100MB file uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+
 # Application definition
 
 INSTALLED_APPS = [
