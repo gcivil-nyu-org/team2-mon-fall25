@@ -3,7 +3,7 @@ import { NotesList } from './NotesList';
 import { NoteEditor } from './NoteEditor';
 import { NotesApi } from './NotesApi';
 // import type { Workspace } from '../../lib/api';
-import type { Note, ViewMode, SortBy, ActiveTab, User, CreateNoteData } from './types';
+import type { Note, SortBy, ActiveTab, User, CreateNoteData } from './types';
 import { toast } from 'sonner';
 
 export function Notes({ workspaceId }: { workspaceId: string }) {
@@ -20,7 +20,7 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
 
   // Modal states
   //TODO: commenting this now to avoid lint errors, will implement modals later
-  
+
   // const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   // const [editingNote, setEditingNote] = useState<Note | null>(null);
   // const [viewingNote, setViewingNote] = useState<Note | null>(null);
