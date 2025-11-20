@@ -78,11 +78,6 @@ class EventListCreateView(generics.ListCreateAPIView):
             workspace=self.request.workspace, created_by=self.request.user
         )
 
-        # Ensure the creator is always listed as an attendee so frontend
-        # can consistently treat the creator as part of the event's participants.
-        # Use the through model `EventParticipant` to create the relation explicitly
-        # (calling `event.attendees.add()` may fail when a custom through model
-        # is defined). Use get_or_create to avoid duplicates.
         try:
             EventParticipant.objects.get_or_create(
                 event=event,
