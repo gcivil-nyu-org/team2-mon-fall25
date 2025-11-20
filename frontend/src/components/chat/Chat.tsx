@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChatWindow } from './ChatWindow';
+import { toast } from 'sonner';
+import { DocumentUploadZone } from './DocumentUploadZone';
+import { ResultView } from './ResultView';
 import { RecentConversationsSidebar } from './RecentConversationsSidebar';
 import { SaveToNotesModal } from './SaveToNotesModal';
 import { NewChatModal } from './NewChatModal';
@@ -11,10 +13,10 @@ export function Chat() {
   // State
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentResult, setCurrentResult] = useState<Message | null>(null);
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -39,7 +41,7 @@ export function Chat() {
     }
   };
 
-  // Load conversation messages
+  // Load conversation (show the result)
   const loadConversation = async (id: string) => {
     setLoading(true);
     setError('');
@@ -47,8 +49,13 @@ export function Chat() {
     try {
       const data = await ChatApi.getConversation(id);
       setActiveConversation(data.conversation);
-      setMessages(data.messages);
       setCurrentDocument(data.conversation.document);
+
+      // Find the AI assistant's response (the result)
+      const assistantMessage = data.messages.find((m) => m.role === 'assistant');
+      if (assistantMessage) {
+        setCurrentResult(assistantMessage);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load conversation');
       console.error('Failed to load conversation:', err);
@@ -57,113 +64,93 @@ export function Chat() {
     }
   };
 
-  // Handle document upload
+  // Handle document upload and generation
   const handleDocumentUpload = async (file: File, actionType: 'summary' | 'plan') => {
     setIsUploading(true);
+    setIsGenerating(false);
     setError('');
+    setCurrentResult(null);
 
     try {
+      // Upload document
       const data = await ChatApi.uploadDocument(file);
       setCurrentDocument(data.document);
       setActiveConversation(data.conversation);
-      setMessages([]);
       await loadConversations();
 
-      // Automatically send the action message
-      setTimeout(() => {
-        handleSendMessage('', actionType);
-      }, 500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload document');
-      console.error('Failed to upload document:', err);
-    } finally {
+      // Start generating the result
       setIsUploading(false);
+      setIsGenerating(true);
+      setStreamingContent('');
+
+      // Stream the AI response
+      await new Promise<void>((resolve, reject) => {
+        ChatApi.createStreamingConnection(
+          data.conversation.id,
+          (chunk) => {
+            setStreamingContent((prev) => prev + chunk);
+          },
+          async () => {
+            try {
+              // Save the result
+              const savedMessage = await ChatApi.sendMessage(data.conversation.id, {
+                content: '',
+                action_type: actionType,
+              });
+
+              const resultMessage: Message = {
+                id: `ai-${savedMessage.id}`,
+                conversation_id: data.conversation.id,
+                role: 'assistant',
+                content: streamingContent,
+                created_at: new Date().toISOString(),
+                action_type: actionType,
+                saved_to_notes: false,
+              };
+
+              setCurrentResult(resultMessage);
+              setIsGenerating(false);
+              setStreamingContent('');
+              await loadConversations();
+              resolve();
+            } catch (err) {
+              console.error('Failed to save result:', err);
+              setError('Failed to save result');
+              setIsGenerating(false);
+              reject(err);
+            }
+          },
+          (error) => {
+            console.error('Streaming error:', error);
+            setError('Failed to generate result');
+            setIsGenerating(false);
+            reject(error);
+          },
+          actionType,
+          ''
+        );
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process document');
+      console.error('Failed to process document:', err);
+      setIsUploading(false);
+      setIsGenerating(false);
     }
   };
 
-  // Handle send message
-  const handleSendMessage = async (content: string, actionType?: 'summary' | 'plan') => {
-    if (!activeConversation) return;
-
-    const userMessage: Message = {
-      id: `temp-${Date.now()}`,
-      conversation_id: activeConversation.id,
-      role: 'user',
-      content,
-      created_at: new Date().toISOString(),
-      action_type: actionType,
-    };
-
-    // Add user message to state immediately
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Start streaming AI response
-    setIsStreaming(true);
-    setStreamingContent('');
-
-    try {
-      // In a real implementation, this would use the streaming API
-      // For now, we'll simulate streaming with the mock implementation
-      const stream = ChatApi.createStreamingConnection(
-        activeConversation.id,
-        (chunk) => {
-          setStreamingContent((prev) => prev + chunk);
-        },
-        async () => {
-          // Streaming complete - save the message
-          try {
-            const savedMessage = await ChatApi.sendMessage(activeConversation.id, {
-              content,
-              action_type: actionType,
-            });
-
-            // Replace user message with saved one and add AI response
-            setMessages((prev) => {
-              const filtered = prev.filter((m) => m.id !== userMessage.id);
-              return [
-                ...filtered,
-                { ...userMessage, id: savedMessage.id },
-                {
-                  id: `ai-${savedMessage.id}`,
-                  conversation_id: activeConversation.id,
-                  role: 'assistant',
-                  content: streamingContent,
-                  created_at: new Date().toISOString(),
-                  action_type: actionType,
-                },
-              ];
-            });
-
-            setIsStreaming(false);
-            setStreamingContent('');
-            await loadConversations();
-          } catch (err) {
-            console.error('Failed to save message:', err);
-            setError('Failed to save message');
-            setIsStreaming(false);
-          }
-        },
-        (error) => {
-          console.error('Streaming error:', error);
-          setError('Failed to get AI response');
-          setIsStreaming(false);
-        },
-        actionType,
-        content
-      );
-
-      // Store the stream reference if needed for cancellation
-      return () => stream.close();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message');
-      setIsStreaming(false);
-    }
+  // Handle back to upload
+  const handleBack = () => {
+    setCurrentResult(null);
+    setCurrentDocument(null);
+    setActiveConversation(null);
   };
 
   // Handle save to notes
-  const handleSaveToNotes = (message: Message) => {
-    setMessageToSave(message);
-    setSaveModalOpen(true);
+  const handleSaveToNotes = () => {
+    if (currentResult) {
+      setMessageToSave(currentResult);
+      setSaveModalOpen(true);
+    }
   };
 
   const handleSaveToNotesConfirm = async (data: { title: string; content: string; tags: string[] }) => {
@@ -171,47 +158,43 @@ export function Chat() {
       await NotesApi.createNote(data);
 
       // Mark message as saved
-      if (messageToSave) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageToSave.id ? { ...m, saved_to_notes: true } : m
-          )
-        );
+      if (messageToSave && currentResult) {
+        setCurrentResult({ ...currentResult, saved_to_notes: true });
         await ChatApi.markMessageAsSaved(messageToSave.id);
       }
 
-      // Show success message (you could add a toast here)
-      alert('Saved to Notes! View it in the Notes section.');
+      // Show success message
+      toast.success('Saved to Notes! View it in the Notes section.');
     } catch (err) {
-      alert('Failed to save to notes');
+      toast.error('Failed to save to notes');
       throw err;
     }
   };
 
-  // Handle new chat
-  const handleNewChat = () => {
-    if (currentDocument || messages.length > 0) {
+  // Handle new action
+  const handleNew = () => {
+    if (currentDocument || currentResult) {
       setNewChatModalOpen(true);
     }
   };
 
-  // Handle save and new chat
-  const handleSaveAndNewChat = () => {
+  // Handle save and new
+  const handleSaveAndNew = () => {
     // Conversation is already auto-saved, just reset state
     setActiveConversation(null);
-    setMessages([]);
+    setCurrentResult(null);
     setCurrentDocument(null);
   };
 
-  // Handle discard and new chat
-  const handleDiscardAndNewChat = async () => {
+  // Handle discard and new
+  const handleDiscardAndNew = async () => {
     // Delete the current conversation
     if (activeConversation) {
       await handleDeleteConversation(activeConversation.id);
     }
-    // Reset state for new chat
+    // Reset state for new action
     setActiveConversation(null);
-    setMessages([]);
+    setCurrentResult(null);
     setCurrentDocument(null);
   };
 
@@ -223,11 +206,11 @@ export function Chat() {
 
       if (activeConversation?.id === id) {
         setActiveConversation(null);
-        setMessages([]);
+        setCurrentResult(null);
         setCurrentDocument(null);
       }
     } catch {
-      alert('Failed to delete conversation');
+      toast.error('Failed to delete conversation');
     }
   };
 
@@ -242,25 +225,8 @@ export function Chat() {
       )}
 
       <div className="flex gap-6 min-h-[700px]">
-        {/* Main Chat Card */}
+        {/* Main Content Card */}
         <div className="flex-1 flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden min-h-[700px]">
-          {currentDocument && (
-            <div className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 flex items-center justify-between">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                📄 {currentDocument.name}
-              </p>
-              <button
-                onClick={handleNewChat}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Chat
-              </button>
-            </div>
-          )}
-
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
@@ -272,20 +238,52 @@ export function Chat() {
                 />
               </svg>
             </div>
-          ) : (
-            <ChatWindow
-              messages={messages}
-              isStreaming={isStreaming}
-              streamingContent={streamingContent}
+          ) : isGenerating ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-6">
+              <div className="max-w-2xl w-full space-y-6">
+                <div className="text-center">
+                  <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+                    Generating...
+                  </h3>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    📄 {currentDocument?.name}
+                  </p>
+                </div>
+
+                {streamingContent && (
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-800 rounded-xl max-h-96 overflow-y-auto">
+                    <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none">
+                      {streamingContent}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : currentResult ? (
+            <ResultView
+              result={currentResult}
+              onBack={handleBack}
+              onNew={handleNew}
               onSaveToNotes={handleSaveToNotes}
-              currentDocument={currentDocument}
+              isSaved={currentResult.saved_to_notes || false}
+            />
+          ) : (
+            <DocumentUploadZone
               onUpload={handleDocumentUpload}
               isUploading={isUploading}
             />
           )}
         </div>
 
-        {/* Recent Conversations Sidebar */}
+        {/* Saved Conversations Sidebar */}
         <RecentConversationsSidebar
           conversations={conversations}
           activeConversationId={activeConversation?.id || null}
@@ -303,12 +301,12 @@ export function Chat() {
         documentName={currentDocument?.name}
       />
 
-      {/* New Chat Modal */}
+      {/* New Action Modal */}
       <NewChatModal
         isOpen={newChatModalOpen}
         onClose={() => setNewChatModalOpen(false)}
-        onSave={handleSaveAndNewChat}
-        onDiscard={handleDiscardAndNewChat}
+        onSave={handleSaveAndNew}
+        onDiscard={handleDiscardAndNew}
         documentName={currentDocument?.name}
       />
     </div>

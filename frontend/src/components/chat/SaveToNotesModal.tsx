@@ -29,9 +29,9 @@ export function SaveToNotesModal({
       const actionType = message.action_type;
       const defaultTitle = actionType
         ? `${actionType === 'summary' ? 'Summary' : 'Plan'}${documentName ? ` - ${documentName}` : ''}`
-        : documentName || 'AI Chat Response';
+        : documentName || 'AI Actions Response';
 
-      const defaultTag = actionType === 'summary' ? 'Summary' : actionType === 'plan' ? 'Plan' : 'AI Chat';
+      const defaultTag = actionType === 'summary' ? 'Summary' : actionType === 'plan' ? 'Plan' : 'AI Actions';
 
       setTitle(defaultTitle);
       setTagsInput(defaultTag);
@@ -120,7 +120,7 @@ export function SaveToNotesModal({
             type="text"
             value={tagsInput}
             onChange={(e) => setTagsInput(e.target.value)}
-            placeholder="Summary, Plan, AI Chat"
+            placeholder="Summary, Plan, AI Actions"
             className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500"
             disabled={isSaving}
           />
