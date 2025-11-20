@@ -74,7 +74,23 @@ class EventListCreateView(generics.ListCreateAPIView):
             f"user={self.request.user.email}"
         )
 
-        serializer.save(workspace=self.request.workspace, created_by=self.request.user)
+        event = serializer.save(workspace=self.request.workspace, created_by=self.request.user)
+
+        # Ensure the creator is always listed as an attendee so frontend
+        # can consistently treat the creator as part of the event's participants.
+        # Use the through model `EventParticipant` to create the relation explicitly
+        # (calling `event.attendees.add()` may fail when a custom through model
+        # is defined). Use get_or_create to avoid duplicates.
+        try:
+            EventParticipant.objects.get_or_create(
+                event=event,
+                user=self.request.user,
+                defaults={"added_by": self.request.user, "status": "accepted"},
+            )
+        except Exception:
+            # If for some reason the through model cannot be created, log but
+            # don't raise to avoid breaking higher-level flows (e.g., migrations).
+            logger.exception("Failed to ensure creator is in event attendees")
 
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -151,7 +167,7 @@ class RecommendTimeSlots(APIView):
         - duration: integer representing event duration in minutes
 
         Returns 3 recommended time slots during working hours (8:00 - 17:00)
-        that don't conflict with existing events.
+        that don't conflict with existing events created by attendees.
         """
         try:
             # Parse the date
@@ -179,19 +195,63 @@ class RecommendTimeSlots(APIView):
                     status=403,
                 )
 
-            # Get all events in the workspace that overlap the working hours for the day.
-            # Previously we only filtered events whose start_time falls on the date
-            # (start_time__date=base_date.date()), which misses multi-day events that
-            # begin before `base_date` but end during or after it. Instead, select any
-            # event that overlaps the working window [work_start, work_end):
-            #   event.start_time < work_end AND event.end_time > work_start
-            # This correctly captures events that start previous days but continue
-            # into the requested date (and vice versa).
-            existing_events = (
+            # Parse optional attendees from query params. Expect comma-separated
+            # values which may be user IDs (integers) or emails. If provided,
+            # limit conflicts to events that involve any of those users.
+            attendees_param = request.query_params.get("attendees")
+            attendee_ids = []
+            if attendees_param:
+                from django.contrib.auth import get_user_model
+
+                User = get_user_model()
+                parts = [p.strip() for p in attendees_param.split(",") if p.strip()]
+                for p in parts:
+                    # try numeric id first
+                    try:
+                        attendee_ids.append(int(p))
+                        continue
+                    except Exception:
+                        pass
+
+                    # fallback to resolving by email
+                    try:
+                        u = User.objects.filter(email=p).first()
+                        if u:
+                            attendee_ids.append(u.id)
+                    except Exception:
+                        # ignore values we can't resolve
+                        continue
+
+            # Always include the requesting user (creator) as an attendee so
+            # recommendations won't suggest times that conflict with their own
+            # calendar even if the frontend didn't include them in `attendees`.
+            try:
+                creator_id = getattr(request.user, "id", None)
+                if creator_id and creator_id not in attendee_ids:
+                    attendee_ids.append(creator_id)
+            except Exception:
+                pass
+
+            # Build base queryset of events overlapping the working window
+            base_qs = (
                 Event.objects.filter(workspace=request.workspace)
                 .filter(start_time__lt=work_end, end_time__gt=work_start)
-                .order_by("start_time")
             )
+
+            # If attendees were provided, restrict to events that involve any
+            # of those attendees (either as an attendee or as the creator).
+            if attendee_ids:
+                from django.db.models import Q
+
+                existing_events = (
+                    base_qs.filter(
+                        Q(attendees__in=attendee_ids) | Q(created_by__id__in=attendee_ids)
+                    )
+                    .distinct()
+                    .order_by("start_time")
+                )
+            else:
+                existing_events = base_qs.order_by("start_time")
 
             # Convert duration to timedelta
             duration_delta = timedelta(minutes=duration)
@@ -277,7 +337,7 @@ class RecommendTimeSlots(APIView):
             conflict = False
             for ev in existing_events:
                 # ensure both sides comparable (DB events should be aware)
-                if current_slot < ev.end_time and slot_end > ev.start_time:
+                if current_slot < ev.end_time and slot_end >= ev.start_time:
                     conflict = True
                     break
 

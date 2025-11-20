@@ -111,7 +111,7 @@ export function SmartScheduleModal({
       // Ensure date format is yyyy-mm-dd, duration is number (minutes)
       console.log(`Calling API with date=${date}, duration=${duration}`);
       
-      const result = await getRecommendedSlots(date, duration);
+      const result = await getRecommendedSlots(date, duration, selected);
       console.log("API Response:", result);
 
       // Check if no slots are available

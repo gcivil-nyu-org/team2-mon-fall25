@@ -129,6 +129,45 @@ class EventAPITests(TestCase):
         # Assertions
         self.assertEqual(response.status_code, 201)
 
+    def test_creator_is_attendee_on_create(self):
+        """When a user creates an event, they should be present in attendees."""
+        created_at = timezone.now()
+        start_time = created_at + datetime.timedelta(hours=2)
+        end_time = start_time + datetime.timedelta(hours=1)
+
+        payload = {
+            "title": "Creator Attendee Event",
+            "description": "Creator should be attendee",
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "event_type": "GROUP",
+            "location": "Lobby",
+        }
+
+        response = self.client.post(
+            self.url,
+            payload,
+            format="json",
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        self.assertEqual(response.status_code, 201)
+
+        # Fetch the created event and assert creator is listed in attendees_detail
+        event_id = response.data.get("event_id") or response.data.get("id")
+        self.assertIsNotNone(event_id)
+
+        detail_url = reverse("events:event-detail", args=[event_id])
+        detail_resp = self.client.get(
+            detail_url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+        self.assertEqual(detail_resp.status_code, 200)
+        attendees = detail_resp.data.get("attendees_detail", [])
+        attendee_ids = {a.get("id") for a in attendees}
+        self.assertIn(self.user.id, attendee_ids)
+
     def test_get_with_event_id_uuid(self):
         event = createDefaultEvent()
         client = APIClient()
@@ -288,6 +327,51 @@ class EventAPITests(TestCase):
                 (slot_start < event_end and slot_end > event_start),
                 "Recommended slot overlaps with existing event",
             )
+
+    def test_recommend_considers_creator_conflict(self):
+        """Creator's existing events should be considered when recommending slots."""
+        tomorrow = timezone.now() + datetime.timedelta(days=1)
+        tz = pytz.timezone(settings.TIME_ZONE)
+        day = timezone.localtime(tomorrow, tz).date()
+
+        # Create an event for the authenticated user from 09:00 to 10:00
+        start_local = tz.localize(datetime.datetime.combine(day, datetime.time(9, 0)))
+        end_local = start_local + datetime.timedelta(hours=1)
+
+        Event.objects.create(
+            title="Creator Busy",
+            description="Creator has meeting",
+            start_time=start_local,
+            end_time=end_local,
+            event_type="GROUP",
+            location="Desk",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+
+        url = reverse("events:recommend-slots", args=[day.isoformat(), 60])
+        response = self.client.get(
+            url,
+            follow=True,
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("recommended_slots", response.data)
+
+        # Find morning slot and assert it starts at or after 10:00 local time
+        morning = next(
+            (
+                s
+                for s in response.data["recommended_slots"]
+                if s.get("period") == "morning"
+            ),
+            None,
+        )
+        self.assertIsNotNone(morning)
+        start = datetime.datetime.fromisoformat(morning["start_time"])  # aware
+        start_local = start.astimezone(tz)
+        self.assertGreaterEqual(start_local.hour, 10)
 
     def test_recommend_slots_invalid_date(self):
         """Test recommendations with invalid date format"""
