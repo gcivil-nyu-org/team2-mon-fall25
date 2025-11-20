@@ -483,7 +483,7 @@ export default function App() {
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
           ) : current === "notes" ? (
-            <Notes />
+            <Notes workspaceId={workspace} />
           ) : current === "tasks" ? (
             <Tasks />
           ) : current === "resources" ? (

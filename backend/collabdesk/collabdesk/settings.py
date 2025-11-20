@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "django_filters",
     "resources",
     "storages",
+    "notes",
 ]
 
 MIDDLEWARE = [

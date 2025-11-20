@@ -4,9 +4,10 @@ import { NoteEditorModal } from './NoteEditorModal';
 import { NoteViewerModal } from './NoteViewerModal';
 import { ShareNoteModal } from './ShareNoteModal';
 import { NotesApi } from './NotesApi';
+// import type { Workspace } from '../../lib/api';
 import type { Note, ViewMode, SortBy, ActiveTab, User, CreateNoteData } from './types';
 
-export function Notes() {
+export function Notes({ workspaceId }: { workspaceId: string }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('mine');
   const [myNotes, setMyNotes] = useState<Note[]>([]);
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
@@ -17,6 +18,7 @@ export function Notes() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -30,7 +32,7 @@ export function Notes() {
   // Fetch notes
   useEffect(() => {
     loadNotes();
-  }, [activeTab]);
+  }, [workspaceId, activeTab]);
 
   const loadNotes = async () => {
     setLoading(true);
@@ -38,7 +40,7 @@ export function Notes() {
 
     try {
       if (activeTab === 'mine') {
-        const notes = await NotesApi.getMyNotes();
+        const notes = await NotesApi.getMyNotes(workspaceId);
         setMyNotes(notes);
       } else {
         const notes = await NotesApi.getSharedNotes();
@@ -103,8 +105,15 @@ export function Notes() {
   }, [myNotes, sharedNotes, activeTab, searchQuery, selectedTag, sortBy]);
 
   // Handlers
-  const handleCreateNote = async (data: CreateNoteData) => {
-    await NotesApi.createNote(data);
+  const handleCreateNote = async (data: { title: string; content: string; tags: string[] }) => {
+    const selectedWorkspaceId = workspaceId;
+
+    console.log("Creating note:", {
+    ...data,
+    workspace: selectedWorkspaceId,
+  });
+
+    await NotesApi.createNote({ ...data, workspace: selectedWorkspaceId });
     await loadNotes();
   };
 
