@@ -245,7 +245,7 @@ export function NotesList({
                     </div>
 
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-2">
-                      {note.content.replace(/[#*`>\-\[\]]/g, '').trim() || 'No content'}
+                      {note.content.replace(/[#*`>\-[\]]/g, '').trim() || 'No content'}
                     </p>
 
                     {note.tags.length > 0 && (

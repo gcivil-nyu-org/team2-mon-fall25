@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { NotesList } from './NotesList';
 import { NoteEditor } from './NoteEditor';
 import { NotesApi } from './NotesApi';
-import type { Note, ActiveTab, SortBy, User, CreateNoteData } from './types';
+// import type { Workspace } from '../../lib/api';
+import type { Note, SortBy, ActiveTab, User, CreateNoteData } from './types';
 import { toast } from 'sonner';
 
-export function Notes() {
+export function Notes({ workspaceId }: { workspaceId: string }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('mine');
   const [myNotes, setMyNotes] = useState<Note[]>([]);
   const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
@@ -14,20 +15,32 @@ export function Notes() {
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortBy>('modified');
   const [loading, setLoading] = useState(true);
+  // const [error, setError] = useState('');
+
+
+  // Modal states
+  //TODO: commenting this now to avoid lint errors, will implement modals later
+
+  // const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  // const [editingNote, setEditingNote] = useState<Note | null>(null);
+  // const [viewingNote, setViewingNote] = useState<Note | null>(null);
+  // const [sharingNote, setSharingNote] = useState<Note | null>(null);
+
+  // Mock workspace members (replace with actual API call when backend is ready)
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [workspaceMembers] = useState<User[]>(NotesApi.getMockWorkspaceMembers());
 
   // Fetch notes
   useEffect(() => {
     loadNotes();
-  }, [activeTab]);
+  }, [workspaceId, activeTab]);
 
   const loadNotes = async () => {
     setLoading(true);
 
     try {
       if (activeTab === 'mine') {
-        const notes = await NotesApi.getMyNotes();
+        const notes = await NotesApi.getMyNotes(workspaceId);
         setMyNotes(notes);
       } else {
         const notes = await NotesApi.getSharedNotes();
@@ -51,7 +64,6 @@ export function Notes() {
     ? [...myNotes, ...sharedNotes].find((n) => n.id === selectedNoteId) || null
     : null;
 
-  // Handlers
   const handleCreateNew = () => {
     setSelectedNoteId(null);
     setIsCreatingNew(true);
@@ -64,7 +76,7 @@ export function Notes() {
 
   const handleCreateNote = async (data: CreateNoteData) => {
     try {
-      const newNote = await NotesApi.createNote(data);
+      const newNote = await NotesApi.createNote({...data, workspace: workspaceId});
       await loadNotes();
       setSelectedNoteId(newNote.id);
       setIsCreatingNew(false);
