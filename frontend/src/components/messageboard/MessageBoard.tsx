@@ -20,7 +20,7 @@ import { MessageComposer } from "./MessageComposer";
 import { ConfirmModal } from "../modals/ConfirmModal";
 import { ThreadModal } from "./ThreadModal";
 
-const PAGE_SIZE = 20; 
+// const PAGE_SIZE = 20; 
 
 export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -30,7 +30,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const [isDeleting, setIsDeleting] = useState(false);
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const firstLoadRef = useRef(true); 
+  // const firstLoadRef = useRef(true); 
   const [searchInput, setSearchInput] = useState("");
   const debouncedQuery = useDebounce(searchInput, 300);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
@@ -88,7 +88,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   }, []);
 
   // Load messages
-  const loadMessages = useCallback(async (token?: string) => {
+  const loadMessages = useCallback(async () => {
     if (!currentWorkspace || userMap.size === 0) {
       console.log("No workspace selected, skipping message load");
       setMessages([]);
