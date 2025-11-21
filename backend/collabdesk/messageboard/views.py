@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class MessageListCreateView(generics.ListCreateAPIView):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def initial(self, request, *args, **kwargs):
         """Override to set workspace context after authentication"""
         super().initial(request, *args, **kwargs)
@@ -46,14 +46,16 @@ class MessageListCreateView(generics.ListCreateAPIView):
         queryset = Message.objects.filter(
             workspace=self.request.workspace, parent=None
         ).order_by("-created_at")
-        queryset = queryset.select_related('author').prefetch_related('reactions__user', 'replies')
-        search_query_text = self.request.query_params.get('search', '').strip()
+        queryset = queryset.select_related("author").prefetch_related(
+            "reactions__user", "replies"
+        )
+        search_query_text = self.request.query_params.get("search", "").strip()
         if search_query_text:
-          queryset = queryset.filter(
-                Q(content__icontains=search_query_text) |
-                Q(author__full_name__icontains=search_query_text)
+            queryset = queryset.filter(
+                Q(content__icontains=search_query_text)
+                | Q(author__full_name__icontains=search_query_text)
             )
-          logger.info(
+            logger.info(
                 f"User={user_identifier} searched messages with query='{search_query_text}' "
                 f"in workspace={self.request.workspace.name} (ID: {self.request.workspace.workspace_id})"
             )
