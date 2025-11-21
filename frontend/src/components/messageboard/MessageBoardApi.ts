@@ -174,6 +174,8 @@ export const searchMessages = async (query: string, token?: string): Promise<Mes
 const transformMessage = (msg: any): Message => {
   const authorEmail = msg.user?.name || "unknown@example.com";
   const authorId = msg.user?.id.toString() || "unknown";
+  const createdTime = new Date(msg.createdAt).getTime();
+  const updatedTime = new Date(msg.updatedAt).getTime();
 
   return ({
     id: msg.id.toString(),
@@ -190,9 +192,7 @@ const transformMessage = (msg: any): Message => {
       count: (r.users || []).length,
     })),
     mentions: extractMentions(msg.content),
-    isEdited:
-  msg.updatedAt !== msg.createdAt &&
-  msg.contentUpdatedAt !== undefined,
+    isEdited: updatedTime > createdTime, 
     parentId: msg.parent ? msg.parent.toString() : null,
     replyCount: msg.replies ? msg.replies.length : 0,
   });
