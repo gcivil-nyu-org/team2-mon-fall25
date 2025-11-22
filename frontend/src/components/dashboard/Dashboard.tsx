@@ -11,7 +11,7 @@ export function Dashboard({
   workspaceId: string;
   onOpenMessageThread?: (messageId: string) => void;
 }) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth0();
+  const { isAuthenticated, isLoading: authLoading, getAccessTokenSilently } = useAuth0();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,9 @@ export function Dashboard({
     setLoading(true);
     setError("");
 
-    fetchWorkspaceInformation(workspaceId)
+    const tokenProvider = () => getAccessTokenSilently();
+
+    fetchWorkspaceInformation(workspaceId, tokenProvider)
       .then((data) => {
         setWorkspace(data);
       })
@@ -55,13 +57,14 @@ export function Dashboard({
         setError("Failed to load workspace.");
       })
       .finally(() => setLoading(false));
-  }, [workspaceId, isAuthenticated, authLoading]);
+  }, [workspaceId, isAuthenticated, authLoading, getAccessTokenSilently]);
 
   // Fetch recent messages
   useEffect(() => {
     const loadRecentMessages = async () => {
       try {
-        const messages = await getMessages();
+        const token = await getAccessTokenSilently();
+        const messages = await getMessages(token);
         // Get only parent messages, sort by timestamp descending, take latest 3
         const parentMessages = messages
           .filter((m) => m.parentId === null)
@@ -73,7 +76,7 @@ export function Dashboard({
       }
     };
     loadRecentMessages();
-  }, []);
+  }, [getAccessTokenSilently]);
 
   const handleWorkspaceUpdate = (updatedWorkspace: Workspace) => {
     setWorkspace(updatedWorkspace);
