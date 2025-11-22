@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "resources",
     "storages",
     "notes",
+    "django.contrib.postgres",
 ]
 
 MIDDLEWARE = [

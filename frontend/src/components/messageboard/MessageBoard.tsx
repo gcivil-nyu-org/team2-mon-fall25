@@ -3,6 +3,7 @@ import type { Message } from "./MessageBoardApi";
 import { useAuth0 } from "@auth0/auth0-react";
 import { fetchAllUsers } from "../../lib/api";
 import type { User as ApiUser } from "../../lib/api";
+import { useDebounce } from './useDebounce';
 import {
   getMessages,
   createMessage,
@@ -19,18 +20,25 @@ import { MessageComposer } from "./MessageComposer";
 import { ConfirmModal } from "../modals/ConfirmModal";
 import { ThreadModal } from "./ThreadModal";
 
+// const PAGE_SIZE = 20; 
+
 export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // const firstLoadRef = useRef(true); 
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedQuery = useDebounce(searchInput, 300);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
   const messageEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
+  const lastMessageIdRef = useRef<string | null>(null);
 
   // Track current workspace to trigger reload on workspace change
   const [currentWorkspace, setCurrentWorkspace] = useState<string>(() =>
@@ -54,11 +62,11 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     };
 
     window.addEventListener("storage", handleStorageChange);
-    const interval = setInterval(handleStorageChange, 500);
+    // const interval = setInterval(handleStorageChange, 500);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
+      // clearInterval(interval);
     };
   }, [currentWorkspace]);
 
@@ -80,10 +88,8 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   }, []);
 
   // Load messages
-  const loadMessages = useCallback(async (token?: string) => {
-    const currentUserId = currentUser.id;
-
-    if (!currentWorkspace) {
+  const loadMessages = useCallback(async () => {
+    if (!currentWorkspace || userMap.size === 0) {
       console.log("No workspace selected, skipping message load");
       setMessages([]);
       setIsLoading(false);
@@ -93,9 +99,11 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     try {
       setIsLoading(true);
       console.log("Loading messages for workspace:", currentWorkspace);
-      const data = searchQuery
-        ? await searchMessages(searchQuery, token)
+      const token = await getAccessTokenSilently();
+      const data = debouncedQuery
+        ? await searchMessages(debouncedQuery, token)
         : await getMessages(token);
+      const currentUserId = currentUser.id;
       const cleanedMessages = data.map(m => {
         const displayAuthorName = userMap.get(m.authorId) || m.author;
         const isCurrentUserMessage = m.authorId === currentUserId;
@@ -106,6 +114,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
           author: finalAuthorName
         };
       });
+      cleanedMessages.reverse();
       setMessages(cleanedMessages);
     } catch (error) {
       console.error("Failed to load messages:", error);
@@ -113,22 +122,12 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, userMap, currentUser, currentWorkspace]);
+  }, [debouncedQuery, userMap, currentUser, currentWorkspace, getAccessTokenSilently]);
 
   // Reload messages when dependencies change
   useEffect(() => {
-    const loadMessagesWithToken = async () => {
-      if (userMap.size > 0) {
-        try {
-          const token = await getAccessTokenSilently();
-          await loadMessages(token);
-        } catch (error) {
-          console.error("Failed to get token:", error);
-        }
-      }
-    };
-    loadMessagesWithToken();
-  }, [searchQuery, userMap, currentUser, loadMessages, currentWorkspace, getAccessTokenSilently]);
+  loadMessages();
+}, [loadMessages]);
 
   // Open thread when openThreadMessageId is provided
   useEffect(() => {
@@ -139,6 +138,31 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       }
     }
   }, [openThreadMessageId, messages]);
+
+  useEffect(() => {
+  const container = scrollContainerRef.current;
+  if (!container || !messages.length) return;
+
+  const lastMessageId = messages[messages.length - 1].id;
+  const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
+  if (lastMessageIdRef.current && lastMessageIdRef.current !== lastMessageId && !isAtBottom) {
+    setShowNewMessageIndicator(true);
+  } else if (isAtBottom) {
+    setShowNewMessageIndicator(false);
+    scrollToBottom();
+  }
+
+  lastMessageIdRef.current = lastMessageId;
+
+  const handleScroll = () => {
+    const isAtBottomScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+    if (isAtBottomScroll) setShowNewMessageIndicator(false);
+  };
+
+  container.addEventListener("scroll", handleScroll);
+  return () => container.removeEventListener("scroll", handleScroll);
+}, [messages]);
 
   const handleSendMessage = async (content: string, mentions: string[]) => {
     if (!content.trim()) return;
@@ -161,7 +185,20 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       setIsSending(false);
     }
   };
+  const updateParentMessageLocally = (parentId: string) => {
+  setMessages(prev =>
+    prev.map(m =>
+      m.id === parentId ? { ...m, replyCount: (m.replyCount || 0) + 1 } : m
+    )
+  );
 
+  // also update in modal if open
+  if (threadMessage?.id === parentId) {
+    setThreadMessage(prev =>
+      prev ? { ...prev, replyCount: (prev.replyCount || 0) + 1 } : prev
+    );
+  }
+};
   const handleEditMessage = async (id: string, content: string) => {
     const originalMessage = messages.find(m => m.id === id);
     if (!originalMessage || originalMessage.content === content) return;
@@ -293,12 +330,13 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     }
   };
 
+  
   const scrollToBottom = () => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-white dark:bg-zinc-950">
+    <div className="h-screen w-full flex flex-col bg-white dark:bg-zinc-950">
       {/* HEADER - Fixed at top */}
       <header className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -339,15 +377,15 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
               </svg>
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search messages..."
                 autoFocus
                 className="w-full pl-9 pr-10 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
               />
-              {searchQuery && (
+              {searchInput && (
                 <button
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => setSearchInput("")}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,8 +399,10 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
       </header>
 
       {/* MESSAGES - Scrollable middle section */}
-      <main className="flex-1 min-h-0 relative">
-        <div className="h-full overflow-y-auto overflow-x-hidden">
+      <main 
+      ref={scrollContainerRef}
+      className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        
           <MessageFeed
             messages={messages}
             isLoading={isLoading}
@@ -373,7 +413,14 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
             currentUser={currentUser}
           />
           <div ref={messageEndRef} />
-        </div>
+          {showNewMessageIndicator && (
+  <button
+    onClick={scrollToBottom}
+    className="absolute bottom-4 right-4 px-3 py-2 bg-blue-600 text-white rounded-full shadow-lg animate-bounce"
+  >
+    New Messages ↓
+  </button>
+)}
 
         {/* Scroll to Bottom Button */}
         <button
@@ -411,6 +458,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
         onClose={() => setThreadMessage(null)}
         parentMessage={threadMessage}
         onUpdate={handleUpdate}
+        updateParentMessageLocally={updateParentMessageLocally}
       />
     </div>
   );

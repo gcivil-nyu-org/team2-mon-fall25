@@ -8,6 +8,9 @@ from .serializers import MessageSerializer
 from .permissions import IsAuthorOrReadOnly
 from collabdesk.middleware import set_workspace_context
 import logging
+from django.db.models import Q
+from django.contrib.postgres.search import SearchVector, SearchQuery
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +43,28 @@ class MessageListCreateView(generics.ListCreateAPIView):
             raise PermissionDenied(
                 "Workspace context is required. Please provide X-Workspace-ID header."
             )
-
+        queryset = Message.objects.filter(
+            workspace=self.request.workspace, parent=None
+        ).order_by("-created_at")
+        queryset = queryset.select_related("author").prefetch_related(
+            "reactions__user", "replies"
+        )
+        search_query_text = self.request.query_params.get("search", "").strip()
+        if search_query_text:
+            queryset = queryset.filter(
+                Q(content__icontains=search_query_text)
+                | Q(author__full_name__icontains=search_query_text)
+            )
+            logger.info(
+                f"User={user_identifier} searched messages with query='{search_query_text}' "
+                f"in workspace={self.request.workspace.name} (ID: {self.request.workspace.workspace_id})"
+            )
         # Return only messages from the specified workspace
         logger.info(
             f"Fetching messages for user={user_identifier}, "
             f"workspace={self.request.workspace.name} (ID: {self.request.workspace.workspace_id})"
         )
-        return Message.objects.filter(
-            workspace=self.request.workspace, parent=None
-        ).order_by("-created_at")
+        return queryset
 
     def perform_create(self, serializer):
         """
