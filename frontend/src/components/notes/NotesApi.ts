@@ -1,8 +1,9 @@
 import { authenticatedFetch } from '../../lib/api';
+import {API_BASE_URL} from '../../lib/api';
 import type { Note, CreateNoteData, UpdateNoteData, ShareNoteData, User } from './types';
 
-const NOTES_BASE_URL = '/api/notes';
-const USE_MOCK_DATA = true; // Set to false when backend is ready
+const NOTES_BASE_URL = `${API_BASE_URL}/api/notes`;
+const USE_MOCK_DATA = false; // Set to false when backend is ready
 
 // Mock current user
 const mockCurrentUser: User = {
@@ -36,16 +37,18 @@ function generateId(): string {
 
 export class NotesApi {
   /**
-   * Fetch all notes created by the current user
+   * Fetch all notes created by the current user for the selected workspace
    */
-  static async getMyNotes(): Promise<Note[]> {
+  static async getMyNotes(workspaceId: string): Promise<Note[]> {
     if (USE_MOCK_DATA) {
       const allNotes = getNotesFromStorage();
       return allNotes.filter(note => note.created_by.id === mockCurrentUser.id && !note.is_shared);
     }
 
     try {
-      const response = await authenticatedFetch(`${NOTES_BASE_URL}/`);
+          const response = await authenticatedFetch(
+      `${NOTES_BASE_URL}/list/?workspace_id=${workspaceId}`
+    );
       if (!response.ok) {
         throw new Error('Backend API not available');
       }
@@ -119,7 +122,7 @@ export class NotesApi {
       return newNote;
     }
 
-    const response = await authenticatedFetch(`${NOTES_BASE_URL}/`, {
+    const response = await authenticatedFetch(`${NOTES_BASE_URL}/create/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,7 +153,7 @@ export class NotesApi {
       return allNotes[index];
     }
 
-    const response = await authenticatedFetch(`${NOTES_BASE_URL}/${id}/`, {
+    const response = await authenticatedFetch(`${NOTES_BASE_URL}/update/${id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -171,7 +174,7 @@ export class NotesApi {
       return;
     }
 
-    await authenticatedFetch(`${NOTES_BASE_URL}/${id}/`, {
+    await authenticatedFetch(`${NOTES_BASE_URL}/delete/${id}/`, {
       method: 'DELETE',
     });
   }
