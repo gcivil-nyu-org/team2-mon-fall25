@@ -55,26 +55,22 @@ export class NotesApi {
   /**
    * Fetch all notes shared with the current user
    */
-  static async getSharedNotes(): Promise<Note[]> {
-    if (USE_MOCK_DATA) {
-      const allNotes = getNotesFromStorage();
-      // Return notes where current user is in the shared_with list
-      return allNotes.filter(note =>
-        note.shared_with.some(user => user.id === mockCurrentUser.id)
-      ).map(note => ({ ...note, is_shared: true }));
+static async getSharedNotes(workspaceId: string): Promise<Note[]> {
+  try {
+    const response = await authenticatedFetch(
+      `${NOTES_BASE_URL}/shared/?workspace_id=${workspaceId}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch shared notes");
     }
 
-    try {
-      const response = await authenticatedFetch(`${NOTES_BASE_URL}/shared/`);
-      if (!response.ok) {
-        throw new Error('Backend API not available');
-      }
-      return response.json();
-    } catch (error) {
-      console.warn('Notes API not available, returning empty array',error);
-      return [];
-    }
+    return response.json();
+  } catch (error) {
+    console.warn("Shared notes API not available:", error);
+    return [];
   }
+}
 
   /**
    * Get a single note by ID

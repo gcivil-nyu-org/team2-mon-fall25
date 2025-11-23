@@ -32,20 +32,6 @@ export function ShareNoteModal({
     setError('');
   }, [note, isOpen]);
 
-  // check if all workspace members are selected
-  // const allSelected =
-  //   workspaceMembers.length > 0 &&
-  //   selectedUserIds.size === workspaceMembers.length;
-
-  // toggle select all
-  // const toggleSelectAll = () => {
-  //   if (allSelected) {
-  //     setSelectedUserIds(new Set());  // unselect all
-  //   } else {
-  //     setSelectedUserIds(new Set(workspaceMembers.map(m => m.id))); // select all
-  //   }
-  // };
-
   const filteredMembers = workspaceMembers.filter((member) => {
     const query = searchQuery.toLowerCase();
     return (

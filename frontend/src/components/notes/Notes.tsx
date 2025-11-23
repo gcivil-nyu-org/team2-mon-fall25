@@ -44,7 +44,7 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
         const notes = await NotesApi.getMyNotes(workspaceId);
         setMyNotes(notes);
       } else {
-        const notes = await NotesApi.getSharedNotes();
+        const notes = await NotesApi.getSharedNotes(workspaceId);
         setSharedNotes(notes);
       }
     } catch (err) {
