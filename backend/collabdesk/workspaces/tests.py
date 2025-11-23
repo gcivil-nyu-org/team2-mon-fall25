@@ -433,3 +433,84 @@ class WorkspaceJoinViewTests(APITestCase):
         response = self.client.post(self.url, {}, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceMembersAPITests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # Users
+        self.user = User.objects.create_user(
+            username="owner", email="owner@test.com", password="pass123"
+        )
+        self.member = User.objects.create_user(
+            username="member", email="member@test.com", password="pass123"
+        )
+        self.non_member = User.objects.create_user(
+            username="outsider", email="out@test.com", password="pass123"
+        )
+
+        # Workspace
+        self.workspace = Workspace.objects.create(
+            workspace_id="abc12345-e89b-12d3-a456-426614174000",
+            name="WS",
+            description="Test Workspace",
+            created_by=self.user,
+        )
+
+        # Add members
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.member, role="member"
+        )
+
+        self.workspace_id = str(self.workspace.workspace_id)
+        self.client.force_authenticate(self.user)
+
+        # URL pattern used in frontend: /api/workspaces/<workspace_id>/members/
+        self.members_url = f"/api/workspaces/{self.workspace_id}/members/"
+
+    # ---------------------------------------------------------
+    # GET WORKSPACE MEMBERS
+    # ---------------------------------------------------------
+
+    def test_get_workspace_members_success(self):
+        response = self.client.get(self.members_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+        first = response.data[0]
+        self.assertIn("user_id", first)
+        self.assertIn("username", first)
+        self.assertIn("role", first)
+        self.assertIn("full_name", first)
+        self.assertIn("joined_at", first)
+
+    def test_get_workspace_members_invalid_workspace(self):
+        invalid_url = "/api/workspaces/999e9999-e89b-12d3-a456-426614179999/members/"
+
+        response = self.client.get(invalid_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn("Workspace not found", response.data["detail"])
+
+    def test_get_workspace_members_empty_list(self):
+        # Create workspace with no members
+        empty_ws = Workspace.objects.create(
+            workspace_id="555e4567-e89b-12d3-a456-426614175555",
+            name="EmptyWS",
+            description="",
+            created_by=self.user,
+        )
+
+        url = f"/api/workspaces/{empty_ws.workspace_id}/members/"
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
