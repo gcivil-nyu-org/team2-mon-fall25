@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { NotesList } from './NotesList';
 import { NoteEditor } from './NoteEditor';
 import { NotesApi } from './NotesApi';
-// import type { Workspace } from '../../lib/api';
-import type { Note, SortBy, ActiveTab, User, CreateNoteData } from './types';
+import type { Note, SortBy, ActiveTab, CreateNoteData } from './types';
 import { toast } from 'sonner';
+import { fetchWorkspaceMembers, type WorkspaceMember, type WorkspaceMemberExtended } from '../../lib/api';
 
 export function Notes({ workspaceId }: { workspaceId: string }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('mine');
@@ -28,7 +28,8 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
 
   // Mock workspace members (replace with actual API call when backend is ready)
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [workspaceMembers] = useState<User[]>(NotesApi.getMockWorkspaceMembers());
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMember[]>([]);
+
 
   // Fetch notes
   useEffect(() => {
@@ -58,6 +59,24 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
       setLoading(false);
     }
   };
+
+useEffect(() => {
+  async function loadMembers() {
+    try {
+      const membersExtended = await fetchWorkspaceMembers(workspaceId);
+      const members = membersExtended.map(convertToWorkspaceMember);
+      setWorkspaceMembers(members);
+    } catch (err) {
+      console.error("Failed to load workspace members", err);
+      setWorkspaceMembers([]); 
+    }
+  }
+
+  if (workspaceId) {
+    loadMembers();
+  }
+}, [workspaceId]);
+
 
   // Get selected note
   const selectedNote = selectedNoteId
@@ -137,7 +156,11 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
             onSave={isCreatingNew ? handleCreateNote : handleUpdateNote}
             onDelete={handleDeleteNote}
             onClose={handleCloseEditor}
-            workspaceMembers={workspaceMembers}
+            workspaceMembers={workspaceMembers.map(m => ({
+                id: m.user_id, 
+                name: m.full_name,     // User.name expected by NoteEditor
+                email: m.email ?? "",  // User.email expected by NoteEditor
+                }))}
           />
         ) : (
           <div className="flex-1">
@@ -201,11 +224,25 @@ export function Notes({ workspaceId }: { workspaceId: string }) {
               onSave={isCreatingNew ? handleCreateNote : handleUpdateNote}
               onDelete={handleDeleteNote}
               onClose={handleCloseEditor}
-              workspaceMembers={workspaceMembers}
+              workspaceMembers={workspaceMembers.map(m => ({
+                id: m.user_id, 
+                name: m.full_name,   
+                email: m.email ?? "",  
+                }))}
             />
           )}
         </div>
       </div>
     </div>
   );
+}
+
+function convertToWorkspaceMember(m: WorkspaceMemberExtended): WorkspaceMember {
+  return {
+    user_id: m.user_id,
+    username: m.username,
+    full_name: m.full_name,
+    role: m.role ?? "member",
+    joined_at: m.joined_at ?? "",
+  };
 }

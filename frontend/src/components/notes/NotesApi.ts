@@ -12,13 +12,6 @@ const mockCurrentUser: User = {
   email: 'you@example.com',
 };
 
-// Mock workspace members for sharing
-const mockWorkspaceMembers: User[] = [
-  { id: 'user-1', name: 'John Doe', email: 'john@example.com' },
-  { id: 'user-2', name: 'Jane Smith', email: 'jane@example.com' },
-  { id: 'user-3', name: 'Bob Wilson', email: 'bob@example.com' },
-];
-
 // LocalStorage helpers
 const STORAGE_KEY = 'collabdesk-notes';
 
@@ -190,11 +183,12 @@ export class NotesApi {
       if (index === -1) throw new Error('Note not found');
 
       // Get user objects for the IDs
-      const sharedUsers = mockWorkspaceMembers.filter(user => data.user_ids.includes(user.id));
+
+      // const sharedUsers = mockWorkspaceMembers.filter(user => data.user_ids.includes(user.id));
 
       allNotes[index] = {
         ...allNotes[index],
-        shared_with: sharedUsers,
+        shared_with: [],
         updated_at: new Date().toISOString(),
       };
 
@@ -260,12 +254,5 @@ export class NotesApi {
       `${NOTES_BASE_URL}/search/?${params.toString()}`
     );
     return response.json();
-  }
-
-  /**
-   * Get mock workspace members (for testing)
-   */
-  static getMockWorkspaceMembers(): User[] {
-    return mockWorkspaceMembers;
   }
 }

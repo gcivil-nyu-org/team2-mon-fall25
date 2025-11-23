@@ -69,6 +69,7 @@ export type WorkspaceMember = {
   full_name: string;
   role: string;
   joined_at: string;
+  email?: string;
 };
 
 // Calendar Recommended Slots API
@@ -325,7 +326,7 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
 }
 
 // Workspace Members Management
-const USE_MOCK_MEMBERS = true; // Set to false when backend is ready
+const USE_MOCK_MEMBERS = false; // Set to false when backend is ready
 const MEMBERS_STORAGE_KEY_PREFIX = 'collabdesk-workspace-members-';
 
 export type WorkspaceMemberExtended = {
