@@ -9,7 +9,7 @@ from .serializer import (
     WorkspaceSerializer,
     WorkspaceCreateSerializer,
     WorkspaceJoinSerializer,
-    WorkspaceMemberSerializer
+    WorkspaceMemberSerializer,
 )
 
 

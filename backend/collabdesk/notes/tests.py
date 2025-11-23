@@ -1,11 +1,11 @@
-from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.test import override_settings
+from workspaces.models import Workspace, WorkspaceMember
 
 
-from notes.models import Note, Workspace
+from notes.models import Note
 
 User = get_user_model()
 
@@ -179,3 +179,162 @@ class NotesAPITests(APITestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Note.objects.count(), 1)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class NotesSharingTests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # Users
+        self.owner = User.objects.create_user(
+            username="owner", email="owner@test.com", password="pass123"
+        )
+        self.member1 = User.objects.create_user(
+            username="m1", email="m1@test.com", password="pass123"
+        )
+        self.member2 = User.objects.create_user(
+            username="m2", email="m2@test.com", password="pass123"
+        )
+        self.outsider = User.objects.create_user(
+            username="x", email="x@test.com", password="pass123"
+        )
+
+        # Workspace
+        self.workspace = Workspace.objects.create(
+            workspace_id="111e1111-e89b-12d3-a456-426614170000",
+            name="WS",
+            description="",
+            created_by=self.owner,
+        )
+
+        # Members of workspace
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.owner, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.member1, role="member"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.member2, role="member"
+        )
+
+        # Note owned by owner
+        self.note = Note.objects.create(
+            owner=self.owner,
+            title="Shared Note",
+            content="abc",
+            tags=["x"],
+            workspace=self.workspace,
+        )
+
+        self.client.force_authenticate(self.owner)
+
+        # URLs used
+        self.share_url = f"/api/notes/{self.note.id}/share/"
+        self.unshare_url = f"/api/notes/{self.note.id}/share/"
+        self.shared_notes_url = "/api/notes/shared/"
+
+    # ---------------------------------------------------------
+    # SHARE NOTE
+    # ---------------------------------------------------------
+
+    def test_share_note_success(self):
+        payload = {"user_ids": [str(self.member1.id), str(self.member2.id)]}
+
+        response = self.client.post(self.share_url, payload, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.note.refresh_from_db()
+
+        self.assertEqual(self.note.shared_with.count(), 2)
+        self.assertTrue(self.note.is_shared)
+
+    def test_share_note_user_not_in_workspace(self):
+        payload = {"user_ids": [str(self.outsider.id)]}
+
+        response = self.client.post(self.share_url, payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not a member", response.data["error"])
+
+    def test_share_note_only_owner_can_share(self):
+        self.client.force_authenticate(self.member1)
+
+        payload = {"user_ids": [str(self.member2.id)]}
+
+        response = self.client.post(self.share_url, payload, format="json")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("Only the owner", response.data["error"])
+
+    def test_share_note_invalid_user_ids_type(self):
+        response = self.client.post(
+            self.share_url, {"user_ids": "not-list"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("user_ids must be a list", response.data["error"])
+
+    # ---------------------------------------------------------
+    # UNSHARE NOTE
+    # ---------------------------------------------------------
+
+    def test_unshare_note_success(self):
+        # First share
+        self.note.shared_with.set([self.member1.id, self.member2.id])
+
+        response = self.client.delete(f"{self.unshare_url}{self.member1.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.note.refresh_from_db()
+
+        self.assertEqual(self.note.shared_with.count(), 1)
+
+    def test_shared_notes_list_success(self):
+        # owner shares note with member1
+        self.note.shared_with.set([self.member1.id])
+        self.note.is_shared = True
+        self.note.save()
+
+        self.client.force_authenticate(self.member1)
+
+        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["title"], "Shared Note")
+
+    def test_shared_notes_list_missing_workspace_id(self):
+        self.client.force_authenticate(self.member1)
+
+        response = self.client.get(self.shared_notes_url)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("workspace_id", response.data["detail"])
+
+    def test_shared_notes_list_excludes_owner(self):
+        # Owner sharing with member1
+        self.note.shared_with.set([self.member1.id])
+        self.note.is_shared = True
+        self.note.save()
+
+        # Owner should not see it in shared list
+        self.client.force_authenticate(self.owner)
+
+        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+    def test_shared_notes_list_returns_empty_if_not_shared(self):
+        self.client.force_authenticate(self.member1)
+
+        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)

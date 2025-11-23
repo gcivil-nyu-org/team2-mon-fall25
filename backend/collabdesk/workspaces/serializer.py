@@ -21,6 +21,7 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
         model = WorkspaceMember
         fields = ["user_id", "username", "role", "joined_at", "full_name", "email"]
 
+
 class WorkspaceSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()

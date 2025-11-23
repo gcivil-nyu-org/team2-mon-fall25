@@ -76,7 +76,8 @@ class NoteUpdateView(APIView):
             return Response(serializer.data, status=200)
 
         return Response(serializer.errors, status=400)
-    
+
+
 class ShareNoteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -94,7 +95,7 @@ class ShareNoteView(APIView):
         if note.owner != request.user:
             return Response(
                 {"error": "Only the owner can share this note."},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Extract user ID list
@@ -106,11 +107,9 @@ class ShareNoteView(APIView):
         workspace = note.workspace
         workspace_member_ids = set(
             WorkspaceMember.objects.filter(
-                workspace=note.workspace,
-                is_active=True
-                ).values_list("user_id", flat=True)
-)
-
+                workspace=note.workspace, is_active=True
+            ).values_list("user_id", flat=True)
+        )
 
         # Validate: All selected users MUST be workspace members
         for uid in user_ids:
@@ -135,7 +134,7 @@ class ShareNoteView(APIView):
         if note.owner != request.user:
             return Response(
                 {"error": "Only the owner can unshare this note."},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         note.shared_with.remove(user_id)
@@ -147,6 +146,7 @@ class ShareNoteView(APIView):
 
         return Response({"status": "unshared"}, status=200)
 
+
 class SharedNotesListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -156,15 +156,12 @@ class SharedNotesListView(APIView):
 
         if not workspace_id:
             return Response(
-                {"detail": "workspace_id query param is required"},
-                status=400
+                {"detail": "workspace_id query param is required"}, status=400
             )
 
         # Fetch shared notes belonging to that workspace AND shared with user
         notes = Note.objects.filter(
-            workspace_id=workspace_id,
-            is_shared=True,
-            shared_with=user
+            workspace_id=workspace_id, is_shared=True, shared_with=user
         ).exclude(owner=user)
 
         serializer = NoteSerializer(notes, many=True)
