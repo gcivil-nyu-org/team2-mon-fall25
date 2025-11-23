@@ -1,9 +1,16 @@
 from rest_framework import serializers
 from .models import Note
+from users.models import User 
+
+class UserMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]
 
 
 class NoteSerializer(serializers.ModelSerializer):
     created_by = serializers.SerializerMethodField()
+    shared_with = UserMiniSerializer(many=True, read_only=True)
 
     class Meta:
         model = Note
@@ -27,3 +34,4 @@ class NoteSerializer(serializers.ModelSerializer):
             "username": user.username,
             "email": user.email,
         }
+    
