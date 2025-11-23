@@ -4,7 +4,8 @@ from .views import (
     NoteListByWorkspaceView,
     NoteDeleteView,
     NoteUpdateView,
-    ShareNoteView
+    ShareNoteView,
+    SharedNotesListView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     path("update/<str:note_id>/", NoteUpdateView.as_view(), name="note-update"),
     path('<int:pk>/share/', ShareNoteView.as_view(), name='note-share'),
     path('<int:pk>/share/<int:user_id>/', ShareNoteView.as_view(), name='note-unshare'),
+    path("shared/", SharedNotesListView.as_view(), name="shared-notes"),
 ]

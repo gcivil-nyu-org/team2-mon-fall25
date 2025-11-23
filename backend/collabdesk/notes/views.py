@@ -146,3 +146,26 @@ class ShareNoteView(APIView):
             note.save()
 
         return Response({"status": "unshared"}, status=200)
+
+class SharedNotesListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        workspace_id = request.query_params.get("workspace_id")
+
+        if not workspace_id:
+            return Response(
+                {"detail": "workspace_id query param is required"},
+                status=400
+            )
+
+        # Fetch shared notes belonging to that workspace AND shared with user
+        notes = Note.objects.filter(
+            workspace_id=workspace_id,
+            is_shared=True,
+            shared_with=user
+        ).exclude(owner=user)
+
+        serializer = NoteSerializer(notes, many=True)
+        return Response(serializer.data)
