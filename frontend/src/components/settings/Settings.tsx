@@ -11,7 +11,7 @@ export function Settings({
   workspaceId: string;
   onLeaveWorkspace: (id: string) => void;
 }) {
-  const { logout, isAuthenticated } = useAuth0();
+  const { logout, isAuthenticated, getAccessTokenSilently } = useAuth0();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [notifications, setNotifications] = useState(true);
@@ -51,14 +51,15 @@ export function Settings({
 
     const loadWorkspaceData = async () => {
       try {
-        const workspaceData = await fetchWorkspaceInformation(workspaceId);
+        const tokenProvider = () => getAccessTokenSilently();
+        const workspaceData = await fetchWorkspaceInformation(workspaceId, tokenProvider);
         setWorkspace(workspaceData);
       } catch (error) {
         console.error("Failed to load workspace data:", error);
       }
     };
     loadWorkspaceData();
-  }, [isAuthenticated, workspaceId]);
+  }, [isAuthenticated, workspaceId, getAccessTokenSilently]);
 
   // Invite Code implementation
   const handleCopyInviteCode = () => {

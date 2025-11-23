@@ -160,12 +160,23 @@ export async function fetchWorkspaceList(): Promise<WorkspaceListItem[]> {
   return response.json();
 }
 
+type TokenProvider = () => Promise<string>;
+
 export async function fetchWorkspaceInformation(
-  workspaceId: string
+  workspaceId: string,
+  tokenProvider: TokenProvider
 ): Promise<Workspace> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}`
-  );
+  const token = await tokenProvider();
+
+  const url = `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch workspace information');
   }
