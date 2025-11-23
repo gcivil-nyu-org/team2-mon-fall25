@@ -751,6 +751,7 @@ class RecommendSlotsEdgeCasesTests(TestCase):
         start_local = start.astimezone(tz)
         self.assertGreaterEqual(start_local.hour, 9)
 
+
 class EventCoverageTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -759,19 +760,18 @@ class EventCoverageTests(TestCase):
             username="testuser",
             email="test@example.com",
             password="password123",
-            full_name="Test User"
+            full_name="Test User",
         )
         self.client.force_authenticate(user=self.user)
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
         WorkspaceMember.objects.create(
-            workspace=self.workspace,
-            user=self.user,
-            role="admin"
+            workspace=self.workspace, user=self.user, role="admin"
         )
-        self.workspace_header = {"HTTP_X_WORKSPACE_ID": str(self.workspace.workspace_id)}
+        self.workspace_header = {
+            "HTTP_X_WORKSPACE_ID": str(self.workspace.workspace_id)
+        }
 
     def test_event_participant_save_default_user(self):
         """Test that EventParticipant defaults user to added_by if not set."""
@@ -780,12 +780,10 @@ class EventCoverageTests(TestCase):
             start_time=timezone.now(),
             end_time=timezone.now() + timedelta(hours=1),
             created_by=self.user,
-            workspace=self.workspace
+            workspace=self.workspace,
         )
         participant = EventParticipant(
-            event=event,
-            added_by=self.user,
-            status="invited"
+            event=event, added_by=self.user, status="invited"
         )
         participant.save()
         self.assertEqual(participant.user, self.user)
@@ -795,7 +793,7 @@ class EventCoverageTests(TestCase):
         # Mock an object that behaves like an Event but has created_by = None
         mock_event = MagicMock()
         mock_event.created_by = None
-        
+
         serializer = EventSerializer()
         result = serializer.get_created_by_name(mock_event)
         self.assertIsNone(result)
@@ -807,17 +805,23 @@ class EventCoverageTests(TestCase):
             start_time=timezone.now(),
             end_time=timezone.now() + timedelta(hours=1),
             created_by=self.user,
-            workspace=self.workspace
+            workspace=self.workspace,
         )
-        
+
         # We need to mock get_attendees_detail to raise exception
         # BUT super().to_representation also calls it.
         # So we mock super().to_representation to return basic data
         # and then let our to_representation call get_attendees_detail which raises exception.
-        
-        with patch('rest_framework.serializers.ModelSerializer.to_representation') as mock_super:
+
+        with patch(
+            "rest_framework.serializers.ModelSerializer.to_representation"
+        ) as mock_super:
             mock_super.return_value = {"id": event.event_id}
-            with patch.object(EventSerializer, 'get_attendees_detail', side_effect=Exception("Test Error")):
+            with patch.object(
+                EventSerializer,
+                "get_attendees_detail",
+                side_effect=Exception("Test Error"),
+            ):
                 serializer = EventSerializer(event)
                 data = serializer.to_representation(event)
                 # attendees_detail should not be in data
@@ -832,10 +836,10 @@ class EventCoverageTests(TestCase):
             "title": "Test",
             "start_time": timezone.now(),
             "end_time": timezone.now() + timedelta(hours=1),
-            "event_type": "GROUP"
+            "event_type": "GROUP",
         }
         # We are testing the validate method directly or via is_valid
-        serializer = EventSerializer(data=data) # No context
+        serializer = EventSerializer(data=data)  # No context
         # It will fail on required fields if we don't provide them, but we want to hit the `if not request: return data`
         # The validate method is called during is_valid()
         # Since we didn't provide context={'request': ...}, it should hit that line.
@@ -848,30 +852,34 @@ class EventCoverageTests(TestCase):
     def test_serializer_create_attendees_mixed(self):
         """Test EventSerializer create with mixed attendee types (int and uuid string)."""
         User = get_user_model()
-        user2 = User.objects.create_user(username="u2", email="u2@test.com", password="pw")
-        user3 = User.objects.create_user(username="u3", email="u3@test.com", password="pw")
-        
+        user2 = User.objects.create_user(
+            username="u2", email="u2@test.com", password="pw"
+        )
+        user3 = User.objects.create_user(
+            username="u3", email="u3@test.com", password="pw"
+        )
+
         # Use a valid UUID that doesn't exist
         non_existent_uuid = str(uuid.uuid4())
-        
+
         data = {
             "title": "Test Event",
             "start_time": timezone.now(),
             "end_time": timezone.now() + timedelta(hours=1),
             "event_type": "GROUP",
-            "attendees": [str(user2.id), str(user3.user_id), non_existent_uuid]
+            "attendees": [str(user2.id), str(user3.user_id), non_existent_uuid],
         }
-        
+
         # We need request in context for create
         request = MagicMock()
         request.user = self.user
         request.workspace = self.workspace
-        
-        serializer = EventSerializer(data=data, context={'request': request})
-        
+
+        serializer = EventSerializer(data=data, context={"request": request})
+
         if serializer.is_valid():
             event = serializer.save(workspace=self.workspace, created_by=self.user)
-            self.assertEqual(event.attendees.count(), 2) # user2 and user3
+            self.assertEqual(event.attendees.count(), 2)  # user2 and user3
         else:
             self.fail(f"Serializer not valid: {serializer.errors}")
 
@@ -881,14 +889,19 @@ class EventCoverageTests(TestCase):
             "title": "Test Event",
             "start_time": timezone.now(),
             "end_time": timezone.now() + timedelta(hours=1),
-            "event_type": "GROUP"
+            "event_type": "GROUP",
         }
-        
+
         # Mock EventParticipant.objects.get_or_create to raise exception
         # Also mock logger to prevent error output during test
-        with patch('events.models.EventParticipant.objects.get_or_create', side_effect=Exception("DB Error")):
-            with patch('events.views.logger') as mock_logger:
-                response = self.client.post('/api/events/', data, **self.workspace_header)
+        with patch(
+            "events.models.EventParticipant.objects.get_or_create",
+            side_effect=Exception("DB Error"),
+        ):
+            with patch("events.views.logger") as mock_logger:
+                response = self.client.post(
+                    "/api/events/", data, **self.workspace_header
+                )
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
                 # The event should still be created
                 self.assertEqual(Event.objects.count(), 1)
@@ -898,11 +911,16 @@ class EventCoverageTests(TestCase):
     def test_recommend_time_slots_unexpected_exception(self):
         """Test RecommendTimeSlots handles unexpected exceptions."""
         url = f"/api/events/recommend-slots/{timezone.now().date()}/60/"
-        
-        with patch('events.views.RecommendTimeSlots._parse_date', side_effect=Exception("Unexpected")):
-            with patch('events.views.logger') as mock_logger:
+
+        with patch(
+            "events.views.RecommendTimeSlots._parse_date",
+            side_effect=Exception("Unexpected"),
+        ):
+            with patch("events.views.logger") as mock_logger:
                 response = self.client.get(url, **self.workspace_header)
-                self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+                self.assertEqual(
+                    response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
                 mock_logger.error.assert_called()
 
     def test_recommend_time_slots_invalid_attendees(self):
@@ -910,31 +928,36 @@ class EventCoverageTests(TestCase):
         # This covers _resolve_attendee_part returning None
         date_str = timezone.now().date().isoformat()
         url = f"/api/events/recommend-slots/{date_str}/60/?attendees=invalid,123,test@example.com"
-        
+
         # 123 might not exist, test@example.com exists (self.user)
         # invalid should be ignored
-        
+
         response = self.client.get(url, **self.workspace_header)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_workspace_members_exception(self):
         """Test WorkspaceMembersView handles exceptions."""
-        url = f"/api/events/workspace/members/"
-        
-        with patch('workspaces.models.WorkspaceMember.objects.filter', side_effect=Exception("DB Error")):
-            with patch('events.views.logger') as mock_logger:
+        url = "/api/events/workspace/members/"
+
+        with patch(
+            "workspaces.models.WorkspaceMember.objects.filter",
+            side_effect=Exception("DB Error"),
+        ):
+            with patch("events.views.logger") as mock_logger:
                 response = self.client.get(url, **self.workspace_header)
-                self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+                self.assertEqual(
+                    response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
                 mock_logger.error.assert_called()
 
     def test_resolve_attendee_part_exception(self):
         """Test _resolve_attendee_part handles exception during user lookup."""
         view = RecommendTimeSlots()
-        with patch('django.contrib.auth.get_user_model') as mock_get_user_model:
+        with patch("django.contrib.auth.get_user_model") as mock_get_user_model:
             mock_User = MagicMock()
             mock_get_user_model.return_value = mock_User
             mock_User.objects.filter.side_effect = Exception("DB Error")
-            
+
             result = view._resolve_attendee_part("test@example.com")
             self.assertIsNone(result)
 
@@ -942,13 +965,15 @@ class EventCoverageTests(TestCase):
         """Test _get_existing_events with no attendee_ids."""
         view = RecommendTimeSlots()
         # We need to mock Event.objects.filter
-        with patch('events.models.Event.objects.filter') as mock_filter:
+        with patch("events.models.Event.objects.filter") as mock_filter:
             mock_qs = MagicMock()
             mock_filter.return_value = mock_qs
             mock_qs.filter.return_value = mock_qs
-            
-            view._get_existing_events(self.workspace, timezone.now(), timezone.now(), [])
-            
+
+            view._get_existing_events(
+                self.workspace, timezone.now(), timezone.now(), []
+            )
+
             # Should call order_by on base_qs, not filter with Q
             # The code: return base_qs.order_by("start_time")
             mock_qs.order_by.assert_called_with("start_time")
