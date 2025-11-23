@@ -422,7 +422,11 @@ export function NoteEditor({
           onClose={() => setSharingNote(null)}
           onShare={handleShareNote}
           note={sharingNote}
-          workspaceMembers={workspaceMembers}
+          workspaceMembers={workspaceMembers.map(m => ({
+                id: m.id,        
+                name: m.name,  
+                email: m.email     
+    }))}
         />
       )}
 
