@@ -19,6 +19,7 @@ interface ThreadModalProps {
   parentMessage: Message | null;
   onUpdate: () => void;
   incrementReplyCount?: () => void;
+  updateParentMessageLocally: (parentId: string) => void;
 }
 
 export function ThreadModal({
@@ -26,6 +27,7 @@ export function ThreadModal({
   onClose,
   parentMessage,
   onUpdate,
+  updateParentMessageLocally,
   incrementReplyCount,
 }: ThreadModalProps) {
   const [replies, setReplies] = useState<Message[]>([]);
@@ -117,7 +119,7 @@ export function ThreadModal({
     setReplies((prev) => [...prev, replyWithAuthor]);
     setParent((prev) => prev ? { ...prev, replyCount: (prev.replyCount || 0) + 1 } : prev);
     incrementReplyCount?.();
-    onUpdate();
+    updateParentMessageLocally(parentMessage.id);
     setReplyContent("");
   } catch (error) {
     console.error("Failed to send reply:", error);

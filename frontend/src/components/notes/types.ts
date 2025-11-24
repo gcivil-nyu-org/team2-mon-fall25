@@ -23,6 +23,7 @@ export interface CreateNoteData {
   title: string;
   content: string;
   tags: string[];
+  workspace?: string;
 }
 
 export interface UpdateNoteData {

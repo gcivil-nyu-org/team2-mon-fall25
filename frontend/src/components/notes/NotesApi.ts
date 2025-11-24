@@ -1,8 +1,9 @@
 import { authenticatedFetch } from '../../lib/api';
+import {API_BASE_URL} from '../../lib/api';
 import type { Note, CreateNoteData, UpdateNoteData, ShareNoteData, User } from './types';
 
-const NOTES_BASE_URL = '/api/notes';
-const USE_MOCK_DATA = true; // Set to false when backend is ready
+const NOTES_BASE_URL = `${API_BASE_URL}/api/notes`;
+const USE_MOCK_DATA = false; // Set to false when backend is ready
 
 // Mock current user
 const mockCurrentUser: User = {
@@ -10,13 +11,6 @@ const mockCurrentUser: User = {
   name: 'You',
   email: 'you@example.com',
 };
-
-// Mock workspace members for sharing
-const mockWorkspaceMembers: User[] = [
-  { id: 'user-1', name: 'John Doe', email: 'john@example.com' },
-  { id: 'user-2', name: 'Jane Smith', email: 'jane@example.com' },
-  { id: 'user-3', name: 'Bob Wilson', email: 'bob@example.com' },
-];
 
 // LocalStorage helpers
 const STORAGE_KEY = 'collabdesk-notes';
@@ -36,16 +30,18 @@ function generateId(): string {
 
 export class NotesApi {
   /**
-   * Fetch all notes created by the current user
+   * Fetch all notes created by the current user for the selected workspace
    */
-  static async getMyNotes(): Promise<Note[]> {
+  static async getMyNotes(workspaceId: string): Promise<Note[]> {
     if (USE_MOCK_DATA) {
       const allNotes = getNotesFromStorage();
       return allNotes.filter(note => note.created_by.id === mockCurrentUser.id && !note.is_shared);
     }
 
     try {
-      const response = await authenticatedFetch(`${NOTES_BASE_URL}/`);
+          const response = await authenticatedFetch(
+      `${NOTES_BASE_URL}/list/?workspace_id=${workspaceId}`
+    );
       if (!response.ok) {
         throw new Error('Backend API not available');
       }
@@ -59,26 +55,22 @@ export class NotesApi {
   /**
    * Fetch all notes shared with the current user
    */
-  static async getSharedNotes(): Promise<Note[]> {
-    if (USE_MOCK_DATA) {
-      const allNotes = getNotesFromStorage();
-      // Return notes where current user is in the shared_with list
-      return allNotes.filter(note =>
-        note.shared_with.some(user => user.id === mockCurrentUser.id)
-      ).map(note => ({ ...note, is_shared: true }));
+static async getSharedNotes(workspaceId: string): Promise<Note[]> {
+  try {
+    const response = await authenticatedFetch(
+      `${NOTES_BASE_URL}/shared/?workspace_id=${workspaceId}`
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch shared notes");
     }
 
-    try {
-      const response = await authenticatedFetch(`${NOTES_BASE_URL}/shared/`);
-      if (!response.ok) {
-        throw new Error('Backend API not available');
-      }
-      return response.json();
-    } catch (error) {
-      console.warn('Notes API not available, returning empty array',error);
-      return [];
-    }
+    return response.json();
+  } catch (error) {
+    console.warn("Shared notes API not available:", error);
+    return [];
   }
+}
 
   /**
    * Get a single note by ID
@@ -119,7 +111,7 @@ export class NotesApi {
       return newNote;
     }
 
-    const response = await authenticatedFetch(`${NOTES_BASE_URL}/`, {
+    const response = await authenticatedFetch(`${NOTES_BASE_URL}/create/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,7 +142,7 @@ export class NotesApi {
       return allNotes[index];
     }
 
-    const response = await authenticatedFetch(`${NOTES_BASE_URL}/${id}/`, {
+    const response = await authenticatedFetch(`${NOTES_BASE_URL}/update/${id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -171,7 +163,7 @@ export class NotesApi {
       return;
     }
 
-    await authenticatedFetch(`${NOTES_BASE_URL}/${id}/`, {
+    await authenticatedFetch(`${NOTES_BASE_URL}/delete/${id}/`, {
       method: 'DELETE',
     });
   }
@@ -187,11 +179,12 @@ export class NotesApi {
       if (index === -1) throw new Error('Note not found');
 
       // Get user objects for the IDs
-      const sharedUsers = mockWorkspaceMembers.filter(user => data.user_ids.includes(user.id));
+
+      // const sharedUsers = mockWorkspaceMembers.filter(user => data.user_ids.includes(user.id));
 
       allNotes[index] = {
         ...allNotes[index],
-        shared_with: sharedUsers,
+        shared_with: [],
         updated_at: new Date().toISOString(),
       };
 
@@ -257,12 +250,5 @@ export class NotesApi {
       `${NOTES_BASE_URL}/search/?${params.toString()}`
     );
     return response.json();
-  }
-
-  /**
-   * Get mock workspace members (for testing)
-   */
-  static getMockWorkspaceMembers(): User[] {
-    return mockWorkspaceMembers;
   }
 }

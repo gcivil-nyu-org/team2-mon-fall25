@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { ConfirmModal } from '../modals/ConfirmModal';
 import type { Conversation } from './types';
 
 interface RecentConversationsSidebarProps {
@@ -14,21 +16,37 @@ export function RecentConversationsSidebar({
   onSelectConversation,
   onDeleteConversation,
 }: RecentConversationsSidebarProps) {
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
+
   // Show only the 10 most recent conversations
   const recentConversations = conversations
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 10);
 
+  const handleDeleteClick = (conversation: Conversation) => {
+    setConversationToDelete(conversation);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (conversationToDelete) {
+      onDeleteConversation(conversationToDelete.id);
+      setDeleteModalOpen(false);
+      setConversationToDelete(null);
+    }
+  };
+
   return (
     <aside className="hidden lg:block w-[300px] shrink-0 sticky top-14 self-start">
       <div className="rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          Recent
+          Saved
         </div>
         <div className="space-y-2 text-sm">
           {recentConversations.length === 0 ? (
             <div className="text-zinc-500 dark:text-zinc-400 text-xs">
-              No conversations yet
+              No saved results yet
             </div>
           ) : (
             recentConversations.map((conversation) => {
@@ -81,9 +99,7 @@ export function RecentConversationsSidebar({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete conversation "${conversation.title}"?`)) {
-                        onDeleteConversation(conversation.id);
-                      }
+                      handleDeleteClick(conversation);
                     }}
                     className="absolute top-2 right-2 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                     title="Delete conversation"
@@ -103,6 +119,26 @@ export function RecentConversationsSidebar({
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setConversationToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Saved Result"
+        confirmText="Delete"
+        confirmVariant="danger"
+      >
+        <p>
+          Are you sure you want to delete "{conversationToDelete?.title}"?
+        </p>
+        <p className="mt-2 text-xs">
+          This action cannot be undone.
+        </p>
+      </ConfirmModal>
     </aside>
   );
 }

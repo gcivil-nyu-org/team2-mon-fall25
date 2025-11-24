@@ -15,10 +15,11 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
     role = serializers.CharField()  # role is a CharField on the model, not a ForeignKey
     full_name = serializers.CharField(source="user.full_name")
+    email = serializers.CharField(source="user.email")
 
     class Meta:
         model = WorkspaceMember
-        fields = ["user_id", "username", "role", "joined_at", "full_name"]
+        fields = ["user_id", "username", "role", "joined_at", "full_name", "email"]
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):

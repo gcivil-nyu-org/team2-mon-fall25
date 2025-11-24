@@ -1,6 +1,7 @@
 // API utility for backend communication
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 // const API_BASE_URL = 'http://localhost:8000';
+export { API_BASE_URL };
 
 export type BackendEvent = {
   event_id: string;
@@ -12,6 +13,7 @@ export type BackendEvent = {
   location: string;
   created_by: number;
   created_by_name?: string;
+  attendees_detail?: { id: number; user_id: string; full_name: string }[];
   workspace_id: string;
   created_at: string;
   updated_at: string;
@@ -24,6 +26,7 @@ export type CreateEventPayload = {
   end_time: string; // ISO string
   event_type: 'INDIVIDUAL' | 'GROUP';
   location?: string;
+  attendees?: (number | string)[]; // Prefer numeric user.id; fallback to users.user_id (UUID string)
   // workspace and created_by are now set automatically by the backend
   // from the X-Workspace-ID header and authenticated user
 };
@@ -66,6 +69,7 @@ export type WorkspaceMember = {
   full_name: string;
   role: string;
   joined_at: string;
+  email?: string;
 };
 
 // Calendar Recommended Slots API
@@ -157,12 +161,23 @@ export async function fetchWorkspaceList(): Promise<WorkspaceListItem[]> {
   return response.json();
 }
 
+type TokenProvider = () => Promise<string>;
+
 export async function fetchWorkspaceInformation(
-  workspaceId: string
+  workspaceId: string,
+  tokenProvider: TokenProvider
 ): Promise<Workspace> {
-  const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}`
-  );
+  const token = await tokenProvider();
+
+  const url = `${API_BASE_URL}/api/workspaces/information/?workspace_id=${workspaceId}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch workspace information');
   }
@@ -311,7 +326,7 @@ export async function leaveWorkspace(workspaceId: string): Promise<void> {
 }
 
 // Workspace Members Management
-const USE_MOCK_MEMBERS = true; // Set to false when backend is ready
+const USE_MOCK_MEMBERS = false; // Set to false when backend is ready
 const MEMBERS_STORAGE_KEY_PREFIX = 'collabdesk-workspace-members-';
 
 export type WorkspaceMemberExtended = {
@@ -441,9 +456,19 @@ export async function removeWorkspaceMember(
   }
 }
 
-export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
+export async function getRecommendedSlots(
+  date: string,
+  duration: number,
+  attendees?: (string | number)[]
+): Promise<RecommendedSlotApiResponse> {
+  // Build query string for attendees if provided. Backend expects an
+  // `attendees` parameter.
+  const qs = attendees && attendees.length > 0
+    ? `?attendees=${attendees.map(a => encodeURIComponent(String(a))).join(',')}`
+    : '';
+
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
+    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/${qs}`
   );
   if (!response.ok) {
     throw new Error('Failed to fetch recommended slots');

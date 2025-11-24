@@ -9,6 +9,7 @@ from .serializer import (
     WorkspaceSerializer,
     WorkspaceCreateSerializer,
     WorkspaceJoinSerializer,
+    WorkspaceMemberSerializer,
 )
 
 
@@ -161,3 +162,17 @@ class WorkspaceJoinView(generics.GenericAPIView):
             },
             status=200,
         )
+
+
+class WorkspaceMembersListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, workspace_id):
+        try:
+            workspace = Workspace.objects.get(workspace_id=workspace_id)
+        except Workspace.DoesNotExist:
+            return Response({"detail": "Workspace not found"}, status=404)
+
+        members = WorkspaceMember.objects.filter(workspace=workspace)
+        serializer = WorkspaceMemberSerializer(members, many=True)
+        return Response(serializer.data)

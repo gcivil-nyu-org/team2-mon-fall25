@@ -16,7 +16,7 @@ export interface Resource {
   fileSize: number; // in bytes
   fileUrl: string; // URL or file path
   uploadedBy: string; // username
-  uploadedAt: string; // ISO date string
+  uploaded: string; // ISO date string (matches backend "uploaded")
   tags: string[];
 }
 
@@ -103,7 +103,7 @@ function convertBackendResource(backendResource: BackendResource): Resource {
     fileSize: backendResource.size,
     fileUrl: backendResource.file,
     uploadedBy: `User ${backendResource.uploaded_by}`, // TODO: map to actual username
-    uploadedAt: backendResource.uploaded,
+    uploaded: backendResource.uploaded,
     tags: backendResource.tags && backendResource.tags.length > 0 ? backendResource.tags : getTags(id),
   };
 }
@@ -215,19 +215,24 @@ export const formatFileSize = (bytes: number): string => {
 
 // Helper to format date
 export const formatDate = (isoString: string): string => {
+  // Ensure consistency with backend timezone by extracting
+  // the date/time portion directly from the ISO string
+  // without converting to the client's local timezone.
+  if (typeof isoString === 'string') {
+    const m = isoString.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (m) {
+      const [, Y, MM, DD, HH, mm] = m;
+      return `${Y}-${MM}-${DD} ${HH}:${mm}`;
+    }
+  }
+  // Fallback: use Date if format unexpected
   const date = new Date(isoString);
-  const now = new Date();
-  const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffInDays === 0) return "Today";
-  if (diffInDays === 1) return "Yesterday";
-  if (diffInDays < 7) return `${diffInDays} days ago`;
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const y = date.getFullYear();
+  const mon = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hrs = String(date.getHours()).padStart(2, '0');
+  const mins = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${mon}-${day} ${hrs}:${mins}`;
 };
 
 // Helper to get file icon emoji

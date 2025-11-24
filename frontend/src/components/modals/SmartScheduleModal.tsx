@@ -111,7 +111,7 @@ export function SmartScheduleModal({
       // Ensure date format is yyyy-mm-dd, duration is number (minutes)
       console.log(`Calling API with date=${date}, duration=${duration}`);
       
-      const result = await getRecommendedSlots(date, duration);
+      const result = await getRecommendedSlots(date, duration, selected);
       console.log("API Response:", result);
 
       // Check if no slots are available
@@ -179,6 +179,7 @@ export function SmartScheduleModal({
         end_time: slot.end.toISOString(),
         event_type: "INDIVIDUAL",
         location: "none",
+        attendees: selected,
       });
 
       // Call the parent callback with the scheduled meeting

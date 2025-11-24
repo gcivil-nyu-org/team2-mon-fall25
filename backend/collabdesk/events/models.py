@@ -30,6 +30,13 @@ class Event(models.Model):
         related_name="events",
         default=uuid.UUID("cdb5abfe-dc99-4394-ac0e-e50a2f21d960"),
     )
+    attendees = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="EventParticipant",
+        through_fields=("event", "user"),
+        related_name="events_attending",
+        blank=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
