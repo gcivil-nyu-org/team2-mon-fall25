@@ -455,9 +455,19 @@ export async function removeWorkspaceMember(
   }
 }
 
-export async function getRecommendedSlots(date: string, duration: number): Promise<RecommendedSlotApiResponse> {
+export async function getRecommendedSlots(
+  date: string,
+  duration: number,
+  attendees?: (string | number)[]
+): Promise<RecommendedSlotApiResponse> {
+  // Build query string for attendees if provided. Backend expects an
+  // `attendees` parameter.
+  const qs = attendees && attendees.length > 0
+    ? `?attendees=${attendees.map(a => encodeURIComponent(String(a))).join(',')}`
+    : '';
+
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/`
+    `${API_BASE_URL}/api/events/recommend-slots/${date}/${duration}/${qs}`
   );
   if (!response.ok) {
     throw new Error('Failed to fetch recommended slots');

@@ -74,7 +74,20 @@ class EventListCreateView(generics.ListCreateAPIView):
             f"user={self.request.user.email}"
         )
 
-        serializer.save(workspace=self.request.workspace, created_by=self.request.user)
+        event = serializer.save(
+            workspace=self.request.workspace, created_by=self.request.user
+        )
+
+        try:
+            EventParticipant.objects.get_or_create(
+                event=event,
+                user=self.request.user,
+                defaults={"added_by": self.request.user, "status": "accepted"},
+            )
+        except Exception:
+            # If for some reason the through model cannot be created, log but
+            # don't raise to avoid breaking higher-level flows (e.g., migrations).
+            logger.exception("Failed to ensure creator is in event attendees")
 
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -151,51 +164,30 @@ class RecommendTimeSlots(APIView):
         - duration: integer representing event duration in minutes
 
         Returns 3 recommended time slots during working hours (8:00 - 17:00)
-        that don't conflict with existing events.
+        that don't conflict with existing events created by attendees.
         """
         try:
-            # Parse the date
-            try:
-                naive_date = datetime.strptime(event_date, "%Y-%m-%d")
-                base_date = timezone.localtime(timezone.make_aware(naive_date))
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
-                )
-
-            # Validate duration
-            if duration <= 0:
-                return Response({"error": "Duration must be positive"}, status=400)
+            # Parse and validate inputs
+            base_date = self._parse_date(event_date)
+            self._validate_duration(duration)
 
             # Set working hours bounds in the current timezone
             work_start = base_date.replace(hour=8, minute=0, second=0, microsecond=0)
             work_end = base_date.replace(hour=17, minute=0, second=0, microsecond=0)
 
-            if not hasattr(request, "workspace") or not request.workspace:
-                return Response(
-                    {
-                        "error": "Workspace context required. Please provide X-Workspace-ID header."
-                    },
-                    status=403,
-                )
+            # Ensure workspace is present
+            self._ensure_workspace(request)
 
-            # Get all events in the workspace that overlap the working hours for the day.
-            # Previously we only filtered events whose start_time falls on the date
-            # (start_time__date=base_date.date()), which misses multi-day events that
-            # begin before `base_date` but end during or after it. Instead, select any
-            # event that overlaps the working window [work_start, work_end):
-            #   event.start_time < work_end AND event.end_time > work_start
-            # This correctly captures events that start previous days but continue
-            # into the requested date (and vice versa).
-            existing_events = (
-                Event.objects.filter(workspace=request.workspace)
-                .filter(start_time__lt=work_end, end_time__gt=work_start)
-                .order_by("start_time")
+            # Parse attendees and include the requesting user
+            attendee_ids = self._parse_attendee_ids(request)
+
+            # Build queryset of existing events overlapping working window
+            existing_events = self._get_existing_events(
+                request.workspace, work_start, work_end, attendee_ids
             )
 
-            # Convert duration to timedelta
+            # Convert duration to timedelta and generate recommendations
             duration_delta = timedelta(minutes=duration)
-
             recommendations = self._generate_recommendations(
                 base_date, duration_delta, existing_events
             )
@@ -206,13 +198,99 @@ class RecommendTimeSlots(APIView):
                         "message": "No available time slots found for the specified date and duration during working hours (8:00-17:00)"
                     }
                 )
+
             return Response({"recommended_slots": recommendations})
+        except ValueError as ve:
+            return Response({"error": str(ve)}, status=400)
+        except PermissionDenied as pd:
+            return Response({"error": str(pd)}, status=403)
         except Exception as e:
             logger.error(f"Error generating time slot recommendations: {str(e)}")
             return Response(
                 {"error": "An error occurred while generating recommendations"},
                 status=500,
             )
+
+    def _parse_date(self, event_date):
+        """Parse `event_date` (YYYY-MM-DD) into an aware localized datetime."""
+        try:
+            naive_date = datetime.strptime(event_date, "%Y-%m-%d")
+            return timezone.localtime(timezone.make_aware(naive_date))
+        except ValueError:
+            raise ValueError("Invalid date format. Use YYYY-MM-DD")
+
+    def _validate_duration(self, duration):
+        if duration <= 0:
+            raise ValueError("Duration must be positive")
+
+    def _parse_attendee_ids(self, request):
+        """Return list of attendee ids parsed from `attendees` query param.
+
+        Accepts comma-separated integers (ids) or emails. Always includes
+        the requesting user's id when available.
+        """
+        attendees_param = request.query_params.get("attendees")
+        attendee_ids = []
+        if attendees_param:
+            parts = [p.strip() for p in attendees_param.split(",") if p.strip()]
+            # Resolve each part to an ID (int or email lookup). _resolve_attendee_part
+            # returns None for parts that cannot be resolved.
+            for p in parts:
+                resolved = self._resolve_attendee_part(p)
+                if resolved is not None:
+                    attendee_ids.append(resolved)
+
+        # Always include the requesting user (if available)
+        creator_id = getattr(getattr(request, "user", None), "id", None)
+        if creator_id and creator_id not in attendee_ids:
+            attendee_ids.append(creator_id)
+
+        return attendee_ids
+
+    def _resolve_attendee_part(self, part):
+        """Resolve a single attendee token to a user id.
+
+        Accepts numeric ids or email addresses. Returns `int` id or `None`.
+        """
+        # try numeric id first
+        try:
+            return int(part)
+        except Exception:
+            pass
+
+        # fallback to resolving by email
+        try:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            user = User.objects.filter(email=part).only("id").first()
+            return user.id if user else None
+        except Exception:
+            return None
+
+    def _ensure_workspace(self, request):
+        if not hasattr(request, "workspace") or not request.workspace:
+            raise PermissionDenied(
+                "Workspace context required. Please provide X-Workspace-ID header."
+            )
+
+    def _get_existing_events(self, workspace, work_start, work_end, attendee_ids):
+        base_qs = Event.objects.filter(workspace=workspace).filter(
+            start_time__lt=work_end, end_time__gt=work_start
+        )
+
+        if attendee_ids:
+            from django.db.models import Q
+
+            return (
+                base_qs.filter(
+                    Q(attendees__in=attendee_ids) | Q(created_by__id__in=attendee_ids)
+                )
+                .distinct()
+                .order_by("start_time")
+            )
+
+        return base_qs.order_by("start_time")
 
     def _generate_recommendations(self, base_date, duration_delta, existing_events):
         """Return a list of up to 3 recommended slots (one per period).
@@ -277,7 +355,7 @@ class RecommendTimeSlots(APIView):
             conflict = False
             for ev in existing_events:
                 # ensure both sides comparable (DB events should be aware)
-                if current_slot < ev.end_time and slot_end > ev.start_time:
+                if current_slot < ev.end_time and slot_end >= ev.start_time:
                     conflict = True
                     break
 
