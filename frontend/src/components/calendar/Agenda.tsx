@@ -1,6 +1,22 @@
 import { format, compareAsc } from "date-fns";
 
-export type CalEvent = { id: string; title: string; start: Date; end: Date; kind?: "meeting" | "unavailable"; createdBy?: number; };
+export type RSVPStatus = "pending" | "accepted" | "declined" | "tentative";
+
+export type CalEvent = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  kind?: "meeting" | "unavailable";
+  createdBy?: number;
+  rsvpStatus?: RSVPStatus; // User's RSVP status
+  rsvpSummary?: { // For event creators
+    accepted: number;
+    declined: number;
+    tentative: number;
+    pending: number;
+  };
+};
 
 export function Agenda({
   events,
@@ -78,6 +94,46 @@ export function Agenda({
                   ? "hover:bg-gray-300/60 dark:hover:bg-gray-950/70"
                   : "hover:bg-[#4169E1]/30 dark:hover:bg-[#4169E1]/30");
 
+            // RSVP badge styling
+            const getRsvpBadge = () => {
+              if (isUnavailable) return null;
+
+              // Show RSVP summary for event creator
+              if (isOwnEvent && e.rsvpSummary) {
+                const total = e.rsvpSummary.accepted + e.rsvpSummary.declined +
+                              e.rsvpSummary.tentative + e.rsvpSummary.pending;
+                if (total === 0) return null;
+
+                return (
+                  <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
+                    <span className="text-green-600 dark:text-green-400">{e.rsvpSummary.accepted}</span>/
+                    <span className="text-yellow-600 dark:text-yellow-400">{e.rsvpSummary.tentative}</span>/
+                    <span className="text-red-600 dark:text-red-400">{e.rsvpSummary.declined}</span>/
+                    <span className="text-zinc-500 dark:text-zinc-400">{e.rsvpSummary.pending}</span>
+                  </span>
+                );
+              }
+
+              // Show user's RSVP status for events they're attending
+              if (!isOwnEvent && e.rsvpStatus) {
+                const statusConfig = {
+                  pending: { icon: "⏱", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300" },
+                  accepted: { icon: "✓", bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300" },
+                  declined: { icon: "✗", bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300" },
+                  tentative: { icon: "?", bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-700 dark:text-yellow-300" },
+                };
+                const config = statusConfig[e.rsvpStatus];
+
+                return (
+                  <span className={`ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${config.bg} ${config.text}`}>
+                    {config.icon}
+                  </span>
+                );
+              }
+
+              return null;
+            };
+
             return (
               <button
                 key={e.id}
@@ -85,8 +141,9 @@ export function Agenda({
                 className={`w-full text-left rounded-xl border p-2 ${borderColor} ${leftBorderColor} ${hoverColor} transition-colors cursor-pointer`}
                 title={`${e.title} • ${format(e.start, "EEE p")}–${format(e.end, "p")}`}
               >
-                <div className="font-medium">
-                  {e.title}
+                <div className="font-medium flex items-center">
+                  <span className="truncate">{e.title}</span>
+                  {getRsvpBadge()}
                 </div>
                 <div className="text-xs text-zinc-500">
                   {format(e.start, "EEE, MMM d")} • {format(e.start, "p")}–{format(e.end, "p")}
