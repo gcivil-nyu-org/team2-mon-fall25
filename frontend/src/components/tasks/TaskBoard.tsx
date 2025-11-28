@@ -113,7 +113,6 @@ function DroppableColumn({
             <QuickAddTask
               onAdd={onQuickAdd}
               onOpenFullModal={onOpenFullModal}
-              status={status}
               variant="board"
             />
           </div>
