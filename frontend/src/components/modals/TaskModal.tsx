@@ -1,23 +1,53 @@
-import React, { useState } from "react";
-import { type Task } from "../../types";
+import React, { useState, useEffect } from "react";
+import { type Task, type TaskDependency } from "../../types";
+import { fetchWorkspaceMembers, type WorkspaceMemberExtended } from "../../lib/api";
+import DependencySelector from "../tasks/DependencySelector";
 
 interface Props {
   onClose: () => void;
   onCreate: (task: Task) => void;
+  availableTasks?: Task[]; // For dependency selection
 }
 
-const TaskModal: React.FC<Props> = ({ onClose, onCreate }) => {
+const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [tags, setTags] = useState<string>("");
+  const [assigneeId, setAssigneeId] = useState<number | null>(null);
+  const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>([]);
+
+  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberExtended[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+
+  // Fetch workspace members on mount
+  useEffect(() => {
+    const loadMembers = async () => {
+      try {
+        const workspaceId = localStorage.getItem("cd.workspace");
+        if (workspaceId) {
+          const members = await fetchWorkspaceMembers(workspaceId);
+          setWorkspaceMembers(members);
+        }
+      } catch (error) {
+        console.error("Failed to load workspace members:", error);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+    loadMembers();
+  }, []);
 
   const handleSubmit = () => {
     if (!name.trim()) {
       alert("Please enter a task name");
       return;
     }
+
+    const selectedMember = workspaceMembers.find(m => m.id === assigneeId);
+
+    const incompleteDeps = selectedDependencies.filter(d => d.status !== 'done').length;
 
     const newTask: Task = {
       id: Date.now().toString(),
@@ -27,6 +57,11 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate }) => {
       priority,
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
       status: "todo",
+      assignedToId: assigneeId || undefined,
+      assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
+      dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
+      canComplete: incompleteDeps === 0,
+      incompleteDependencyCount: incompleteDeps,
     };
     onCreate(newTask);
   };
@@ -144,6 +179,52 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate }) => {
               Separate multiple tags with commas
             </p>
           </div>
+
+          {/* Assign To */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+              Assign To
+            </label>
+            <select
+              value={assigneeId || ""}
+              onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : null)}
+              disabled={loadingMembers}
+              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700
+                         bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                         transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">Unassigned</option>
+              {workspaceMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.full_name || member.email}
+                </option>
+              ))}
+            </select>
+            {loadingMembers && (
+              <p className="mt-1 text-xs text-zinc-500">
+                Loading workspace members...
+              </p>
+            )}
+          </div>
+
+          {/* Dependencies */}
+          <DependencySelector
+            availableTasks={availableTasks}
+            selectedDependencies={selectedDependencies}
+            onAdd={(taskId) => {
+              const task = availableTasks.find(t => t.id === taskId);
+              if (task) {
+                setSelectedDependencies([
+                  ...selectedDependencies,
+                  { id: task.id, title: task.name, status: task.status }
+                ]);
+              }
+            }}
+            onRemove={(taskId) => {
+              setSelectedDependencies(selectedDependencies.filter(d => d.id !== taskId));
+            }}
+          />
         </div>
 
         {/* Footer */}

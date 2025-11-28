@@ -18,6 +18,12 @@ export type CalendarEvent = {
   endHour: number;
 };
 
+export type TaskDependency = {
+  id: string;
+  title: string;
+  status: "todo" | "in-progress" | "done";
+};
+
 export type Task = {
   id: string;
   name: string;
@@ -31,4 +37,9 @@ export type Task = {
   createdBy?: string; // Creator email or username (for display)
   createdById?: number; // Creator user ID
   workspaceName?: string; // Workspace name for display
+  // Dependencies (to be populated by backend)
+  dependencies?: TaskDependency[]; // Tasks that must be completed before this one
+  blockingTasks?: TaskDependency[]; // Tasks that depend on this one
+  canComplete?: boolean; // Whether all dependencies are complete
+  incompleteDependencyCount?: number; // Count of incomplete dependencies
 };

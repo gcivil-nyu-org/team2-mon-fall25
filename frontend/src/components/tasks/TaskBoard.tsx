@@ -1,6 +1,8 @@
 import React from "react";
-import { type Task } from "../../types";
+import { type Task, type TaskDependency } from "../../types";
 import TaskCard from "./TaskCard";
+import QuickAddTask from "./QuickAddTask";
+import BlockedTaskModal from "../modals/BlockedTaskModal";
 import {
   DndContext,
   type DragEndEvent,
@@ -18,6 +20,8 @@ interface Props {
   onTaskStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
   onTaskDelete?: (taskId: string) => void;
   onTaskPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
+  onQuickAdd?: (taskName: string, status: Task["status"]) => void;
+  onOpenFullModal?: () => void;
 }
 
 interface DroppableColumnProps {
@@ -28,6 +32,8 @@ interface DroppableColumnProps {
   tasks: Task[];
   onTaskDelete?: (taskId: string) => void;
   onTaskPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
+  onQuickAdd?: (taskName: string) => void;
+  onOpenFullModal?: () => void;
 }
 
 function DroppableColumn({
@@ -38,6 +44,8 @@ function DroppableColumn({
   tasks,
   onTaskDelete,
   onTaskPriorityChange,
+  onQuickAdd,
+  onOpenFullModal,
 }: DroppableColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -74,7 +82,7 @@ function DroppableColumn({
       </div>
 
       {/* Column Body - Scrollable */}
-      <div className="flex-1 p-3 overflow-y-auto min-h-[400px] max-h-[calc(100vh-300px)]">
+      <div className="flex-1 p-3 overflow-y-auto min-h-[400px] max-h-[calc(100vh-300px)] space-y-3">
         {/* Tasks */}
         {tasks.map((task) => (
           <TaskCard
@@ -86,9 +94,28 @@ function DroppableColumn({
         ))}
 
         {/* Empty State */}
-        {tasks.length === 0 && (
+        {tasks.length === 0 && !isOver && (
           <div className="text-center py-8 text-zinc-400 dark:text-zinc-600 text-sm">
-            {isOver ? "Drop task here" : "No tasks yet"}
+            No tasks yet
+          </div>
+        )}
+
+        {/* Drop Zone Indicator */}
+        {isOver && (
+          <div className="text-center py-8 text-blue-500 dark:text-blue-400 text-sm font-medium">
+            Drop task here
+          </div>
+        )}
+
+        {/* Quick Add Task */}
+        {onQuickAdd && (
+          <div className="mt-3">
+            <QuickAddTask
+              onAdd={onQuickAdd}
+              onOpenFullModal={onOpenFullModal}
+              status={status}
+              variant="board"
+            />
           </div>
         )}
       </div>
@@ -101,8 +128,14 @@ const TaskBoard: React.FC<Props> = ({
   onTaskStatusChange,
   onTaskDelete,
   onTaskPriorityChange,
+  onQuickAdd,
+  onOpenFullModal,
 }) => {
   const [activeTask, setActiveTask] = React.useState<Task | null>(null);
+  const [blockedTask, setBlockedTask] = React.useState<{
+    task: Task;
+    incompleteDeps: TaskDependency[];
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -155,6 +188,13 @@ const TaskBoard: React.FC<Props> = ({
     // Find the task being moved
     const task = tasks.find((t) => t.id === taskId);
     if (task && task.status !== newStatus) {
+      // Check if trying to mark as done with incomplete dependencies
+      if (newStatus === "done" && task.dependencies && !task.canComplete) {
+        const incompleteDeps = task.dependencies.filter(d => d.status !== "done");
+        setBlockedTask({ task, incompleteDeps });
+        return; // Don't change status
+      }
+
       onTaskStatusChange(taskId, newStatus);
     }
   };
@@ -177,6 +217,8 @@ const TaskBoard: React.FC<Props> = ({
             tasks={tasks.filter((task) => task.status === column.status)}
             onTaskDelete={onTaskDelete}
             onTaskPriorityChange={onTaskPriorityChange}
+            onQuickAdd={onQuickAdd ? (taskName) => onQuickAdd(taskName, column.status) : undefined}
+            onOpenFullModal={onOpenFullModal}
           />
         ))}
       </div>
@@ -189,6 +231,15 @@ const TaskBoard: React.FC<Props> = ({
           </div>
         ) : null}
       </DragOverlay>
+
+      {/* Blocked Task Modal */}
+      {blockedTask && (
+        <BlockedTaskModal
+          task={blockedTask.task}
+          incompleteDependencies={blockedTask.incompleteDeps}
+          onClose={() => setBlockedTask(null)}
+        />
+      )}
     </DndContext>
   );
 };
