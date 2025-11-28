@@ -1,6 +1,7 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Modal } from "./Modal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { updateEventRSVP, fetchEventById } from "../../lib/api";
 
 export type RSVPStatus = "pending" | "accepted" | "declined" | "tentative";
 
@@ -35,6 +36,8 @@ interface EventDetailsModalProps {
   event: CalEvent | null;
   currentUserId?: number;
   onDelete?: (id: string) => void;
+  onRsvpChange?: () => void;
+  onEventUpdate?: (event: CalEvent) => void;
 }
 
 export function EventDetailsModal({
@@ -43,31 +46,90 @@ export function EventDetailsModal({
   event,
   currentUserId,
   onDelete,
+  onRsvpChange,
+  onEventUpdate,
 }: EventDetailsModalProps) {
-  if (!event) return null;
-
-  const isUnavailable = event.kind === "unavailable";
-  const isMyEvent = currentUserId !== undefined && event.createdBy === currentUserId;
-  const isAttendee = !isMyEvent && event.attendeesNames && event.attendeesNames.length > 0;
-
-  // Local state for RSVP (mockup - will be replaced with API call)
-  const [rsvpStatus, setRsvpStatus] = useState<RSVPStatus>(
-    event.userRsvpStatus || "pending"
-  );
+  const [currentEvent, setCurrentEvent] = useState<CalEvent | null>(event);
+  const [rsvpStatus, setRsvpStatus] = useState<RSVPStatus>("pending");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    if (event) {
+      setCurrentEvent(event);
+      setRsvpStatus(event.userRsvpStatus || "pending");
+    }
+  }, [event]);
+
+  // Fetch latest event details when modal opens
+  useEffect(() => {
+    if (open && event?.id) {
+      const loadLatestDetails = async () => {
+        try {
+          const backendEvent = await fetchEventById(event.id);
+          // Merge backend data into current event
+          const updatedEvent: CalEvent = {
+            ...event, // Start with original event to keep fields not in backendEvent if any
+            ...currentEvent, // Keep any local changes
+            userRsvpStatus: backendEvent.userRsvpStatus,
+            rsvpSummary: backendEvent.rsvpSummary,
+            attendeesWithRsvp: backendEvent.attendeesWithRsvp,
+            // Ensure other fields are updated too if they changed
+            title: backendEvent.title,
+            description: backendEvent.description,
+            start: parseISO(backendEvent.start_time),
+            end: parseISO(backendEvent.end_time),
+            location: backendEvent.location,
+          };
+
+          setCurrentEvent(updatedEvent);
+
+          // Also update local RSVP status state
+          if (backendEvent.userRsvpStatus) {
+            setRsvpStatus(backendEvent.userRsvpStatus);
+          }
+
+          // Propagate update to parent
+          if (onEventUpdate) {
+            onEventUpdate(updatedEvent);
+          }
+        } catch (error) {
+          console.error("Failed to fetch latest event details:", error);
+        }
+      };
+      loadLatestDetails();
+    }
+  }, [open, event?.id]);
+
+  if (!currentEvent) return null;
+
+  const isUnavailable = currentEvent.kind === "unavailable";
+  const isMyEvent = currentUserId !== undefined && currentEvent.createdBy === currentUserId;
+  const isAttendee = !isMyEvent && currentEvent.attendeesNames && currentEvent.attendeesNames.length > 0;
 
   const handleRsvpChange = async (status: RSVPStatus) => {
     setIsSubmitting(true);
-    // TODO: Replace with actual API call
-    // await updateEventRSVP(event.id, status);
-
-    // Simulate API delay
-    setTimeout(() => {
+    try {
+      await updateEventRSVP(currentEvent.id, status);
       setRsvpStatus(status);
-      setIsSubmitting(false);
-      // TODO: Show success toast
       console.log(`RSVP updated to: ${status}`);
-    }, 500);
+      if (onRsvpChange) {
+        onRsvpChange();
+      }
+      // Optimistically update currentEvent
+      const updatedEvent = currentEvent ? { ...currentEvent, userRsvpStatus: status } : null;
+      setCurrentEvent(updatedEvent);
+
+      // Propagate update to parent
+      if (onEventUpdate && updatedEvent) {
+        onEventUpdate(updatedEvent);
+      }
+    } catch (error) {
+      console.error("Failed to update RSVP:", error);
+      // Optionally show error toast here
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getRsvpIcon = (status: RSVPStatus) => {
@@ -97,7 +159,7 @@ export function EventDetailsModal({
             Title
           </label>
           <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            {event.title}
+            {currentEvent.title}
           </div>
         </div>
 
@@ -108,15 +170,14 @@ export function EventDetailsModal({
           </label>
           <div className="inline-flex items-center gap-2">
             <span
-              className={`px-2 py-1 rounded text-xs font-medium ${
-                isMyEvent
-                  ? (isUnavailable
-                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                      : "bg-[#E30B5D]/50 dark:bg-[#E30B5D]/50 text-[#E30B5D] dark:text-[#E30B5D]")
-                  : (isUnavailable
-                      ? "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                      : "bg-[#4169E1]/50 dark:bg-[#4169E1]/50 text-[#4169E1] dark:text-[#4169E1]")
-              }`}
+              className={`px-2 py-1 rounded text-xs font-medium ${isMyEvent
+                ? (isUnavailable
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
+                  : "bg-[#E30B5D]/50 dark:bg-[#E30B5D]/50 text-[#E30B5D] dark:text-[#E30B5D]")
+                : (isUnavailable
+                  ? "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  : "bg-[#4169E1]/50 dark:bg-[#4169E1]/50 text-[#4169E1] dark:text-[#4169E1]")
+                }`}
             >
               {isUnavailable ? "Unavailable" : "Meeting"}
             </span>
@@ -129,9 +190,9 @@ export function EventDetailsModal({
             Date & Time
           </label>
           <div className="text-sm text-zinc-900 dark:text-zinc-100">
-            <div>{format(event.start, "EEEE, MMMM d, yyyy")}</div>
+            <div>{format(currentEvent.start, "EEEE, MMMM d, yyyy")}</div>
             <div className="text-zinc-600 dark:text-zinc-400">
-              {format(event.start, "p")} – {format(event.end, "p")}
+              {format(currentEvent.start, "p")} – {format(currentEvent.end, "p")}
             </div>
           </div>
         </div>
@@ -142,8 +203,8 @@ export function EventDetailsModal({
             Created By
           </label>
           <div className="text-sm text-zinc-900 dark:text-zinc-100">
-            {event.createdByName || "Unknown User"}
-            {currentUserId !== undefined && event.createdBy === currentUserId && (
+            {currentEvent.createdByName || "Unknown User"}
+            {currentUserId !== undefined && currentEvent.createdBy === currentUserId && (
               <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">(You)</span>
             )}
           </div>
@@ -157,7 +218,7 @@ export function EventDetailsModal({
             </label>
 
             {/* RSVP Summary */}
-            {event.rsvpSummary && (
+            {currentEvent.rsvpSummary && (
               <div className="mb-3 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-md">
                 <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
                   RSVP Summary
@@ -166,25 +227,25 @@ export function EventDetailsModal({
                   <span className="flex items-center gap-1">
                     <span className="text-green-600 dark:text-green-400">✓</span>
                     <span className="text-zinc-700 dark:text-zinc-300">
-                      {event.rsvpSummary.accepted} Accepted
+                      {currentEvent.rsvpSummary.accepted} Accepted
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-yellow-600 dark:text-yellow-400">?</span>
                     <span className="text-zinc-700 dark:text-zinc-300">
-                      {event.rsvpSummary.tentative} Tentative
+                      {currentEvent.rsvpSummary.tentative} Tentative
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-red-600 dark:text-red-400">✗</span>
                     <span className="text-zinc-700 dark:text-zinc-300">
-                      {event.rsvpSummary.declined} Declined
+                      {currentEvent.rsvpSummary.declined} Declined
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="text-zinc-500 dark:text-zinc-400">⏱</span>
                     <span className="text-zinc-700 dark:text-zinc-300">
-                      {event.rsvpSummary.pending} Pending
+                      {currentEvent.rsvpSummary.pending} Pending
                     </span>
                   </span>
                 </div>
@@ -193,9 +254,9 @@ export function EventDetailsModal({
 
             {/* Attendees List with RSVP Status */}
             <div className="text-sm text-zinc-900 dark:text-zinc-100">
-              {event.attendeesWithRsvp && event.attendeesWithRsvp.length > 0 ? (
+              {currentEvent.attendeesWithRsvp && currentEvent.attendeesWithRsvp.length > 0 ? (
                 <ul className="space-y-2">
-                  {event.attendeesWithRsvp.map((attendee, idx) => (
+                  {currentEvent.attendeesWithRsvp.map((attendee, idx) => (
                     <li key={idx} className="flex items-center justify-between">
                       <span>{attendee.name}</span>
                       <span className={`flex items-center gap-1 text-xs font-medium ${getRsvpColor(attendee.status)}`}>
@@ -205,9 +266,9 @@ export function EventDetailsModal({
                     </li>
                   ))}
                 </ul>
-              ) : event.attendeesNames && event.attendeesNames.length > 0 ? (
+              ) : currentEvent.attendeesNames && currentEvent.attendeesNames.length > 0 ? (
                 <ul className="list-disc list-inside space-y-0.5">
-                  {event.attendeesNames.map((name, idx) => (
+                  {currentEvent.attendeesNames.map((name, idx) => (
                     <li key={idx}>{name}</li>
                   ))}
                 </ul>
@@ -225,9 +286,9 @@ export function EventDetailsModal({
               Attendees
             </label>
             <div className="text-sm text-zinc-900 dark:text-zinc-100">
-              {event.attendeesNames && event.attendeesNames.length > 0 ? (
+              {currentEvent.attendeesNames && currentEvent.attendeesNames.length > 0 ? (
                 <ul className="list-disc list-inside space-y-0.5">
-                  {event.attendeesNames.map((name, idx) => (
+                  {currentEvent.attendeesNames.map((name, idx) => (
                     <li key={idx}>{name}</li>
                   ))}
                 </ul>
@@ -304,7 +365,7 @@ export function EventDetailsModal({
           <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
             <button
               onClick={() => {
-                onDelete(event.id);
+                onDelete(currentEvent.id);
                 onClose();
               }}
               className="w-full rounded-md bg-red-600 hover:bg-red-700 text-white py-2 text-sm font-medium transition"

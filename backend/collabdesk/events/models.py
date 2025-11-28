@@ -54,9 +54,18 @@ class Event(models.Model):
 
 
 class EventParticipant(models.Model):
+    class RSVPStatus(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        ACCEPTED = "accepted", _("Accepted")
+        DECLINED = "declined", _("Declined")
+        TENTATIVE = "tentative", _("Tentative")
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     added_at = models.DateTimeField(default=timezone.now)
-    status = models.CharField(max_length=50, default="none")
+    status = models.CharField(
+        max_length=50, choices=RSVPStatus.choices, default=RSVPStatus.PENDING
+    )
+    responded_at = models.DateTimeField(null=True, blank=True)
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

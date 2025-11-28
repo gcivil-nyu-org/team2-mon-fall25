@@ -26,10 +26,12 @@ export function SmartScheduleModal({
   open,
   onClose,
   onScheduled,
+  currentUserId,
 }: {
   open: boolean;
   onClose: () => void;
   onScheduled: (m: ScheduledMeeting) => void;
+  currentUserId?: string;
 }) {
   // Step 1 state
   const [title, setTitle] = useState("");
@@ -44,7 +46,7 @@ export function SmartScheduleModal({
 
   // Step state
   const [step, setStep] = useState<"setup" | "recommendations" | "no-slots">("setup");
-  
+
   // Store API recommended slots
   const [apiRecs, setApiRecs] = useState<Recommended[]>([]);
   const [noSlotsMessage, setNoSlotsMessage] = useState("");
@@ -63,7 +65,13 @@ export function SmartScheduleModal({
       try {
         const data = await getWorkspaceMembers();
         if (!mounted) return;
-        const mapped: Member[] = data.map((m) => ({ id: m.user_id, name: m.username, avatar: m.username?.slice(0,1) }));
+        const mapped: Member[] = data
+          .filter((m) => m.user_id !== currentUserId)
+          .map((m) => ({
+            id: m.user_id,
+            name: m.full_name || m.username,
+            avatar: (m.full_name || m.username)?.slice(0, 1),
+          }));
         setMembers(mapped);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to load members";
@@ -86,14 +94,14 @@ export function SmartScheduleModal({
     return () => {
       mounted = false;
     };
-  }, [open]);
+  }, [open, currentUserId]);
 
   const recs: Recommended[] = useMemo(() => {
     // Prioritize API-returned recommended times
     if (apiRecs.length > 0) {
       return apiRecs;
     }
-    
+
     // Return empty if no API data yet (prevent showing old hardcoded data)
     return [];
   }, [apiRecs]);
@@ -106,11 +114,11 @@ export function SmartScheduleModal({
     setIsFinding(true);
     setError("");
     setNoSlotsMessage("");
-    
+
     try {
       // Ensure date format is yyyy-mm-dd, duration is number (minutes)
       console.log(`Calling API with date=${date}, duration=${duration}`);
-      
+
       const result = await getRecommendedSlots(date, duration, selected);
       console.log("API Response:", result);
 
@@ -140,12 +148,12 @@ export function SmartScheduleModal({
         (slot: { start_time: string; end_time: string; period: string }, idx: number) => {
           const startDate = new Date(slot.start_time);
           const endDate = new Date(slot.end_time);
-          
+
           // Validate date validity
           if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             throw new Error(`Invalid date in slot ${idx}: ${slot.start_time} - ${slot.end_time}`);
           }
-          
+
           return {
             start: startDate,
             end: endDate,
@@ -280,15 +288,14 @@ export function SmartScheduleModal({
                       <button
                         key={p.id}
                         onClick={() => toggle(p.id)}
-                        className={`mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left last:mb-0 ${
-                          active
-                            ? "border border-purple-400/70 bg-purple-50/50 dark:border-purple-900/60 dark:bg-purple-900/20"
-                            : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                        }`}
+                        className={`mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left last:mb-0 ${active
+                          ? "border border-purple-400/70 bg-purple-50/50 dark:border-purple-900/60 dark:bg-purple-900/20"
+                          : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                          }`}
                       >
                         <span className="flex items-center gap-2">
                           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800">
-                            {p.avatar ?? p.name?.slice(0,1)}
+                            {p.avatar ?? p.name?.slice(0, 1)}
                           </span>
                           <span>{p.name}</span>
                         </span>
@@ -311,11 +318,10 @@ export function SmartScheduleModal({
             <button
               disabled={!canFind || isFinding}
               onClick={findBestTimes}
-              className={`w-full rounded-xl px-4 py-2 text-white ${
-                canFind && !isFinding
-                  ? "bg-purple-600 hover:bg-purple-700"
-                  : "cursor-not-allowed bg-purple-400/60"
-              }`}
+              className={`w-full rounded-xl px-4 py-2 text-white ${canFind && !isFinding
+                ? "bg-purple-600 hover:bg-purple-700"
+                : "cursor-not-allowed bg-purple-400/60"
+                }`}
             >
               {isFinding ? "🔄 Finding Best Times..." : "✨ Find 3 Best Times"}
             </button>
@@ -383,15 +389,13 @@ export function SmartScheduleModal({
                 key={idx}
                 onClick={() => schedule(r)}
                 disabled={isSubmitting}
-                className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${
-                  isSubmitting ? "cursor-not-allowed opacity-50" : ""
-                } ${
-                  r.score === "Best"
+                className={`flex w-full items-center justify-between rounded-xl border p-3 text-left transition ${isSubmitting ? "cursor-not-allowed opacity-50" : ""
+                  } ${r.score === "Best"
                     ? "border-green-300 bg-green-50/60 dark:border-green-900/50 dark:bg-green-900/20"
                     : r.score === "Good"
-                    ? "border-blue-300 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-900/20"
-                    : "border-amber-300 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-900/20"
-                }`}
+                      ? "border-blue-300 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-900/20"
+                      : "border-amber-300 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-900/20"
+                  }`}
               >
                 <div>
                   <div className="text-sm font-medium">
