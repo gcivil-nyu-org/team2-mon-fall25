@@ -11,7 +11,7 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class WorkspaceMemberSerializer(serializers.ModelSerializer):
-    user_id = serializers.CharField(source="user.id")
+    user_id = serializers.CharField(source="user.user_id")
     username = serializers.CharField(source="user.username")
     role = serializers.CharField()  # role is a CharField on the model, not a ForeignKey
     full_name = serializers.CharField(source="user.full_name")
