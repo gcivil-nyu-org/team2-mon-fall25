@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { type Task } from "../../types";
 
 interface Props {
   onAdd: (taskName: string) => void;
   onOpenFullModal?: () => void;
-  status?: "todo" | "in-progress" | "done";
   placeholder?: string;
   variant?: "board" | "list";
 }
@@ -12,7 +10,6 @@ interface Props {
 const QuickAddTask: React.FC<Props> = ({
   onAdd,
   onOpenFullModal,
-  status,
   placeholder = "Add a task...",
   variant = "board",
 }) => {
