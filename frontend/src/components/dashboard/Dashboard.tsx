@@ -76,7 +76,7 @@ export function Dashboard({
       }
     };
     loadRecentMessages();
-  }, [getAccessTokenSilently]);
+  }, [getAccessTokenSilently, workspaceId]);
 
   const handleWorkspaceUpdate = (updatedWorkspace: Workspace) => {
     setWorkspace(updatedWorkspace);

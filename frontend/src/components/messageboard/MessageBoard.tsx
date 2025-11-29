@@ -51,6 +51,13 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     email: user?.email ?? "",
   }), [user]);
 
+  const usersArray = useMemo(() => {
+  return Array.from(userMap.entries()).map(([id, name]) => ({
+    id,
+    name,
+  }));
+}, [userMap]);
+
   // Listen for workspace changes in localStorage
   useEffect(() => {
     const handleStorageChange = () => {
@@ -62,11 +69,11 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     };
 
     window.addEventListener("storage", handleStorageChange);
-    // const interval = setInterval(handleStorageChange, 500);
+    const interval = setInterval(handleStorageChange, 500);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      // clearInterval(interval);
+      clearInterval(interval);
     };
   }, [currentWorkspace]);
 
@@ -436,8 +443,12 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
 
       {/* FOOTER - Fixed at bottom with composer */}
       <footer className="flex-shrink-0 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-        <MessageComposer onSend={handleSendMessage} disabled={isSending} />
-      </footer>
+  <MessageComposer 
+    onSend={handleSendMessage} 
+    disabled={isSending}
+    users={usersArray}  // ← ADD THIS LINE
+  />
+</footer>
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

@@ -2,21 +2,30 @@ import { useState, useRef, useEffect } from "react";
 import { extractMentions } from "./MessageBoardApi";
 
 
+// interface MessageComposerProps {
+//   onSend: (content: string, mentions: string[]) => void;
+//   disabled?: boolean;
+// }
+
+// Mock list of users for @mention autocomplete
+// const USERS = [
+//   "Sarah Chen",
+//   "Alex Johnson",
+//   "Mike Ross",
+//   "Priya Nair",
+//   "John Miller",
+// ];
+interface User{
+  id: string;
+  name: string;
+}
 interface MessageComposerProps {
   onSend: (content: string, mentions: string[]) => void;
   disabled?: boolean;
+  users?: User[];  // <-- ADD THIS
 }
 
-// Mock list of users for @mention autocomplete
-const USERS = [
-  "Sarah Chen",
-  "Alex Johnson",
-  "Mike Ross",
-  "Priya Nair",
-  "John Miller",
-];
-
-export function MessageComposer({ onSend, disabled }: MessageComposerProps) {
+export function MessageComposer({ onSend, disabled = false, users = [] }: MessageComposerProps) {
   const [content, setContent] = useState("");
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
@@ -60,8 +69,10 @@ export function MessageComposer({ onSend, disabled }: MessageComposerProps) {
     }
   }, [content]);
 
-  const filteredUsers = USERS.filter((user) =>
-    user.toLowerCase().includes(mentionSearch.toLowerCase())
+  const filteredUsers = users
+  .map(u => u.name)
+  .filter((userName) =>
+    userName.toLowerCase().includes(mentionSearch.toLowerCase())
   );
 
   const handleSend = () => {
