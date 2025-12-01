@@ -507,7 +507,8 @@ export type BackendResource = {
   name: string;
   type: string;
   size: number;
-  uploaded_by: number;
+  uploaded_by: string; // name
+  uploaded_by_id: number; // id
   uploaded: string;
   file: string;
   workspace: string;

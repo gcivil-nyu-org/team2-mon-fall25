@@ -12,7 +12,7 @@ import { ResourceUploadModal } from "./ResourceUploadModal";
 import { ResourcePreviewModal } from "./ResourcePreviewModal";
 import { ResourceEditModal } from "./ResourceEditModal";
 
-export function Resources({ workspace }: { workspace: string }) {
+export function Resources({ workspace, currentUserId }: { workspace: string; currentUserId?: number }) {
   // State
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -267,6 +267,7 @@ export function Resources({ workspace }: { workspace: string }) {
             onPreview={handlePreview}
             onDownload={handleDownload}
             onDelete={handleDelete}
+            currentUserId={currentUserId}
           />
         )}
       </div>
