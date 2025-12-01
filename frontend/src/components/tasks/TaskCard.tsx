@@ -151,7 +151,7 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
       )}
 
       {/* Priority Badge */}
-      <div className="mb-3">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPriorityStyle(
             task.priority
@@ -159,32 +159,71 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
         >
           {task.priority}
         </span>
+
+        {/* Dependencies Indicator */}
+        {task.dependencies && task.dependencies.length > 0 && (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+              task.canComplete
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+            }`}
+            title={
+              task.canComplete
+                ? "All dependencies complete"
+                : `${task.incompleteDependencyCount || 0} incomplete ${
+                    task.incompleteDependencyCount === 1 ? "dependency" : "dependencies"
+                  }`
+            }
+          >
+            🔗 {task.dependencies.length}
+          </span>
+        )}
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
         {/* Due Date */}
-        <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-500">
-          <svg
-            className="w-3.5 h-3.5 mr-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <span>Due {formatDate(task.dueDate)}</span>
-        </div>
+        {task.dueDate && (
+          <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-500">
+            <svg
+              className="w-3.5 h-3.5 mr-1"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <span>{formatDate(task.dueDate)}</span>
+          </div>
+        )}
+
+        {/* Spacer if no due date */}
+        {!task.dueDate && <div></div>}
 
         {/* Assigned User Avatar */}
         {task.assignedTo && (
-          <div className="w-6 h-6 rounded-full bg-zinc-300 dark:bg-zinc-700 flex items-center justify-center text-xs font-medium text-zinc-700 dark:text-zinc-300">
-            {task.assignedTo}
+          <div
+            className="group/avatar relative w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+            title={task.assignedTo}
+          >
+            {task.assignedTo
+              .split(' ')
+              .map(word => word[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2)}
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-2 hidden group-hover/avatar:block z-50">
+              <div className="bg-zinc-900 dark:bg-zinc-700 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                {task.assignedTo}
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -84,7 +84,7 @@ export function MessageItem({
       );
     }
 
-    const parts = message.content.split(/(@[A-Za-z\s]+?)(?=\s|$|[,.!?])/g);
+    const parts = message.content.split(/(@[A-Za-z\s\.\-]+?)(?=\s*[,!?;:\n]|$)/g);
     return (
       <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap break-words">
         {parts.map((part, index) => {

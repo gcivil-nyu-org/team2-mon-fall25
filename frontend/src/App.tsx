@@ -16,7 +16,7 @@ import {
 import { EventDetailsModal } from "./components/modals/EventDetailsModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { Resources } from "./components/resources/Resources";
@@ -50,6 +50,17 @@ type CalEvent = {
   createdBy?: number;
   createdByName?: string;
   attendeesNames?: string[];
+  userRsvpStatus?: RSVPStatus;
+  rsvpSummary?: {
+    accepted: number;
+    declined: number;
+    tentative: number;
+    pending: number;
+  };
+  attendeesWithRsvp?: Array<{
+    name: string;
+    status: RSVPStatus;
+  }>;
 };
 
 export default function App() {
@@ -82,7 +93,7 @@ export default function App() {
 
         return null;
       }
-    });
+    })/*  */;
     setTokenReady(true);
   }, [isAuthenticated, getAccessTokenSilently, logout]);
 
@@ -196,6 +207,7 @@ export default function App() {
 
   // Current user and calendar view state
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
+  const [currentUserUUID, setCurrentUserUUID] = useState<string | undefined>();
   const [calendarView, setCalendarView] = useState<"my" | "all">("all");
   const [selectedEventForDetails, setSelectedEventForDetails] = useState<CalEvent | null>(null);
 
@@ -207,6 +219,7 @@ export default function App() {
       try {
         const user = await fetchCurrentUser();
         setCurrentUserId(user.id);
+        setCurrentUserUUID(user.user_id);
       } catch (error) {
         console.error("Failed to load current user:", error);
       }
@@ -279,6 +292,9 @@ export default function App() {
       createdBy: e.created_by,
       createdByName: e.created_by_name,
       attendeesNames: (e.attendees_detail || []).map((p) => p.full_name).filter(Boolean),
+      userRsvpStatus: e.userRsvpStatus,
+      rsvpSummary: e.rsvpSummary,
+      attendeesWithRsvp: e.attendeesWithRsvp,
     }));
   }, [backendEvents]);
 
@@ -335,6 +351,24 @@ export default function App() {
       console.error("Failed to delete event:", error);
       toast.error("Failed to delete event. Please try again.");
     }
+  };
+
+  // Handle event updates from modal (e.g. RSVP changes)
+  const handleEventUpdate = (updatedEvent: CalEvent) => {
+    setBackendEvents((prev) =>
+      prev.map((e) => {
+        if (e.event_id === updatedEvent.id) {
+          return {
+            ...e,
+            userRsvpStatus: updatedEvent.userRsvpStatus,
+            rsvpSummary: updatedEvent.rsvpSummary,
+            attendeesWithRsvp: updatedEvent.attendeesWithRsvp,
+            // Update other fields if needed
+          };
+        }
+        return e;
+      })
+    );
   };
 
   // Leave workspace logic
@@ -428,118 +462,127 @@ export default function App() {
           {/* TopBar */}
           <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
 
-      <div className="w-full h-full flex px-6 py-4 gap-6">
-        {/* Sidebar */}
-        <aside className="w-[260px] shrink-0 sticky top-14 self-start">
-          <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
-        </aside>
+          <div className="w-full h-full flex px-6 py-4 gap-6">
+            {/* Sidebar */}
+            <aside className="w-[260px] shrink-0 sticky top-14 self-start">
+              <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
+            </aside>
 
-        {/* Main content */}
-        <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
-          {current === "calendar" ? (
-            <>
-              <header className="mb-3 flex items-center gap-2">
-                <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
-                <button
-                  onClick={prevWeek}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={today}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={nextWeek}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  ›
-                </button>
-                <div className="ml-auto" />
-                <button
-                  onClick={() => setShowAdd(true)}
-                  className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
-                >
-                  + Add
-                </button>
-              </header>
+            {/* Main content */}
+            <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
+              {current === "calendar" ? (
+                <>
+                  <header className="mb-3 flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
+                    <button
+                      onClick={prevWeek}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      onClick={today}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={nextWeek}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      ›
+                    </button>
+                    <div className="ml-auto" />
+                    <button
+                      onClick={() => setShowAdd(true)}
+                      className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
+                    >
+                      + Add
+                    </button>
+                  </header>
 
-              {loading ? (
-                <div className="text-center py-8 text-zinc-500">Loading events...</div>
-              ) : (
-                <CalendarWeek
-                  weekStart={weekStart}
-                  events={events}
-                  onEventClick={handleEventClick}
-                  currentUserId={currentUserId}
-                />
-              )}
-            </>
-          ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
-          ) : current === "settings" ? (
-            <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
-          ) : current === "notes" ? (
-            <Notes workspaceId={workspace} />
-          ) : current === "tasks" ? (
-            <Tasks />
-          ) : current === "resources" ? (
-            <Resources workspace={workspace} />
-          ) : current === "message" ? (
-            <MessageBoard openThreadMessageId={openThreadMessageId} />
-          ) : current === "chat" ? (
-            <>
-              <header className="mb-3">
-                <h1 className="text-2xl font-semibold">AI Chat</h1>
-              </header>
-              <Chat />
-            </>
-          ) : null}
-        </main>
+                  <div className="relative">
+                    <CalendarWeek
+                      weekStart={weekStart}
+                      events={events}
+                      onEventClick={handleEventClick}
+                      currentUserId={currentUserId}
+                    />
+                    {loading && (
+                      <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
+                        <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
+                          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : current === "dashboard" ? (
+                <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
+              ) : current === "settings" ? (
+                <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
+              ) : current === "notes" ? (
+                <Notes workspaceId={workspace} />
+              ) : current === "tasks" ? (
+                <Tasks />
+              ) : current === "resources" ? (
+                <Resources workspace={workspace} currentUserId={currentUserId} />
+              ) : current === "message" ? (
+                <MessageBoard openThreadMessageId={openThreadMessageId} />
+              ) : current === "chat" ? (
+                <>
+                  <header className="mb-3">
+                    <h1 className="text-2xl font-semibold">AI Chat</h1>
+                  </header>
+                  <Chat />
+                </>
+              ) : null}
+            </main>
 
-        {/* Agenda only for Calendar */}
-        {current === "calendar" ? (
-          <Agenda
-            events={events}
-            onEventClick={handleEventClick}
-            calendarView={calendarView}
-            onViewChange={setCalendarView}
-            currentUserId={currentUserId}
+            {/* Agenda only for Calendar */}
+            {current === "calendar" ? (
+              <Agenda
+                events={events}
+                onEventClick={handleEventClick}
+                calendarView={calendarView}
+                onViewChange={setCalendarView}
+                currentUserId={currentUserId}
+              />
+            ) : null}
+          </div>
+
+          {/* Add / Smart Schedule / Block Modals */}
+          <AddToCalendar
+            open={showAdd}
+            onClose={() => setShowAdd(false)}
+            onSmartSchedule={() => setShowSmart(true)}
+            onBlockTime={() => setShowBlock(true)}
           />
-        ) : null}
-      </div>
 
-      {/* Add / Smart Schedule / Block Modals */}
-      <AddToCalendar
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onSmartSchedule={() => setShowSmart(true)}
-        onBlockTime={() => setShowBlock(true)}
-      />
+          <SmartScheduleModal
+            open={showSmart}
+            onClose={() => setShowSmart(false)}
+            onScheduled={handleAddMeeting}
+            currentUserId={currentUserUUID}
+          />
 
-      <SmartScheduleModal
-        open={showSmart}
-        onClose={() => setShowSmart(false)}
-        onScheduled={handleAddMeeting}
-      />
+          <UnavailabilityModal
+            open={showBlock}
+            onClose={() => setShowBlock(false)}
+            onBlocked={handleBlocked}
+          />
 
-      <UnavailabilityModal
-        open={showBlock}
-        onClose={() => setShowBlock(false)}
-        onBlocked={handleBlocked}
-      />
-
-      {/* Event details modal */}
-      <EventDetailsModal
-        open={selectedEventForDetails !== null}
-        onClose={() => setSelectedEventForDetails(null)}
-        event={selectedEventForDetails}
-        currentUserId={currentUserId}
-        onDelete={handleDeleteEvent}
-      />
+          {/* Event details modal */}
+          <EventDetailsModal
+            open={selectedEventForDetails !== null}
+            onClose={() => setSelectedEventForDetails(null)}
+            event={selectedEventForDetails}
+            currentUserId={currentUserId}
+            onDelete={handleDeleteEvent}
+            onRsvpChange={refreshEvents}
+            onEventUpdate={handleEventUpdate}
+          />
         </>
       )}
 
@@ -549,7 +592,7 @@ export default function App() {
           {/* Workspace Action Selection Modal - cannot be closed */}
           <WorkspaceActionModal
             open={showActionModal}
-            onClose={() => {}} // Cannot close - must select an option
+            onClose={() => { }} // Cannot close - must select an option
             onCreateWorkspace={() => {
               setShowActionModal(false);
               setShowCreate(true);
@@ -607,11 +650,10 @@ export default function App() {
                       <button
                         key={user.user_id}
                         onClick={() => toggleSelect(user)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150 ${
-                          selectedUser
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300"
-                            : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150 ${selectedUser
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                          }`}
                       >
                         <span className="font-medium">{user.full_name}</span>
                         <span className="text-xs text-gray-500 ml-2">{user.email}</span>

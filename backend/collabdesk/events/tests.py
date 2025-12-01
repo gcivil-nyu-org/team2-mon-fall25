@@ -445,7 +445,7 @@ class EventParticipantModelTest(TestCase):
 
         payload = {
             "added_at": added_at.isoformat(),
-            "status": "Test event participant",
+            "status": "pending",
             "added_by": user.id,
             "event": event.event_id,
             "user": user2.id,
@@ -977,3 +977,161 @@ class EventCoverageTests(TestCase):
             # Should call order_by on base_qs, not filter with Q
             # The code: return base_qs.order_by("start_time")
             mock_qs.order_by.assert_called_with("start_time")
+
+
+class RSVPTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        # Create users
+        self.creator = User.objects.create_user(
+            username="creator", email="creator@example.com", password="password123"
+        )
+        self.attendee = User.objects.create_user(
+            username="attendee", email="attendee@example.com", password="password123"
+        )
+        self.outsider = User.objects.create_user(
+            username="outsider", email="outsider@example.com", password="password123"
+        )
+
+        # Create workspace
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.creator
+        )
+
+        # Add members to workspace
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.creator, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.attendee, role="member"
+        )
+        # Outsider is not in workspace
+
+        # Create event
+        self.event = Event.objects.create(
+            title="Test Event",
+            description="RSVP Test",
+            start_time=timezone.now() + timedelta(days=1),
+            end_time=timezone.now() + timedelta(days=1, hours=1),
+            created_by=self.creator,
+            workspace=self.workspace,
+            event_type="GROUP",
+        )
+
+        # Add attendee to event
+        self.participant = EventParticipant.objects.create(
+            event=self.event,
+            user=self.attendee,
+            added_by=self.creator,
+            status=EventParticipant.RSVPStatus.PENDING,
+        )
+
+        # Creator is usually added automatically in views, but here we do it manually if needed
+        # For this test setup, let's ensure creator is also a participant
+        EventParticipant.objects.create(
+            event=self.event,
+            user=self.creator,
+            added_by=self.creator,
+            status=EventParticipant.RSVPStatus.ACCEPTED,
+        )
+        self.client = APIClient()
+
+    def test_update_rsvp_status(self):
+        """Test that a participant can update their RSVP status"""
+        self.client.force_authenticate(user=self.attendee)
+        url = reverse("events:event-rsvp", kwargs={"event_id": self.event.event_id})
+
+        data = {"status": "accepted"}
+        response = self.client.patch(url, data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["rsvp"], "accepted")
+
+        # Verify DB update
+        self.participant.refresh_from_db()
+        self.assertEqual(self.participant.status, "accepted")
+        self.assertIsNotNone(self.participant.responded_at)
+
+    def test_update_rsvp_invalid_status(self):
+        """Test that updating with an invalid status fails"""
+        self.client.force_authenticate(user=self.attendee)
+        url = reverse("events:event-rsvp", kwargs={"event_id": self.event.event_id})
+
+        data = {"status": "invalid_status"}
+        response = self.client.patch(url, data)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_rsvp_non_participant(self):
+        """Test that a non-participant cannot update RSVP"""
+        # Add outsider to workspace so they can access the event URL if permissions allow,
+        # but they are NOT an event participant
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.outsider, role="member"
+        )
+
+        self.client.force_authenticate(user=self.outsider)
+        url = reverse("events:event-rsvp", kwargs={"event_id": self.event.event_id})
+
+        data = {"status": "accepted"}
+        response = self.client.patch(url, data)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_rsvp_fields_in_event_response(self):
+        """Test that event details include RSVP fields"""
+        self.client.force_authenticate(user=self.attendee)
+
+        # Set workspace header as required by views
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
+
+        url = reverse("events:event-detail", kwargs={"pk": self.event.event_id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check userRsvpStatus
+        self.assertEqual(response.data["userRsvpStatus"], "pending")
+
+        # Check rsvpSummary
+        summary = response.data["rsvpSummary"]
+        self.assertEqual(summary["accepted"], 1)  # Creator
+        self.assertEqual(summary["pending"], 1)  # Attendee
+        self.assertEqual(summary["declined"], 0)
+        self.assertEqual(summary["tentative"], 0)
+
+        # Check attendeesWithRsvp
+        attendees = response.data["attendeesWithRsvp"]
+        self.assertEqual(len(attendees), 2)
+
+        attendee_statuses = {a["name"]: a["status"] for a in attendees}
+        # Names might be empty if full_name not set, falling back to username or handling in serializer
+        # In setup we didn't set full_name, serializer uses: obj.created_by.full_name or obj.created_by.username
+
+        # Let's check if we can find our attendee
+        # The serializer logic: p.user.full_name or p.user.username
+        attendee_name = self.attendee.username
+        creator_name = self.creator.username
+
+        self.assertIn(attendee_name, attendee_statuses)
+        self.assertEqual(attendee_statuses[attendee_name], "pending")
+
+        self.assertIn(creator_name, attendee_statuses)
+        self.assertEqual(attendee_statuses[creator_name], "accepted")
+
+    def test_rsvp_summary_calculation(self):
+        """Test that RSVP summary counts are correct after updates"""
+        # Update attendee status to declined
+        self.participant.status = "declined"
+        self.participant.save()
+
+        self.client.force_authenticate(user=self.creator)
+        self.client.credentials(HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id))
+
+        url = reverse("events:event-detail", kwargs={"pk": self.event.event_id})
+        response = self.client.get(url)
+
+        summary = response.data["rsvpSummary"]
+        self.assertEqual(summary["accepted"], 1)  # Creator
+        self.assertEqual(summary["declined"], 1)  # Attendee
+        self.assertEqual(summary["pending"], 0)

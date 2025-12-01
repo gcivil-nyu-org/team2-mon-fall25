@@ -6,6 +6,8 @@ import {
     isSameWeek,
   } from "date-fns";
   
+  type RSVPStatus = "pending" | "accepted" | "declined" | "tentative";
+
   type CalendarEvent = {
     id: string;
     title: string;
@@ -13,6 +15,7 @@ import {
     end: Date;
     kind?: "meeting" | "unavailable";
     createdBy?: number;
+    rsvpStatus?: RSVPStatus; // User's RSVP status for this event
   };
   
   const HOURS = Array.from({ length: 24 }, (_, i) => i); // 00–23 (full day)
@@ -20,6 +23,32 @@ import {
   // Helper function to detect if two events overlap
   function eventsOverlap(e1: CalendarEvent, e2: CalendarEvent): boolean {
     return e1.start < e2.end && e2.start < e1.end;
+  }
+
+  // Helper to get RSVP styling for non-creator events
+  function getRsvpStyling(rsvpStatus?: RSVPStatus, isOwnEvent?: boolean) {
+    // Only apply RSVP styling if user is NOT the creator
+    if (isOwnEvent || !rsvpStatus) return null;
+
+    switch (rsvpStatus) {
+      case "pending":
+        return {
+          borderColor: "border-l-amber-500 dark:border-l-amber-400",
+          borderWidth: "border-l-4",
+        };
+      case "accepted":
+        return null; // Keep default styling for accepted
+      case "declined":
+        return {
+          opacity: "opacity-50",
+          overlay: "after:absolute after:inset-0 after:bg-red-500/10 dark:after:bg-red-500/20",
+        };
+      case "tentative":
+        return {
+          borderStyle: "border-dashed border-2",
+          borderColor: "border-orange-400 dark:border-orange-500",
+        };
+    }
   }
 
   export function CalendarWeek({
@@ -167,6 +196,7 @@ import {
 
               const isUnavailable = e.kind === "unavailable";
               const isOwnEvent = currentUserId !== undefined && e.createdBy === currentUserId;
+              const rsvpStyling = getRsvpStyling(e.rsvpStatus, isOwnEvent);
 
               // Color scheme based on ownership and type
               const baseColor = isOwnEvent
@@ -185,13 +215,22 @@ import {
                     ? "hover:ring-2 hover:ring-gray-600/60 dark:hover:ring-gray-600/40"
                     : "hover:ring-2 hover:ring-[#4169E1]/60 dark:hover:ring-[#4169E1]/60");
 
+              // Build RSVP styling classes
+              const rsvpClasses = rsvpStyling ? [
+                rsvpStyling.opacity,
+                rsvpStyling.overlay,
+                rsvpStyling.borderStyle,
+                rsvpStyling.borderColor,
+                rsvpStyling.borderWidth,
+              ].filter(Boolean).join(" ") : "";
+
               return [
                 <button
                   key={e.id}
                   onClick={() => onEventClick?.(e.id)}
                   className={`absolute overflow-hidden rounded-xl p-2 text-xs text-left transition focus:outline-none ${baseColor} ${hoverColor} ${
                     isUnavailable ? (isOwnEvent ? "border-l-4 border-l-zinc-400 dark:border-l-zinc-400" : "border-l-4 border-l-gray-700 dark:border-l-gray-600") : ""
-                  }`}
+                  } ${rsvpClasses}`}
                   style={{
                     top,
                     left: `calc(${left}% + 0.25rem)`,
@@ -281,6 +320,7 @@ import {
 
                 const isUnavailable = e.kind === "unavailable";
                 const isOwnEvent = currentUserId !== undefined && e.createdBy === currentUserId;
+                const rsvpStyling = getRsvpStyling(event.rsvpStatus, isOwnEvent);
 
                 // Color scheme based on ownership and type
                 const baseColor = isOwnEvent
@@ -299,13 +339,22 @@ import {
                       ? "hover:ring-2 hover:ring-gray-600/60 dark:hover:ring-gray-600/40"
                       : "hover:ring-2 hover:ring-[#4169E1]/60 dark:hover:ring-[#4169E1]/60");
 
+                // Build RSVP styling classes
+                const rsvpClasses = rsvpStyling ? [
+                  rsvpStyling.opacity,
+                  rsvpStyling.overlay,
+                  rsvpStyling.borderStyle,
+                  rsvpStyling.borderColor,
+                  rsvpStyling.borderWidth,
+                ].filter(Boolean).join(" ") : "";
+
                 segments.push(
                   <button
                     key={e.id}
                     onClick={() => onEventClick?.(event.id)} // Use original event ID for click handler
                     className={`absolute overflow-hidden rounded-xl p-2 text-xs text-left transition focus:outline-none ${baseColor} ${hoverColor} ${
                       isUnavailable ? (isOwnEvent ? "border-l-4 border-l-zinc-400 dark:border-l-zinc-400" : "border-l-4 border-l-gray-700 dark:border-l-gray-600") : ""
-                    }`}
+                    } ${rsvpClasses}`}
                     style={{
                       top,
                       left: `calc(${left}% + 0.25rem)`,

@@ -113,6 +113,34 @@ const Tasks: React.FC = () => {
     console.error(err);
   }
 };
+
+  const handleQuickAddTask = async (taskName: string, status: Task["status"]) => {
+    const duplicate = tasks.find(
+      (t) => t.name.toLowerCase() === taskName.toLowerCase()
+    );
+    if (duplicate) {
+      alert("Task with this name already exists");
+      return;
+    }
+
+    const newTask: Task = {
+      id: Date.now().toString(),
+      name: taskName,
+      description: "",
+      dueDate: "",
+      priority: "medium",
+      tags: [],
+      status,
+    };
+
+    try {
+      await createTask(newTask, token);
+      const data = await getTasks(token);
+      setTasks(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 //   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
 //   try {
 //     await updateTask(id, updates);
@@ -390,6 +418,8 @@ const Tasks: React.FC = () => {
     onTaskStatusChange={handleTaskStatusChange}      // Dragging updates status
     onTaskDelete={handleTaskDelete}                 // Delete button works
     onTaskPriorityChange={handleTaskPriorityChange} // Priority change works
+    onQuickAdd={handleQuickAddTask}                 // Quick add from columns
+    onOpenFullModal={() => setShowModal(true)}      // Open full modal for details
   />
 ) : (
   <TaskList
@@ -402,7 +432,11 @@ const Tasks: React.FC = () => {
 
       {/* Modal */}
       {showModal && (
-        <TaskModal onClose={() => setShowModal(false)} onCreate={handleCreateTask} />
+        <TaskModal
+          onClose={() => setShowModal(false)}
+          onCreate={handleCreateTask}
+          availableTasks={tasks}
+        />
       )}
     </div>
   );
