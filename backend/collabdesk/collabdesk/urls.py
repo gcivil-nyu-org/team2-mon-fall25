@@ -33,4 +33,5 @@ urlpatterns = [
     path("api/users/list/", list_users, name="user-list"),
     path("api/debug/token/", debug_token, name="debug-token"),  # Debug endpoint
     path("api/notes/", include("notes.urls")),
+    path("api/chat/", include("chat.urls")),  # AI Chat endpoints
 ]
