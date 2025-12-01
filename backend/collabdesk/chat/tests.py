@@ -22,13 +22,10 @@ class ChatDocumentModelTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
 
     def test_chat_document_creation(self):
@@ -38,7 +35,7 @@ class ChatDocumentModelTest(TestCase):
             workspace=self.workspace,
             file_key="test-file-key-123",
             file_name="test_document.pdf",
-            file_size=1024
+            file_size=1024,
         )
 
         self.assertEqual(document.file_name, "test_document.pdf")
@@ -53,7 +50,7 @@ class ChatDocumentModelTest(TestCase):
             workspace=self.workspace,
             file_key="test-key",
             file_name="sample.pdf",
-            file_size=2048
+            file_size=2048,
         )
 
         expected_str = f"sample.pdf (uploaded by {self.user.email})"
@@ -66,20 +63,17 @@ class AIConversationModelTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
         self.document = ChatDocument.objects.create(
             user=self.user,
             workspace=self.workspace,
             file_key="test-key",
             file_name="test.pdf",
-            file_size=1024
+            file_size=1024,
         )
 
     def test_ai_conversation_auto_title_generation(self):
@@ -89,7 +83,7 @@ class AIConversationModelTest(TestCase):
             workspace=self.workspace,
             document=self.document,
             action_type="summary",
-            ai_response="This is a test summary."
+            ai_response="This is a test summary.",
         )
 
         expected_title = "Summary - test.pdf"
@@ -104,7 +98,7 @@ class AIConversationModelTest(TestCase):
             document=self.document,
             action_type="plan",
             title=custom_title,
-            ai_response="This is a test plan."
+            ai_response="This is a test plan.",
         )
 
         self.assertEqual(conversation.title, custom_title)
@@ -116,7 +110,7 @@ class AIConversationModelTest(TestCase):
             workspace=self.workspace,
             document=self.document,
             action_type="summary",
-            ai_response="Test response"
+            ai_response="Test response",
         )
 
         self.assertFalse(conversation.saved_to_notes)
@@ -128,13 +122,10 @@ class ChatDocumentSerializerTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
 
     def test_chat_document_serializer_fields(self):
@@ -144,18 +135,18 @@ class ChatDocumentSerializerTest(TestCase):
             workspace=self.workspace,
             file_key="test-key",
             file_name="document.pdf",
-            file_size=5000
+            file_size=5000,
         )
 
         serializer = ChatDocumentSerializer(document)
         data = serializer.data
 
-        self.assertIn('id', data)
-        self.assertIn('file_name', data)
-        self.assertIn('file_size', data)
-        self.assertIn('uploaded_at', data)
-        self.assertEqual(data['file_name'], 'document.pdf')
-        self.assertEqual(data['file_size'], 5000)
+        self.assertIn("id", data)
+        self.assertIn("file_name", data)
+        self.assertIn("file_size", data)
+        self.assertIn("uploaded_at", data)
+        self.assertEqual(data["file_name"], "document.pdf")
+        self.assertEqual(data["file_size"], 5000)
 
 
 class AIConversationSerializerTest(TestCase):
@@ -164,20 +155,17 @@ class AIConversationSerializerTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
         self.document = ChatDocument.objects.create(
             user=self.user,
             workspace=self.workspace,
             file_key="test-key",
             file_name="test.pdf",
-            file_size=1024
+            file_size=1024,
         )
 
     def test_ai_conversation_serializer_fields(self):
@@ -187,20 +175,20 @@ class AIConversationSerializerTest(TestCase):
             workspace=self.workspace,
             document=self.document,
             action_type="summary",
-            ai_response="Test AI response content"
+            ai_response="Test AI response content",
         )
 
         serializer = AIConversationSerializer(conversation)
         data = serializer.data
 
-        self.assertIn('id', data)
-        self.assertIn('action_type', data)
-        self.assertIn('title', data)
-        self.assertIn('ai_response', data)
-        self.assertIn('saved_to_notes', data)
-        self.assertIn('document', data)
-        self.assertEqual(data['action_type'], 'summary')
-        self.assertEqual(data['ai_response'], 'Test AI response content')
+        self.assertIn("id", data)
+        self.assertIn("action_type", data)
+        self.assertIn("title", data)
+        self.assertIn("ai_response", data)
+        self.assertIn("saved_to_notes", data)
+        self.assertIn("document", data)
+        self.assertEqual(data["action_type"], "summary")
+        self.assertEqual(data["ai_response"], "Test AI response content")
 
 
 class ConversationListViewTest(APITestCase):
@@ -210,26 +198,21 @@ class ConversationListViewTest(APITestCase):
         """Set up test data"""
         self.client = APIClient()
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
         # Add user as workspace member
         WorkspaceMember.objects.create(
-            workspace=self.workspace,
-            user=self.user,
-            role="owner"
+            workspace=self.workspace, user=self.user, role="owner"
         )
         self.document = ChatDocument.objects.create(
             user=self.user,
             workspace=self.workspace,
             file_key="test-key",
             file_name="test.pdf",
-            file_size=1024
+            file_size=1024,
         )
 
         # Create some conversations
@@ -238,27 +221,30 @@ class ConversationListViewTest(APITestCase):
             workspace=self.workspace,
             document=self.document,
             action_type="summary",
-            ai_response="Summary response"
+            ai_response="Summary response",
         )
         AIConversation.objects.create(
             user=self.user,
             workspace=self.workspace,
             document=self.document,
             action_type="plan",
-            ai_response="Plan response"
+            ai_response="Plan response",
         )
 
     def test_conversation_list_requires_authentication(self):
         """Test 8: Conversation list requires authentication"""
-        response = self.client.get('/api/chat/conversations/')
-        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+        response = self.client.get("/api/chat/conversations/")
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN],
+        )
 
     def test_conversation_list_with_authentication(self):
         """Test 9: Authenticated user can list their conversations"""
         self.client.force_authenticate(user=self.user)
         response = self.client.get(
-            '/api/chat/conversations/',
-            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+            "/api/chat/conversations/",
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -272,33 +258,28 @@ class SaveToNotesViewTest(APITestCase):
         """Set up test data"""
         self.client = APIClient()
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.workspace = Workspace.objects.create(
-            name="Test Workspace",
-            created_by=self.user
+            name="Test Workspace", created_by=self.user
         )
         # Add user as workspace member
         WorkspaceMember.objects.create(
-            workspace=self.workspace,
-            user=self.user,
-            role="owner"
+            workspace=self.workspace, user=self.user, role="owner"
         )
         self.document = ChatDocument.objects.create(
             user=self.user,
             workspace=self.workspace,
             file_key="test-key",
             file_name="test.pdf",
-            file_size=1024
+            file_size=1024,
         )
         self.conversation = AIConversation.objects.create(
             user=self.user,
             workspace=self.workspace,
             document=self.document,
             action_type="summary",
-            ai_response="Test response"
+            ai_response="Test response",
         )
 
     def test_save_to_notes_updates_flag(self):
@@ -310,8 +291,8 @@ class SaveToNotesViewTest(APITestCase):
 
         # Make save to notes request
         response = self.client.post(
-            f'/api/chat/conversations/{self.conversation.id}/save-notes/',
-            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+            f"/api/chat/conversations/{self.conversation.id}/save-notes/",
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -319,4 +300,3 @@ class SaveToNotesViewTest(APITestCase):
         # Refresh from database and verify flag is updated
         self.conversation.refresh_from_db()
         self.assertTrue(self.conversation.saved_to_notes)
-
