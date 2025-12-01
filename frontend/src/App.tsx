@@ -527,7 +527,7 @@ export default function App() {
               ) : current === "tasks" ? (
                 <Tasks />
               ) : current === "resources" ? (
-                <Resources workspace={workspace} />
+                <Resources workspace={workspace} currentUserId={currentUserId} />
               ) : current === "message" ? (
                 <MessageBoard openThreadMessageId={openThreadMessageId} />
               ) : current === "chat" ? (
