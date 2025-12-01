@@ -10,6 +10,13 @@ from rest_framework import status
 from workspaces.models import Workspace, WorkspaceMember
 from .models import ChatDocument, AIConversation
 from .serializers import ChatDocumentSerializer, AIConversationSerializer
+from .ai_service import (
+    validate_file_type,
+    get_supported_file_types,
+    extract_text_from_txt,
+    DocumentProcessingError,
+    AIServiceError,
+)
 from unittest.mock import patch, MagicMock
 from io import BytesIO
 
@@ -300,3 +307,164 @@ class SaveToNotesViewTest(APITestCase):
         # Refresh from database and verify flag is updated
         self.conversation.refresh_from_db()
         self.assertTrue(self.conversation.saved_to_notes)
+
+
+class AIServiceTest(TestCase):
+    """Test cases for AI Service utility functions"""
+
+    def test_validate_file_type_pdf(self):
+        """Test 11: validate_file_type returns True for PDF files"""
+        self.assertTrue(validate_file_type("document.pdf"))
+        self.assertTrue(validate_file_type("document.PDF"))
+
+    def test_validate_file_type_docx(self):
+        """Test 12: validate_file_type returns True for DOCX files"""
+        self.assertTrue(validate_file_type("document.docx"))
+        self.assertTrue(validate_file_type("document.doc"))
+
+    def test_validate_file_type_txt(self):
+        """Test 13: validate_file_type returns True for TXT files"""
+        self.assertTrue(validate_file_type("document.txt"))
+        self.assertTrue(validate_file_type("document.TXT"))
+
+    def test_validate_file_type_unsupported(self):
+        """Test 14: validate_file_type returns False for unsupported files"""
+        self.assertFalse(validate_file_type("document.xlsx"))
+        self.assertFalse(validate_file_type("document.jpg"))
+        self.assertFalse(validate_file_type("document.png"))
+
+    def test_get_supported_file_types(self):
+        """Test 15: get_supported_file_types returns correct list"""
+        supported_types = get_supported_file_types()
+        self.assertIsInstance(supported_types, list)
+        self.assertIn("pdf", supported_types)
+        self.assertIn("docx", supported_types)
+        self.assertIn("doc", supported_types)
+        self.assertIn("txt", supported_types)
+        self.assertEqual(len(supported_types), 4)
+
+
+class ConversationDetailViewTest(APITestCase):
+    """Test cases for Conversation Detail API View"""
+
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+        self.document = ChatDocument.objects.create(
+            user=self.user,
+            workspace=self.workspace,
+            file_key="test-key",
+            file_name="test.pdf",
+            file_size=1024,
+        )
+        self.conversation = AIConversation.objects.create(
+            user=self.user,
+            workspace=self.workspace,
+            document=self.document,
+            action_type="summary",
+            ai_response="Test AI response content",
+        )
+
+    def test_conversation_detail_retrieval(self):
+        """Test 16: Can retrieve conversation detail with authentication"""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(
+            f"/api/chat/conversations/{self.conversation.id}/",
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.conversation.id)
+        self.assertEqual(response.data["action_type"], "summary")
+        self.assertEqual(response.data["ai_response"], "Test AI response content")
+
+
+class ConversationDeleteViewTest(APITestCase):
+    """Test cases for Conversation Delete API View"""
+
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+        self.document = ChatDocument.objects.create(
+            user=self.user,
+            workspace=self.workspace,
+            file_key="test-key",
+            file_name="test.pdf",
+            file_size=1024,
+        )
+        self.conversation = AIConversation.objects.create(
+            user=self.user,
+            workspace=self.workspace,
+            document=self.document,
+            action_type="summary",
+            ai_response="Test response",
+        )
+
+    def test_conversation_deletion(self):
+        """Test 17: Can delete conversation with authentication"""
+        self.client.force_authenticate(user=self.user)
+
+        # Verify conversation exists
+        self.assertTrue(AIConversation.objects.filter(id=self.conversation.id).exists())
+
+        # Delete conversation
+        response = self.client.delete(
+            f"/api/chat/conversations/{self.conversation.id}/delete/",
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Verify conversation is deleted
+        self.assertFalse(
+            AIConversation.objects.filter(id=self.conversation.id).exists()
+        )
+
+
+class DocumentUploadViewTest(APITestCase):
+    """Test cases for Document Upload API View"""
+
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+
+    def test_document_upload_without_file(self):
+        """Test 18: Document upload returns error when no file provided"""
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            "/api/chat/documents/upload/",
+            {},
+            HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+        self.assertEqual(response.data["error"], "No file provided")
