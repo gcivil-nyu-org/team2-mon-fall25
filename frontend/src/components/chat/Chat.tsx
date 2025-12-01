@@ -31,6 +31,43 @@ export function Chat() {
     loadConversations();
   }, []);
 
+  // Listen for workspace changes and reload data
+  useEffect(() => {
+    // Handle cross-tab workspace changes via storage event
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'cd.workspace') {
+        console.log('Workspace changed (cross-tab), reloading conversations...');
+        loadConversations();
+        // Clear active conversation since it belongs to old workspace
+        if (activeConversation) {
+          setActiveConversation(null);
+          setCurrentResult(null);
+          setCurrentDocument(null);
+        }
+      }
+    };
+
+    // Handle same-tab workspace changes via custom event
+    const onWorkspaceChanged = () => {
+      console.log('Workspace changed (same-tab), reloading conversations...');
+      loadConversations();
+      // Clear active conversation since it belongs to old workspace
+      if (activeConversation) {
+        setActiveConversation(null);
+        setCurrentResult(null);
+        setCurrentDocument(null);
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('workspaceChanged', onWorkspaceChanged);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('workspaceChanged', onWorkspaceChanged);
+    };
+  }, [activeConversation]);
+
   // Load conversations
   const loadConversations = async () => {
     try {
@@ -72,50 +109,43 @@ export function Chat() {
     setCurrentResult(null);
 
     try {
-      // Upload document
-      const data = await ChatApi.uploadDocument(file);
-      setCurrentDocument(data.document);
-      setActiveConversation(data.conversation);
-      await loadConversations();
+      // Step 1: Upload document
+      const uploadData = await ChatApi.uploadDocument(file);
+      setCurrentDocument(uploadData.document);
 
-      // Start generating the result
+      // Step 2: Generate AI analysis
       setIsUploading(false);
       setIsGenerating(true);
       setStreamingContent('');
 
-      // Stream the AI response
+      // Create conversation with AI analysis
+      const conversation = await ChatApi.createConversation(uploadData.document.id.toString(), actionType);
+      setActiveConversation(conversation);
+
+      // Step 3: Stream the response for UI effect
       await new Promise<void>((resolve, reject) => {
         ChatApi.createStreamingConnection(
-          data.conversation.id,
+          conversation.id,
           (chunk) => {
             setStreamingContent((prev) => prev + chunk);
           },
           async () => {
             try {
-              // Save the result
-              const savedMessage = await ChatApi.sendMessage(data.conversation.id, {
-                content: '',
-                action_type: actionType,
-              });
+              // Fetch the complete conversation to get the AI response
+              const data = await ChatApi.getConversation(conversation.id);
+              const assistantMessage = data.messages.find((m) => m.role === 'assistant');
 
-              const resultMessage: Message = {
-                id: `ai-${savedMessage.id}`,
-                conversation_id: data.conversation.id,
-                role: 'assistant',
-                content: streamingContent,
-                created_at: new Date().toISOString(),
-                action_type: actionType,
-                saved_to_notes: false,
-              };
+              if (assistantMessage) {
+                setCurrentResult(assistantMessage);
+              }
 
-              setCurrentResult(resultMessage);
               setIsGenerating(false);
               setStreamingContent('');
               await loadConversations();
               resolve();
             } catch (err) {
-              console.error('Failed to save result:', err);
-              setError('Failed to save result');
+              console.error('Failed to load result:', err);
+              setError('Failed to load result');
               setIsGenerating(false);
               reject(err);
             }
@@ -157,10 +187,10 @@ export function Chat() {
     try {
       await NotesApi.createNote(data);
 
-      // Mark message as saved
-      if (messageToSave && currentResult) {
+      // Mark conversation as saved to notes
+      if (activeConversation && currentResult) {
+        await ChatApi.markMessageAsSaved(activeConversation.id);
         setCurrentResult({ ...currentResult, saved_to_notes: true });
-        await ChatApi.markMessageAsSaved(messageToSave.id);
       }
 
       // Show success message
