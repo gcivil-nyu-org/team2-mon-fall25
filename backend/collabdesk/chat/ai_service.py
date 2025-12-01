@@ -16,12 +16,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Configure Gemini API
-if not getattr(settings, "GEMINI_API_KEY", None):
-    logger.error("Gemini credentials not configured in settings")
-    raise ValueError("Gemini credentials not configured")
-
-if settings.GEMINI_API_KEY:
+GEMINI_CONFIGURED = False
+if getattr(settings, "GEMINI_API_KEY", None):
     genai.configure(api_key=settings.GEMINI_API_KEY)
+    GEMINI_CONFIGURED = True
+else:
+    logger.warning("Gemini credentials not configured in settings")
 
 # GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 # if GEMINI_API_KEY:
@@ -242,7 +242,7 @@ def generate_ai_response(document_text: str, action_type: str) -> str:
     Raises:
         AIServiceError: If AI generation fails
     """
-    if not settings.GEMINI_API_KEY:
+    if not GEMINI_CONFIGURED:
         raise AIServiceError(
             "GEMINI_API_KEY not configured. Please set the environment variable."
         )
