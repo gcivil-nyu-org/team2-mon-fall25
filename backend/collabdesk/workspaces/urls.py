@@ -7,6 +7,8 @@ from .views import (
     WorkspaceLeaveView,
     WorkspaceJoinView,
     WorkspaceMembersListView,
+    WorkspaceAddMembersView,
+    WorkspaceRemoveMemberView,
 )
 
 app_name = "workspaces"
@@ -32,4 +34,14 @@ urlpatterns = [
         WorkspaceMembersListView.as_view(),
         name="workspace-members",
     ),
+    path(
+    "<uuid:workspace_id>/members/add/",
+    WorkspaceAddMembersView.as_view(),
+    name="workspace-add-members",
+),
+path(
+    "<uuid:workspace_id>/members/<str:user_id>/",
+    WorkspaceRemoveMemberView.as_view(),
+    name="workspace-remove-member",
+),
 ]
