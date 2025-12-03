@@ -196,9 +196,13 @@ class WorkspaceAddMembersView(APIView):
         try:
             current_member = WorkspaceMember.objects.get(workspace=workspace, user=user)
             if current_member.role != "owner":
-                return Response({"detail": "Only the owner can add members"}, status=403)
+                return Response(
+                    {"detail": "Only the owner can add members"}, status=403
+                )
         except WorkspaceMember.DoesNotExist:
-            return Response({"detail": "You are not a member of this workspace"}, status=403)
+            return Response(
+                {"detail": "You are not a member of this workspace"}, status=403
+            )
 
         added_members = []
         skipped_members = []
@@ -208,7 +212,9 @@ class WorkspaceAddMembersView(APIView):
                 member_user = User.objects.get(user_id=uid)
 
                 # Skip if already a member
-                if WorkspaceMember.objects.filter(workspace=workspace, user=member_user).exists():
+                if WorkspaceMember.objects.filter(
+                    workspace=workspace, user=member_user
+                ).exists():
                     skipped_members.append(uid)
                     continue
 
@@ -233,6 +239,7 @@ class WorkspaceAddMembersView(APIView):
             status=200,
         )
 
+
 class WorkspaceRemoveMemberView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -249,15 +256,18 @@ class WorkspaceRemoveMemberView(APIView):
         try:
             current_member = WorkspaceMember.objects.get(workspace=workspace, user=user)
             if current_member.role != "owner":
-                return Response({"detail": "Only the owner can remove members"}, status=403)
+                return Response(
+                    {"detail": "Only the owner can remove members"}, status=403
+                )
         except WorkspaceMember.DoesNotExist:
-            return Response({"detail": "You are not a member of this workspace"}, status=403)
+            return Response(
+                {"detail": "You are not a member of this workspace"}, status=403
+            )
 
         # Member to remove
         try:
             member = WorkspaceMember.objects.get(
-                workspace=workspace,
-                user__user_id=user_id
+                workspace=workspace, user__user_id=user_id
             )
         except WorkspaceMember.DoesNotExist:
             return Response({"detail": "Member not found in workspace"}, status=404)
