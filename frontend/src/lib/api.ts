@@ -438,9 +438,10 @@ export async function addWorkspaceMembers(
     }
   );
 
-  if (!response.ok) {
-    throw new Error('Failed to add workspace members');
-  }
+if (!response.ok) {
+  const err = await response.json().catch(() => null);
+  throw new Error(err?.detail || 'Failed to add workspace members');
+}
 }
 
 /**
