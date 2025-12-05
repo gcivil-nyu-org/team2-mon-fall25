@@ -22,6 +22,7 @@ class ResourceSerializer(serializers.ModelSerializer):
         model = Resource
         fields = "__all__"
         read_only_fields = ["workspace", "size", "uploaded_by", "uploaded_by_id"]
+        extra_kwargs = {"type": {"required": False}}
 
     def get_uploaded_by_id(self, obj):
         return obj.uploaded_by.id if obj.uploaded_by else None
