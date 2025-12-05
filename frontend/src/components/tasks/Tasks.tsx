@@ -61,6 +61,7 @@ const Tasks: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [view, setView] = useState<"board" | "list">("board");
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Get all unique tags from tasks
   const allTags = useMemo(() => {
@@ -141,25 +142,22 @@ const Tasks: React.FC = () => {
       console.error(err);
     }
   };
-//   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
-//   try {
-//     await updateTask(id, updates);
-//     const data = await getTasks();
-//     setTasks(data);
-//   } catch (err) {
-//     console.error(err);
-//   }
-// };
+  const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
+    try {
+      await updateTask(id, updates, token);
+      const data = await getTasks(token);
+      setTasks(data);
+      setEditingTask(null);
+      setShowModal(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-//   const handleDeleteTask = async (id: string | number) => {
-//   try {
-//     await deleteTask(id);
-//     const data = await getTasks();
-//     setTasks(data);
-//   } catch (err) {
-//     console.error(err);
-//   }
-// };
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setShowModal(true);
+  };
 
   const handleTaskStatusChange = async (taskId: string, newStatus: Task["status"]) => {
   try {
@@ -420,6 +418,7 @@ const Tasks: React.FC = () => {
     onTaskPriorityChange={handleTaskPriorityChange} // Priority change works
     onQuickAdd={handleQuickAddTask}                 // Quick add from columns
     onOpenFullModal={() => setShowModal(true)}      // Open full modal for details
+    onEdit={handleEditTask}                         // Edit task
   />
 ) : (
   <TaskList
@@ -427,14 +426,21 @@ const Tasks: React.FC = () => {
     onTaskStatusChange={handleTaskStatusChange}
     onTaskDelete={handleTaskDelete}
     onTaskPriorityChange={handleTaskPriorityChange}
+    onEdit={handleEditTask}                         // Edit task
   />
 )}
 
       {/* Modal */}
       {showModal && (
         <TaskModal
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setEditingTask(null);
+          }}
           onCreate={handleCreateTask}
+          onUpdate={handleUpdateTask}
+          task={editingTask || undefined}
+          mode={editingTask ? "edit" : "create"}
           availableTasks={tasks}
         />
       )}

@@ -5,18 +5,28 @@ import DependencySelector from "../tasks/DependencySelector";
 
 interface Props {
   onClose: () => void;
-  onCreate: (task: Task) => void;
+  onCreate?: (task: Task) => void;
+  onUpdate?: (taskId: string, updates: Partial<Task>) => void;
+  task?: Task; // Existing task for edit mode
   availableTasks?: Task[]; // For dependency selection
+  mode?: "create" | "edit";
 }
 
-const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) => {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
-  const [tags, setTags] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<number | null>(null);
-  const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>([]);
+const TaskModal: React.FC<Props> = ({
+  onClose,
+  onCreate,
+  onUpdate,
+  task,
+  availableTasks = [],
+  mode = "create"
+}) => {
+  const [name, setName] = useState(task?.name || "");
+  const [description, setDescription] = useState(task?.description || "");
+  const [dueDate, setDueDate] = useState(task?.dueDate || "");
+  const [priority, setPriority] = useState<"high" | "medium" | "low">(task?.priority || "medium");
+  const [tags, setTags] = useState<string>(task?.tags?.join(", ") || "");
+  const [assigneeId, setAssigneeId] = useState<number | null>(task?.assignedToId || null);
+  const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>(task?.dependencies || []);
 
   const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberExtended[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -39,6 +49,11 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
     loadMembers();
   }, []);
 
+  // Filter out current task from available dependencies when editing
+  const filteredAvailableTasks = mode === "edit" && task
+    ? availableTasks.filter(t => t.id !== task.id)
+    : availableTasks;
+
   const handleSubmit = () => {
     if (!name.trim()) {
       alert("Please enter a task name");
@@ -46,24 +61,42 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
     }
 
     const selectedMember = workspaceMembers.find(m => m.id === assigneeId);
-
     const incompleteDeps = selectedDependencies.filter(d => d.status !== 'done').length;
+    const processedTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
 
-    const newTask: Task = {
-      id: Date.now().toString(),
-      name,
-      description,
-      dueDate,
-      priority,
-      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      status: "todo",
-      assignedToId: assigneeId || undefined,
-      assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
-      dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
-      canComplete: incompleteDeps === 0,
-      incompleteDependencyCount: incompleteDeps,
-    };
-    onCreate(newTask);
+    if (mode === "edit" && task && onUpdate) {
+      // Edit mode: call onUpdate with changes
+      const updates: Partial<Task> = {
+        name,
+        description,
+        dueDate,
+        priority,
+        tags: processedTags,
+        assignedToId: assigneeId || undefined,
+        assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
+        dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
+        canComplete: incompleteDeps === 0,
+        incompleteDependencyCount: incompleteDeps,
+      };
+      onUpdate(task.id, updates);
+    } else if (mode === "create" && onCreate) {
+      // Create mode: call onCreate with new task
+      const newTask: Task = {
+        id: Date.now().toString(),
+        name,
+        description,
+        dueDate,
+        priority,
+        tags: processedTags,
+        status: "todo",
+        assignedToId: assigneeId || undefined,
+        assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
+        dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
+        canComplete: incompleteDeps === 0,
+        incompleteDependencyCount: incompleteDeps,
+      };
+      onCreate(newTask);
+    }
   };
 
   return (
@@ -78,7 +111,7 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Create New Task
+            {mode === "edit" ? "Edit Task" : "Create New Task"}
           </h2>
         </div>
 
@@ -210,14 +243,14 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
 
           {/* Dependencies */}
           <DependencySelector
-            availableTasks={availableTasks}
+            availableTasks={filteredAvailableTasks}
             selectedDependencies={selectedDependencies}
             onAdd={(taskId) => {
-              const task = availableTasks.find(t => t.id === taskId);
-              if (task) {
+              const foundTask = filteredAvailableTasks.find(t => t.id === taskId);
+              if (foundTask) {
                 setSelectedDependencies([
                   ...selectedDependencies,
-                  { id: task.id, title: task.name, status: task.status }
+                  { id: foundTask.id, title: foundTask.name, status: foundTask.status }
                 ]);
               }
             }}
@@ -242,7 +275,7 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
                        text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-100
                        transition-colors"
           >
-            Create Task
+            {mode === "edit" ? "Save Changes" : "Create Task"}
           </button>
         </div>
       </div>
