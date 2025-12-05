@@ -22,6 +22,7 @@ interface Props {
   onTaskPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
   onQuickAdd?: (taskName: string, status: Task["status"]) => void;
   onOpenFullModal?: () => void;
+  onEdit?: (task: Task) => void;
 }
 
 interface DroppableColumnProps {
@@ -34,6 +35,7 @@ interface DroppableColumnProps {
   onTaskPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
   onQuickAdd?: (taskName: string) => void;
   onOpenFullModal?: () => void;
+  onEdit?: (task: Task) => void;
 }
 
 function DroppableColumn({
@@ -46,6 +48,7 @@ function DroppableColumn({
   onTaskPriorityChange,
   onQuickAdd,
   onOpenFullModal,
+  onEdit,
 }: DroppableColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -90,6 +93,7 @@ function DroppableColumn({
             task={task}
             onDelete={onTaskDelete}
             onPriorityChange={onTaskPriorityChange}
+            onEdit={onEdit}
           />
         ))}
 
@@ -129,6 +133,7 @@ const TaskBoard: React.FC<Props> = ({
   onTaskPriorityChange,
   onQuickAdd,
   onOpenFullModal,
+  onEdit,
 }) => {
   const [activeTask, setActiveTask] = React.useState<Task | null>(null);
   const [blockedTask, setBlockedTask] = React.useState<{
@@ -218,6 +223,7 @@ const TaskBoard: React.FC<Props> = ({
             onTaskPriorityChange={onTaskPriorityChange}
             onQuickAdd={onQuickAdd ? (taskName) => onQuickAdd(taskName, column.status) : undefined}
             onOpenFullModal={onOpenFullModal}
+            onEdit={onEdit}
           />
         ))}
       </div>

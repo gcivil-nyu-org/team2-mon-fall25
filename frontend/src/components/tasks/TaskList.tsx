@@ -6,9 +6,10 @@ interface Props {
   onTaskStatusChange?: (taskId: string, newStatus: Task["status"]) => void;
   onTaskPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
   onTaskDelete?: (taskId: string) => void;
+  onEdit?: (task: Task) => void;
 }
 
-const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityChange, onTaskDelete }) => {
+const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityChange, onTaskDelete, onEdit }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Priority badge styling
@@ -181,15 +182,26 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {onTaskDelete && (
-                        <button
-                          onClick={() => handleDeleteClick(task.id)}
-                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          title="Delete task"
-                        >
-                          🗑️
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(task)}
+                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            title="Edit task"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        {onTaskDelete && (
+                          <button
+                            onClick={() => handleDeleteClick(task.id)}
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            title="Delete task"
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

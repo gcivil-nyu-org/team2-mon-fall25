@@ -7,9 +7,10 @@ interface Props {
   task: Task;
   onDelete?: (taskId: string) => void;
   onPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
+  onEdit?: (task: Task) => void;
 }
 
-const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
+const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange, onEdit }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -132,6 +133,17 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
                 ⚪ Low
               </button>
               <div className="border-t border-zinc-200 dark:border-zinc-700 my-1"></div>
+              {onEdit && (
+                <button
+                  onClick={() => {
+                    onEdit(task);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
+                >
+                  ✏️ Edit Task
+                </button>
+              )}
               <button
                 onClick={handleDeleteClick}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
