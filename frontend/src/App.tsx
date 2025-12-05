@@ -50,6 +50,7 @@ type CalEvent = {
   createdBy?: number;
   createdByName?: string;
   attendeesNames?: string[];
+  attendeesIds?: number[];
   userRsvpStatus?: RSVPStatus;
   rsvpSummary?: {
     accepted: number;
@@ -292,6 +293,7 @@ export default function App() {
       createdBy: e.created_by,
       createdByName: e.created_by_name,
       attendeesNames: (e.attendees_detail || []).map((p) => p.full_name).filter(Boolean),
+      attendeesIds: (e.attendees_detail || []).map((p) => p.id).filter(Boolean),
       userRsvpStatus: e.userRsvpStatus,
       rsvpSummary: e.rsvpSummary,
       attendeesWithRsvp: e.attendeesWithRsvp,
