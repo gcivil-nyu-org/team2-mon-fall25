@@ -10,10 +10,10 @@ class Task(models.Model):
         DONE = "done", "Done"
 
     class Priority(models.IntegerChoices):
-        LOW = 1, "Low"
+        # FIXED: Changed to match frontend expectations
+        HIGH = 1, "High"  # Changed from LOW
         MEDIUM = 2, "Medium"
-        HIGH = 3, "High"
-        # URGENT = 4, "Urgent"
+        LOW = 3, "Low"  # Changed from HIGH
 
     title = models.CharField(max_length=250)
     description = models.TextField(blank=True)

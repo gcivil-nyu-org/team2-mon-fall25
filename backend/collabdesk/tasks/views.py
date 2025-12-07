@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
 # from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
@@ -100,12 +101,14 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """
         Handle task updates, including automatic completion timestamp.
+        Enhanced with better dependency checking and status validation.
         """
+        task = self.get_object()
+
         # Check if trying to mark as done with incomplete dependencies
         if "status" in serializer.validated_data:
             new_status = serializer.validated_data["status"]
             if new_status == Task.Status.DONE:
-                task = self.get_object()
                 if not task.can_complete:
                     incomplete_deps = task.dependencies.exclude(status=Task.Status.DONE)
                     dep_titles = [dep.title for dep in incomplete_deps]
@@ -114,13 +117,19 @@ class TaskViewSet(viewsets.ModelViewSet):
                             "status": f"Cannot mark as done. These dependencies must be completed first: {', '.join(dep_titles)}"
                         }
                     )
-        obj = serializer.save()
-        # set completed_at automatically when status is DONE and completed_at not set
-        if obj.status == Task.Status.DONE and obj.completed_at is None:
-            import django.utils.timezone as tz
 
-            obj.completed_at = tz.now()
-            obj.save()
+        # Save the task
+        obj = serializer.save()
+
+        # Set completed_at automatically when status is DONE
+        if obj.status == Task.Status.DONE:
+            if obj.completed_at is None:
+                obj.completed_at = timezone.now()
+                obj.save(update_fields=["completed_at"])
+        # Clear completed_at if status is changed from DONE to something else
+        elif obj.completed_at is not None:
+            obj.completed_at = None
+            obj.save(update_fields=["completed_at"])
 
     @action(detail=False, methods=["get"], url_path="workspace-members")
     def workspace_members(self, request):
