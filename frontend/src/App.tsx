@@ -582,6 +582,8 @@ export default function App() {
         event={selectedEventForDetails}
         currentUserId={currentUserId}
         onDelete={handleDeleteEvent}
+        onRsvpChange={refreshEvents}
+        onEventUpdate={handleEventUpdate}
       />
         </>
       )}
