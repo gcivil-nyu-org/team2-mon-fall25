@@ -577,48 +577,49 @@ export default function App() {
         </main>
 
         {/* Agenda only for Calendar */}
-        {current === "calendar" ? (
-          <Agenda
-            events={events}
-            onEventClick={handleEventClick}
-            calendarView={calendarView}
-            onViewChange={setCalendarView}
-            currentUserId={currentUserId}
-          />
+        {current === "calendar" && (
+          <>
+            <Agenda
+              events={events}
+              onEventClick={handleEventClick}
+              calendarView={calendarView}
+              onViewChange={setCalendarView}
+              currentUserId={currentUserId}
+            />
 
-      {/* Add / Smart Schedule / Block Modals */}
-      <AddToCalendar
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onSmartSchedule={() => setShowSmart(true)}
-        onBlockTime={() => setShowBlock(true)}
-      />
+            {/* Add / Smart Schedule / Block Modals */}
+            <AddToCalendar
+              open={showAdd}
+              onClose={() => setShowAdd(false)}
+              onSmartSchedule={() => setShowSmart(true)}
+              onBlockTime={() => setShowBlock(true)}
+            />
 
-      <SmartScheduleModal
-        open={showSmart}
-        onClose={() => setShowSmart(false)}
-        onScheduled={handleAddMeeting}
-        currentUserId={currentUserUUID}
-      />
+            <SmartScheduleModal
+              open={showSmart}
+              onClose={() => setShowSmart(false)}
+              onScheduled={handleAddMeeting}
+              currentUserId={currentUserUUID}
+            />
 
-          <UnavailabilityModal
-            open={showBlock}
-            onClose={() => setShowBlock(false)}
-            onBlocked={handleBlocked}
-          />
+            <UnavailabilityModal
+              open={showBlock}
+              onClose={() => setShowBlock(false)}
+              onBlocked={handleBlocked}
+            />
 
-      {/* Event details modal */}
-      <EventDetailsModal
-        open={selectedEventForDetails !== null}
-        onClose={() => setSelectedEventForDetails(null)}
-        event={selectedEventForDetails}
-        currentUserId={currentUserId}
-        onDelete={handleDeleteEvent}
-        onRsvpChange={refreshEvents}
-        onEventUpdate={handleEventUpdate}
-      />
-        </>
-      )}
+            {/* Event details modal */}
+            <EventDetailsModal
+              open={selectedEventForDetails !== null}
+              onClose={() => setSelectedEventForDetails(null)}
+              event={selectedEventForDetails}
+              currentUserId={currentUserId}
+              onDelete={handleDeleteEvent}
+              onRsvpChange={refreshEvents}
+              onEventUpdate={handleEventUpdate}
+            />
+          </>
+        )}
 
       {/* Forced workspace selection modals for new users */}
       {showForcedWorkspaceSelection && (
