@@ -62,12 +62,35 @@ interface BackendTask {
   status?: string;
   assignee?: number | null;
   assignee_email?: string | null;
+  assignee_full_name?: string | null;
   assignee_username?: string | null;
   created_by?: number;
   created_by_email?: string;
   created_by_username?: string;
   workspace?: string;
   workspace_name?: string;
+  dependencies?: number[];
+  dependency_details?: Array<{
+    id: number;
+    title: string;
+    status: string;
+    priority: number;
+  }>;
+  can_complete?: boolean;
+}
+interface WorkspaceMember {
+  id: number;
+  email: string;
+  full_name: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+interface AvailableTask {
+  id: number;
+  title: string;
+  status: string;
+  priority: number;
 }
 
 // ✅ Fetch all tasks
@@ -87,11 +110,18 @@ export const getTasks = async (token?: string | null): Promise<Task[]> => {
     priority: mapPriority(t.priority),
     tags: Array.isArray(t.tags) ? t.tags : [],
     status: (t.status || "todo").toLowerCase() as "todo" | "in-progress" | "done",
-    assignedTo: t.assignee_username || t.assignee_email || "",
+    assignedTo: t.assignee_full_name || t.assignee_username || t.assignee_email || "",
     assignedToId: t.assignee || undefined,
     createdBy: t.created_by_username || t.created_by_email || "",
     createdById: t.created_by,
     workspaceName: t.workspace_name,
+    dependencies: t.dependency_details?.map(dep => ({
+      id: String(dep.id),
+      title: dep.title,
+      status: dep.status as "todo" | "in-progress" | "done",
+      priority: mapPriority(dep.priority),
+    })) || [],
+    canComplete: t.can_complete ?? true,
   }));
 };
 
@@ -105,6 +135,7 @@ export const createTask = async (task: Task, token?: string | null): Promise<Tas
     tags: string[];
     status: string;
     assignee?: number;
+    dependencies?: number[];
   } = {
     title: task.name,
     description: task.description,
@@ -113,6 +144,11 @@ export const createTask = async (task: Task, token?: string | null): Promise<Tas
     tags: task.tags || [],
     status: task.status,
   };
+
+  // Include dependencies if provided
+  if (task.dependencyIds && task.dependencyIds.length > 0) {
+    payload.dependencies = task.dependencyIds.map(id => parseInt(id));
+  }
 
   // Only include assignee if assignedToId is provided
   if (task.assignedToId) {
@@ -140,11 +176,18 @@ export const createTask = async (task: Task, token?: string | null): Promise<Tas
     priority: mapPriority(created.priority),
     tags: created.tags || [],
     status: (created.status || "todo").toLowerCase() as "todo" | "in-progress" | "done",
-    assignedTo: created.assignee_username || created.assignee_email || "",
+    assignedTo: created.assignee_full_name || created.assignee_username || created.assignee_email || "",
     assignedToId: created.assignee || undefined,
     createdBy: created.created_by_username || created.created_by_email || "",
     createdById: created.created_by,
     workspaceName: created.workspace_name,
+    dependencies: created.dependency_details?.map((dep: any) => ({
+      id: String(dep.id),
+      title: dep.title,
+      status: dep.status as "todo" | "in-progress" | "done",
+      priority: mapPriority(dep.priority),
+    })) || [],
+    canComplete: created.can_complete ?? true,
   };
 };
 
@@ -161,6 +204,7 @@ export const updateTask = async (
     priority: number;
     tags: string[];
     status: string;
+    dependencies: number[];
     assignee: number | null;
   }> = {};
 
@@ -171,6 +215,9 @@ export const updateTask = async (
   if (updates.tags) payload.tags = updates.tags;
   if (updates.status) payload.status = updates.status;
   if (updates.assignedToId !== undefined) payload.assignee = updates.assignedToId || null;
+  if (updates.dependencyIds !== undefined) {
+    payload.dependencies = updates.dependencyIds.map(id => parseInt(id));
+  }
 
   const res = await fetch(`${API_URL}/api/tasks/${id}/`, {
     method: "PATCH",
@@ -192,11 +239,18 @@ export const updateTask = async (
     priority: mapPriority(updated.priority),
     tags: updated.tags || [],
     status: (updated.status || "todo").toLowerCase() as "todo" | "in-progress" | "done",
-    assignedTo: updated.assignee_username || updated.assignee_email || "",
+    assignedTo: updated.assignee_full_name || updated.assignee_username || updated.assignee_email || "",
     assignedToId: updated.assignee || undefined,
     createdBy: updated.created_by_username || updated.created_by_email || "",
     createdById: updated.created_by,
     workspaceName: updated.workspace_name,
+    dependencies: updated.dependency_details?.map((dep: any) => ({
+      id: String(dep.id),
+      title: dep.title,
+      status: dep.status as "todo" | "in-progress" | "done",
+      priority: mapPriority(dep.priority),
+    })) || [],
+    canComplete: updated.can_complete ?? true,
   };
 };
 
@@ -210,6 +264,32 @@ export const deleteTask = async (id: string | number, token?: string | null): Pr
     const error = await res.json().catch(() => ({}));
     throw new Error(error.detail || "Failed to delete task");
   }
+};
+// ✅ Get workspace members for task assignment
+export const getWorkspaceMembers = async (token?: string | null): Promise<WorkspaceMember[]> => {
+  const res = await fetch(`${API_URL}/api/tasks/workspace-members/`, {
+    headers: buildHeaders(token),
+  });
+  if (!res.ok) throw new Error("Failed to fetch workspace members");
+  return res.json();
+};
+
+// ✅ Get available tasks for dependencies
+export const getAvailableTasks = async (
+  token?: string | null,
+  excludeId?: string
+): Promise<AvailableTask[]> => {
+  const params = new URLSearchParams();
+  if (excludeId) {
+    params.append('exclude_id', excludeId);
+  }
+
+  const url = `${API_URL}/api/tasks/available-tasks/${params.toString() ? '?' + params.toString() : ''}`;
+  const res = await fetch(url, {
+    headers: buildHeaders(token),
+  });
+  if (!res.ok) throw new Error("Failed to fetch available tasks");
+  return res.json();
 };
 
 
