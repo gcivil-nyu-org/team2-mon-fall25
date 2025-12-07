@@ -160,21 +160,22 @@ const Tasks: React.FC = () => {
   };
 
   const handleTaskStatusChange = async (taskId: string, newStatus: Task["status"]) => {
-  try {
-    // Optimistically update UI
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+    try {
+      // 1. Update the status on the backend
+      await updateTask(taskId, { status: newStatus }, token);
 
-    // Update backend
-    await updateTask(taskId, { status: newStatus }, token);
-  } catch (err) {
-    console.error(err);
-  }
-};
+      // 2. REFRESH ALL TASKS: This is the crucial step. 
+      //    It ensures all dependent tasks get the latest data,
+      //    updating their dependency status (e.g., canComplete).
+      const data = await getTasks(token);
+      setTasks(data);
 
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update task status.");
+      // Optional: If you had done an optimistic update, you'd revert it here.
+    }
+  };
 
   const handleTaskPriorityChange = async (
   taskId: string,

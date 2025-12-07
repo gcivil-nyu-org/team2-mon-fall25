@@ -22,6 +22,7 @@ export type TaskDependency = {
   id: string;
   title: string;
   status: "todo" | "in-progress" | "done";
+  priority: "high" | "medium" | "low";
 };
 
 export type Task = {
@@ -42,4 +43,5 @@ export type Task = {
   blockingTasks?: TaskDependency[]; // Tasks that depend on this one
   canComplete?: boolean; // Whether all dependencies are complete
   incompleteDependencyCount?: number; // Count of incomplete dependencies
+  dependencyIds?: string[];
 };

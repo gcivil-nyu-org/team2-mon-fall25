@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { type Task, type TaskDependency } from "../../types";
-import { fetchWorkspaceMembers, type WorkspaceMemberExtended } from "../../lib/api";
+// import { fetchWorkspaceMembers, type WorkspaceMemberExtended } from "../../lib/api";
 import DependencySelector from "../tasks/DependencySelector";
+import { getWorkspaceMembers } from "../tasks/TaskApi";
+import { useAccessToken } from "../../auth/useAccessToken";
 
 interface Props {
   onClose: () => void;
@@ -27,19 +29,24 @@ const TaskModal: React.FC<Props> = ({
   const [tags, setTags] = useState<string>(task?.tags?.join(", ") || "");
   const [assigneeId, setAssigneeId] = useState<number | null>(task?.assignedToId || null);
   const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>(task?.dependencies || []);
-
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberExtended[]>([]);
+  const token = useAccessToken(); 
+  // const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberExtended[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<Array<{
+    id: number;
+    email: string;
+    full_name: string;
+    first_name?: string;
+    last_name?: string;
+  }>>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   // Fetch workspace members on mount
   useEffect(() => {
     const loadMembers = async () => {
+      if (!token) return; // Wait for token
       try {
-        const workspaceId = localStorage.getItem("cd.workspace");
-        if (workspaceId) {
-          const members = await fetchWorkspaceMembers(workspaceId);
-          setWorkspaceMembers(members);
-        }
+        const members = await getWorkspaceMembers(token);
+        setWorkspaceMembers(members);
       } catch (error) {
         console.error("Failed to load workspace members:", error);
       } finally {
@@ -47,7 +54,7 @@ const TaskModal: React.FC<Props> = ({
       }
     };
     loadMembers();
-  }, []);
+  }, [token]); // Add token as dependency
 
   // Filter out current task from available dependencies when editing
   const filteredAvailableTasks = mode === "edit" && task
@@ -76,6 +83,7 @@ const TaskModal: React.FC<Props> = ({
         assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
         dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
         canComplete: incompleteDeps === 0,
+        dependencyIds: selectedDependencies.map(d => d.id),
         incompleteDependencyCount: incompleteDeps,
       };
       onUpdate(task.id, updates);
@@ -93,6 +101,7 @@ const TaskModal: React.FC<Props> = ({
         assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
         dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
         canComplete: incompleteDeps === 0,
+        dependencyIds: selectedDependencies.map(d => d.id),
         incompleteDependencyCount: incompleteDeps,
       };
       onCreate(newTask);
@@ -250,7 +259,7 @@ const TaskModal: React.FC<Props> = ({
               if (foundTask) {
                 setSelectedDependencies([
                   ...selectedDependencies,
-                  { id: foundTask.id, title: foundTask.name, status: foundTask.status }
+                  { id: foundTask.id, title: foundTask.name, status: foundTask.status, priority: foundTask.priority}
                 ]);
               }
             }}

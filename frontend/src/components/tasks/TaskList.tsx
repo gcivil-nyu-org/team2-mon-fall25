@@ -80,6 +80,9 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                   Description
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                  Assigned To
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                   Due Date
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
@@ -87,6 +90,9 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                   Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                  Dependencies
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
                   Tags
@@ -100,7 +106,7 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
               {tasks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
                   >
                     No tasks found
@@ -117,6 +123,26 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 max-w-xs truncate">
                       {task.description || "-"}
+                    </td>
+                    {/* NEW: Assigned To Column */}
+                    <td className="px-4 py-3 text-sm">
+                      {task.assignedTo ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-medium text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex-shrink-0">
+                            {task.assignedTo
+                              .split(' ')
+                              .map(word => word[0])
+                              .join('')
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </div>
+                          <span className="text-zinc-900 dark:text-zinc-100 truncate">
+                            {task.assignedTo}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-400 dark:text-zinc-600">Unassigned</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
                       {formatDate(task.dueDate)}
@@ -161,6 +187,27 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                         >
                           {getStatusLabel(task.status)}
                         </span>
+                      )}
+                    </td>
+                    {/* Dependencies Column */}
+                    <td className="px-4 py-3 text-sm">
+                      {task.dependencies && task.dependencies.length > 0 ? (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-help ${
+                            task.canComplete
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          }`}
+                          title={
+                            task.canComplete
+                              ? `All ${task.dependencies.length} dependencies complete:\n${task.dependencies.map(d => `• ${d.title}`).join('\n')}`
+                              : `${task.dependencies.filter(d => d.status !== 'done').length} incomplete dependencies:\n${task.dependencies.filter(d => d.status !== 'done').map(d => `• ${d.title}`).join('\n')}`
+                          }
+                        >
+                          🔗 {task.dependencies.length}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 dark:text-zinc-600">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm">

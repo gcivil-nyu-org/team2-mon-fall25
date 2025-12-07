@@ -175,17 +175,15 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange, onEdit })
         {/* Dependencies Indicator */}
         {task.dependencies && task.dependencies.length > 0 && (
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-help${
               task.canComplete
                 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                : "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
             }`}
             title={
               task.canComplete
-                ? "All dependencies complete"
-                : `${task.incompleteDependencyCount || 0} incomplete ${
-                    task.incompleteDependencyCount === 1 ? "dependency" : "dependencies"
-                  }`
+                 ? `All ${task.dependencies.length} dependencies complete:\n${task.dependencies.map(d => `• ${d.title}`).join('\n')}`
+                : `${task.dependencies.filter(d => d.status !== 'done').length} incomplete dependencies:\n${task.dependencies.filter(d => d.status !== 'done').map(d => `• ${d.title}`).join('\n')}`
             }
           >
             🔗 {task.dependencies.length}
