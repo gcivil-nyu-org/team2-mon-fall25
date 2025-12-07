@@ -143,16 +143,31 @@ const Tasks: React.FC = () => {
     }
   };
   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
-    try {
-      await updateTask(id, updates, token);
-      const data = await getTasks(token);
-      setTasks(data);
-      setEditingTask(null);
-      setShowModal(false);
-    } catch (err) {
-      console.error(err);
+  try {
+    await updateTask(id, updates, token);
+    const data = await getTasks(token);
+    setTasks(data);
+    setEditingTask(null);
+    setShowModal(false);
+  } catch (err: any) {
+    console.error("❌ Error updating task:", err);
+    
+    let errorMessage = "Failed to update task.";
+    if (err.message) {
+      errorMessage = err.message;
     }
-  };
+    
+    if (errorMessage.includes("circular dependency")) {
+      alert("❌ Cannot save changes:\n\nThis would create a circular dependency. A task cannot depend on another task that depends on it.\n\nPlease remove the conflicting dependency and try again.");
+    } else if (errorMessage.includes("must be completed first")) {
+      alert("❌ Cannot mark as done:\n\n" + errorMessage);
+    } else {
+      alert("❌ Error: " + errorMessage);
+    }
+    
+    // Don't close modal - let user fix the issue
+  }
+};
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
