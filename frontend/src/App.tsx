@@ -620,6 +620,9 @@ export default function App() {
             />
           </>
         )}
+      </div>
+        </>
+      )}
 
       {/* Forced workspace selection modals for new users */}
       {showForcedWorkspaceSelection && (
