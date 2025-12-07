@@ -48,11 +48,11 @@ class Task(models.Model):
     archived = models.BooleanField(default=False)
     # Dependencies - tasks that must be completed before this one
     dependencies = models.ManyToManyField(
-        'self',
+        "self",
         symmetrical=False,
-        related_name='dependent_tasks',
+        related_name="dependent_tasks",
         blank=True,
-        help_text="Tasks that must be completed before this task"
+        help_text="Tasks that must be completed before this task",
     )
 
     class Meta:
