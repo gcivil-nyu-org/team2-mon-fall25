@@ -105,6 +105,9 @@ export default function App() {
   });
   useEffect(() => localStorage.setItem("cd.workspace", workspace), [workspace]);
 
+  // Mobile sidebar state
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   // Forced workspace selection for new users
   const [showForcedWorkspaceSelection, setShowForcedWorkspaceSelection] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
@@ -462,129 +465,162 @@ export default function App() {
       {!showForcedWorkspaceSelection && (
         <>
           {/* TopBar */}
-          <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
+          <TopBar
+            workspaceName={workspace}
+            onWorkspace={setWorkspace}
+            onMenuClick={() => setShowMobileSidebar(true)}
+          />
 
-          <div className="w-full h-full flex px-6 py-4 gap-6">
-            {/* Sidebar */}
-            <aside className="w-[260px] shrink-0 sticky top-14 self-start">
-              <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
+      <div className="w-full h-full flex flex-col lg:flex-row px-3 sm:px-6 py-3 sm:py-4 gap-3 sm:gap-6">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:block lg:w-[260px] shrink-0 sticky top-14 self-start">
+          <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
+        </aside>
+
+        {/* Mobile Sidebar Drawer */}
+        {showMobileSidebar && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowMobileSidebar(false)}
+            />
+            {/* Drawer */}
+            <aside className="absolute left-0 top-0 h-full w-[280px] bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
+              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Menu</h2>
+                <button
+                  onClick={() => setShowMobileSidebar(false)}
+                  className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  ✕
+                </button>
+              </div>
+              <Sidebar current={current} setCurrent={(k) => {
+                setCurrent(k as CalRoute);
+                setShowMobileSidebar(false);
+              }} />
             </aside>
-
-            {/* Main content */}
-            <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
-              {current === "calendar" ? (
-                <>
-                  <header className="mb-3 flex items-center gap-2">
-                    <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
-                    <button
-                      onClick={prevWeek}
-                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      onClick={today}
-                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                    >
-                      Today
-                    </button>
-                    <button
-                      onClick={nextWeek}
-                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                    >
-                      ›
-                    </button>
-                    <div className="ml-auto" />
-                    <button
-                      onClick={() => setShowAdd(true)}
-                      className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
-                    >
-                      + Add
-                    </button>
-                  </header>
-
-                  <div className="relative">
-                    <CalendarWeek
-                      weekStart={weekStart}
-                      events={events}
-                      onEventClick={handleEventClick}
-                      currentUserId={currentUserId}
-                    />
-                    {loading && (
-                      <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
-                        <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
-                          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : current === "dashboard" ? (
-                <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
-              ) : current === "settings" ? (
-                <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
-              ) : current === "notes" ? (
-                <Notes workspaceId={workspace} />
-              ) : current === "tasks" ? (
-                <Tasks />
-              ) : current === "resources" ? (
-                <Resources workspace={workspace} currentUserId={currentUserId} />
-              ) : current === "message" ? (
-                <MessageBoard openThreadMessageId={openThreadMessageId} />
-              ) : current === "chat" ? (
-                <>
-                  <header className="mb-3">
-                    <h1 className="text-2xl font-semibold">AI Chat</h1>
-                  </header>
-                  <Chat />
-                </>
-              ) : null}
-            </main>
-
-            {/* Agenda only for Calendar */}
-            {current === "calendar" ? (
-              <Agenda
-                events={events}
-                onEventClick={handleEventClick}
-                calendarView={calendarView}
-                onViewChange={setCalendarView}
-                currentUserId={currentUserId}
-              />
-            ) : null}
           </div>
+        )}
 
-          {/* Add / Smart Schedule / Block Modals */}
-          <AddToCalendar
-            open={showAdd}
-            onClose={() => setShowAdd(false)}
-            onSmartSchedule={() => setShowSmart(true)}
-            onBlockTime={() => setShowBlock(true)}
-          />
+        {/* Main content */}
+        <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
+          {current === "calendar" ? (
+            <>
+              <header className="mb-3 flex items-center gap-2">
+                <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
+                <button
+                  onClick={prevWeek}
+                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                >
+                  ‹
+                </button>
+                <button
+                  onClick={today}
+                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={nextWeek}
+                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                >
+                  ›
+                </button>
+                <div className="ml-auto" />
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
+                >
+                  + Add
+                </button>
+              </header>
 
-          <SmartScheduleModal
-            open={showSmart}
-            onClose={() => setShowSmart(false)}
-            onScheduled={handleAddMeeting}
-            currentUserId={currentUserUUID}
-          />
+              <div className="relative">
+                <CalendarWeek
+                  weekStart={weekStart}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  currentUserId={currentUserId}
+                />
+                {loading && (
+                  <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
+                    <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
+                      <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : current === "dashboard" ? (
+            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
+          ) : current === "settings" ? (
+            <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
+          ) : current === "notes" ? (
+            <Notes workspaceId={workspace} />
+          ) : current === "tasks" ? (
+            <Tasks />
+          ) : current === "resources" ? (
+            <Resources workspace={workspace} currentUserId={currentUserId} />
+          ) : current === "message" ? (
+            <MessageBoard openThreadMessageId={openThreadMessageId} />
+          ) : current === "chat" ? (
+            <>
+              <header className="mb-3">
+                <h1 className="text-2xl font-semibold">AI Chat</h1>
+              </header>
+              <Chat />
+            </>
+          ) : null}
+        </main>
 
-          <UnavailabilityModal
-            open={showBlock}
-            onClose={() => setShowBlock(false)}
-            onBlocked={handleBlocked}
-          />
+        {/* Agenda only for Calendar */}
+        {current === "calendar" && (
+          <>
+            <Agenda
+              events={events}
+              onEventClick={handleEventClick}
+              calendarView={calendarView}
+              onViewChange={setCalendarView}
+              currentUserId={currentUserId}
+            />
 
-          {/* Event details modal */}
-          <EventDetailsModal
-            open={selectedEventForDetails !== null}
-            onClose={() => setSelectedEventForDetails(null)}
-            event={selectedEventForDetails}
-            currentUserId={currentUserId}
-            onDelete={handleDeleteEvent}
-            onRsvpChange={refreshEvents}
-            onEventUpdate={handleEventUpdate}
-          />
+            {/* Add / Smart Schedule / Block Modals */}
+            <AddToCalendar
+              open={showAdd}
+              onClose={() => setShowAdd(false)}
+              onSmartSchedule={() => setShowSmart(true)}
+              onBlockTime={() => setShowBlock(true)}
+            />
+
+            <SmartScheduleModal
+              open={showSmart}
+              onClose={() => setShowSmart(false)}
+              onScheduled={handleAddMeeting}
+              currentUserId={currentUserUUID}
+            />
+
+            <UnavailabilityModal
+              open={showBlock}
+              onClose={() => setShowBlock(false)}
+              onBlocked={handleBlocked}
+            />
+
+            {/* Event details modal */}
+            <EventDetailsModal
+              open={selectedEventForDetails !== null}
+              onClose={() => setSelectedEventForDetails(null)}
+              event={selectedEventForDetails}
+              currentUserId={currentUserId}
+              onDelete={handleDeleteEvent}
+              onRsvpChange={refreshEvents}
+              onEventUpdate={handleEventUpdate}
+            />
+          </>
+        )}
+      </div>
         </>
       )}
 

@@ -117,14 +117,14 @@ export function ResourceEditModal({
           <button
             onClick={onClose}
             disabled={isUpdating}
-            className="flex-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            className="flex-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 px-4 py-2 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             Cancel
           </button>
           <button
             onClick={handleUpdate}
             disabled={isUpdating || !name.trim()}
-            className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {isUpdating ? "Updating..." : "Save Changes"}
           </button>
