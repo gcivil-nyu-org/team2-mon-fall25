@@ -112,7 +112,7 @@ const TaskList: React.FC<Props> = ({ tasks, onTaskStatusChange, onTaskPriorityCh
                     key={task.id}
                     className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 max-w-xs truncate">
                       {task.name}
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 max-w-xs truncate">

@@ -120,7 +120,7 @@ export const BlockedTaskModal: React.FC<Props> = ({
               }}
               className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300
                          bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700
-                         hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+                         hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
             >
               View Dependencies
             </button>
@@ -129,7 +129,7 @@ export const BlockedTaskModal: React.FC<Props> = ({
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white
                        text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-100
-                       transition-colors"
+                       transition-colors whitespace-nowrap"
           >
             Got it
           </button>

@@ -30,7 +30,7 @@ export function ConfirmModal({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="rounded-lg border px-3 py-1.5 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border px-3 py-1.5 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
           >
             Cancel
           </button>
@@ -39,8 +39,8 @@ export function ConfirmModal({
             disabled={isLoading}
             className={
               confirmVariant === "danger"
-                ? "rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                : "rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+                ? "rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+                : "rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             }
           >
             {isLoading ? "Deleting..." : confirmText}

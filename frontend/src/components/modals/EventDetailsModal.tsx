@@ -258,7 +258,7 @@ export function EventDetailsModal({
               <button
                 onClick={() => handleRsvpChange("accepted")}
                 disabled={isSubmitting || rsvpStatus === "accepted"}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-all
+                className={`px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap
                   ${rsvpStatus === "accepted"
                     ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-2 ring-green-500 dark:ring-green-400"
                     : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-green-50 dark:hover:bg-green-900/20 border border-zinc-300 dark:border-zinc-600"
@@ -270,7 +270,7 @@ export function EventDetailsModal({
               <button
                 onClick={() => handleRsvpChange("tentative")}
                 disabled={isSubmitting || rsvpStatus === "tentative"}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-all
+                className={`px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap
                   ${rsvpStatus === "tentative"
                     ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-2 ring-yellow-500 dark:ring-yellow-400"
                     : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 border border-zinc-300 dark:border-zinc-600"
@@ -282,7 +282,7 @@ export function EventDetailsModal({
               <button
                 onClick={() => handleRsvpChange("declined")}
                 disabled={isSubmitting || rsvpStatus === "declined"}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-all
+                className={`px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap
                   ${rsvpStatus === "declined"
                     ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-2 ring-red-500 dark:ring-red-400"
                     : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-red-50 dark:hover:bg-red-900/20 border border-zinc-300 dark:border-zinc-600"

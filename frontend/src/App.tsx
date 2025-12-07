@@ -93,6 +93,9 @@ export default function App() {
   });
   useEffect(() => localStorage.setItem("cd.workspace", workspace), [workspace]);
 
+  // Mobile sidebar state
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   // Forced workspace selection for new users
   const [showForcedWorkspaceSelection, setShowForcedWorkspaceSelection] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
@@ -426,13 +429,44 @@ export default function App() {
       {!showForcedWorkspaceSelection && (
         <>
           {/* TopBar */}
-          <TopBar workspaceName={workspace} onWorkspace={setWorkspace} />
+          <TopBar
+            workspaceName={workspace}
+            onWorkspace={setWorkspace}
+            onMenuClick={() => setShowMobileSidebar(true)}
+          />
 
-      <div className="w-full h-full flex px-6 py-4 gap-6">
-        {/* Sidebar */}
-        <aside className="w-[260px] shrink-0 sticky top-14 self-start">
+      <div className="w-full h-full flex flex-col lg:flex-row px-3 sm:px-6 py-3 sm:py-4 gap-3 sm:gap-6">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:block lg:w-[260px] shrink-0 sticky top-14 self-start">
           <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
         </aside>
+
+        {/* Mobile Sidebar Drawer */}
+        {showMobileSidebar && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowMobileSidebar(false)}
+            />
+            {/* Drawer */}
+            <aside className="absolute left-0 top-0 h-full w-[280px] bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
+              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Menu</h2>
+                <button
+                  onClick={() => setShowMobileSidebar(false)}
+                  className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  ✕
+                </button>
+              </div>
+              <Sidebar current={current} setCurrent={(k) => {
+                setCurrent(k as CalRoute);
+                setShowMobileSidebar(false);
+              }} />
+            </aside>
+          </div>
+        )}
 
         {/* Main content */}
         <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">

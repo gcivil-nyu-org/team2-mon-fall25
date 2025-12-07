@@ -265,7 +265,7 @@ const TaskModal: React.FC<Props> = ({
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300
-                       hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                       hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
           >
             Cancel
           </button>
@@ -273,7 +273,7 @@ const TaskModal: React.FC<Props> = ({
             onClick={handleSubmit}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white
                        text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-100
-                       transition-colors"
+                       transition-colors whitespace-nowrap"
           >
             {mode === "edit" ? "Save Changes" : "Create Task"}
           </button>

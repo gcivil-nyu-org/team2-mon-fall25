@@ -63,14 +63,14 @@ export function JoinWorkspaceModal({
         <div className="flex gap-2 pt-2">
           <button
             onClick={handleClose}
-            className="flex-1 rounded-md border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            className="flex-1 rounded-md border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition whitespace-nowrap"
           >
             Cancel
           </button>
           <button
             onClick={handleJoin}
             disabled={code.length !== 8}
-            className="flex-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 dark:disabled:bg-emerald-800 text-white px-4 py-2 text-sm font-medium transition"
+            className="flex-1 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 dark:disabled:bg-emerald-800 text-white px-4 py-2 text-sm font-medium transition whitespace-nowrap"
           >
             Join Workspace
           </button>

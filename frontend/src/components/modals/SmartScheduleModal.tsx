@@ -311,7 +311,7 @@ export function SmartScheduleModal({
             <button
               disabled={!canFind || isFinding}
               onClick={findBestTimes}
-              className={`w-full rounded-xl px-4 py-2 text-white ${
+              className={`w-full rounded-xl px-4 py-2 text-white whitespace-nowrap ${
                 canFind && !isFinding
                   ? "bg-purple-600 hover:bg-purple-700"
                   : "cursor-not-allowed bg-purple-400/60"
@@ -353,7 +353,7 @@ export function SmartScheduleModal({
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => setStep("setup")}
-              className="flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 whitespace-nowrap"
             >
               ← Back
             </button>
@@ -363,7 +363,7 @@ export function SmartScheduleModal({
                 setStep("setup");
                 // Could also open a manual time picker here
               }}
-              className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap"
             >
               Schedule Manually →
             </button>
@@ -410,7 +410,7 @@ export function SmartScheduleModal({
             <button
               onClick={() => setStep("setup")}
               disabled={isSubmitting}
-              className="w-full rounded-xl border px-4 py-2 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-xl border px-4 py-2 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             >
               ← Back
             </button>
