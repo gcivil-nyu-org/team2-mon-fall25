@@ -226,9 +226,24 @@ export const updateTask = async (
   });
 
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.detail || "Failed to update task");
+  const error = await res.json();
+  console.error("❌ Backend error:", error);
+  
+  // Extract meaningful error message
+  let errorMessage = "Failed to update task";
+  
+  if (error.dependencies && Array.isArray(error.dependencies)) {
+    errorMessage = error.dependencies[0];
+  } else if (error.status && Array.isArray(error.status)) {
+    errorMessage = error.status[0];
+  } else if (error.detail) {
+    errorMessage = error.detail;
+  } else if (error.non_field_errors && Array.isArray(error.non_field_errors)) {
+    errorMessage = error.non_field_errors[0];
   }
+  
+  throw new Error(errorMessage);
+}
   const updated = await res.json();
 
   return {
