@@ -6,6 +6,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 import logging
+
 # from django.core.exceptions import ImproperlyConfigured # Removed unnecessary import
 
 logger = logging.getLogger(__name__)
@@ -38,35 +39,34 @@ def send_event_invitation_email(event, recipient_emails):
 
     # 1. Prepare Email Content
     subject = f"You're Invited: {event.title}"
-    
+
     # This context still contains all necessary fields for the simple template:
     context = {
         "event": event,
-        "creator_name": event.created_by.full_name 
-                        or event.created_by.username,
+        "creator_name": event.created_by.full_name or event.created_by.username,
         "start_time": event.start_time.strftime("%A, %B %d, %Y at %I:%M %p %Z"),
         "end_time": event.end_time.strftime("%A, %B %d, %Y at %I:%M %p %Z"),
     }
 
     try:
         # Load the HTML template. (Ensure you check the path: "email_templates/invite.html")
-        html_message = render_to_string(
-            "email_templates/invite.html", context
-        )
+        html_message = render_to_string("email_templates/invite.html", context)
         plain_message = strip_tags(html_message)
     except Exception as e:
         logger.error(f"Error rendering email template for event {event.title}: {e}")
         return
 
-
     # 2. Send Email using SES
     try:
         response = client.send_email(
             Source=SENDER_EMAIL,
-            Destination={"ToAddresses": recipient_emails}, 
+            Destination={"ToAddresses": recipient_emails},
             Message={
                 "Subject": {"Data": subject},
-                "Body": {"Text": {"Data": plain_message}, "Html": {"Data": html_message}},
+                "Body": {
+                    "Text": {"Data": plain_message},
+                    "Html": {"Data": html_message},
+                },
             },
         )
         logger.info(

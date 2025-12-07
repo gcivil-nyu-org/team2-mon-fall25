@@ -9,6 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class ConflictException(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "Time conflict: overlapping event exists."
@@ -150,6 +151,8 @@ class EventSerializer(serializers.ModelSerializer):
 
         event = super().create(validated_data)
 
+        users = []
+
         if raw_attendees:
             numeric_ids = []
             uuid_like = []
@@ -171,7 +174,6 @@ class EventSerializer(serializers.ModelSerializer):
 
             # Deduplicate
             seen = set()
-            users = []
             for u in users_by_pk + users_by_uuid:
                 if u.id not in seen:
                     seen.add(u.id)
@@ -179,8 +181,7 @@ class EventSerializer(serializers.ModelSerializer):
 
             # --- LOGGING START ---
             resolved_details = [
-                {"id": u.id, "email": getattr(u, "email", "N/A")}
-                for u in users
+                {"id": u.id, "email": getattr(u, "email", "N/A")} for u in users
             ]
             logger.info(f"   Final Resolved Users to Invite: {resolved_details}")
             # --- LOGGING END ---
@@ -205,7 +206,9 @@ class EventSerializer(serializers.ModelSerializer):
         all_attendees_emails = [u.email for u in all_attendees if u.email]
 
         # --- LOG LINE ---
-        logger.info(f"   All Attendee Emails for Event '{event.title}': {all_attendees_emails}") 
+        logger.info(
+            f"   All Attendee Emails for Event '{event.title}': {all_attendees_emails}"
+        )
         # --- LOG LINE ---
 
         send_event_invitation_email(event, all_attendees_emails)
