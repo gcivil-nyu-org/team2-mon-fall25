@@ -4,6 +4,10 @@ from .models import Event, EventParticipant
 from django.conf import settings
 import pytz
 from django.contrib.auth import get_user_model
+from .email import send_event_invitation_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConflictException(APIException):
@@ -147,6 +151,8 @@ class EventSerializer(serializers.ModelSerializer):
 
         event = super().create(validated_data)
 
+        users = []
+
         if raw_attendees:
             numeric_ids = []
             uuid_like = []
@@ -168,11 +174,17 @@ class EventSerializer(serializers.ModelSerializer):
 
             # Deduplicate
             seen = set()
-            users = []
             for u in users_by_pk + users_by_uuid:
                 if u.id not in seen:
                     seen.add(u.id)
                     users.append(u)
+
+            # --- LOGGING START ---
+            resolved_details = [
+                {"id": u.id, "email": getattr(u, "email", "N/A")} for u in users
+            ]
+            logger.info(f"   Final Resolved Users to Invite: {resolved_details}")
+            # --- LOGGING END ---
 
             participants = [
                 EventParticipant(
@@ -189,6 +201,17 @@ class EventSerializer(serializers.ModelSerializer):
                 EventParticipant.objects.bulk_create(
                     participants, ignore_conflicts=True
                 )
+
+        all_attendees = users
+        all_attendees_emails = [u.email for u in all_attendees if u.email]
+
+        # --- LOG LINE ---
+        logger.info(
+            f"   All Attendee Emails for Event '{event.title}': {all_attendees_emails}"
+        )
+        # --- LOG LINE ---
+
+        send_event_invitation_email(event, all_attendees_emails)
 
         return event
 
