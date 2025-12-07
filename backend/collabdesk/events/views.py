@@ -411,3 +411,32 @@ class WorkspaceMembersView(APIView):
                 {"detail": "An error occurred while fetching members."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class EventRSVPUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, event_id):
+        try:
+            event = Event.objects.get(event_id=event_id)
+        except Event.DoesNotExist:
+            return Response(
+                {"error": "Event not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        status_value = request.data.get("status")
+        if status_value not in EventParticipant.RSVPStatus.values:
+            return Response(
+                {"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            participant = EventParticipant.objects.get(event=event, user=request.user)
+            participant.status = status_value
+            participant.responded_at = timezone.now()
+            participant.save()
+            return Response({"status": "success", "rsvp": status_value})
+        except EventParticipant.DoesNotExist:
+            return Response(
+                {"error": "User is not a participant"}, status=status.HTTP_403_FORBIDDEN
+            )

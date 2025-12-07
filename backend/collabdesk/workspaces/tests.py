@@ -514,3 +514,170 @@ class WorkspaceMembersAPITests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class WorkspaceMembersTests(APITestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # Create users
+        self.owner = User.objects.create_user(
+            username="owner", email="owner@test.com", password="pass123"
+        )
+
+        self.member = User.objects.create_user(
+            username="member", email="member@test.com", password="pass123"
+        )
+
+        self.other_user = User.objects.create_user(
+            username="userx", email="x@test.com", password="pass123"
+        )
+
+        self.non_member_user = User.objects.create_user(
+            username="outside", email="outside@test.com", password="pass123"
+        )
+
+        # Create workspace
+        self.workspace = Workspace.objects.create(
+            name="Test WS", description="Desc", created_by=self.owner
+        )
+
+        # Add owner and one member
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.owner, role="owner"
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.member, role="member"
+        )
+
+        self.add_url = f"/api/workspaces/{self.workspace.workspace_id}/members/add/"
+        self.remove_url = (
+            lambda user_id: f"/api/workspaces/{self.workspace.workspace_id}/members/{user_id}/"
+        )
+
+    # ------------------------------------------------------------
+    # ADD MEMBERS TESTS
+    # ------------------------------------------------------------
+
+    def test_owner_can_add_members(self):
+        self.client.force_authenticate(self.owner)
+
+        payload = {"user_ids": [self.other_user.user_id]}
+
+        res = self.client.post(self.add_url, payload, format="json")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(str(self.other_user.user_id), res.data["added"])
+        self.assertTrue(
+            WorkspaceMember.objects.filter(
+                workspace=self.workspace, user=self.other_user
+            ).exists()
+        )
+
+    def test_non_owner_cannot_add_members(self):
+        self.client.force_authenticate(self.member)
+
+        payload = {"user_ids": [self.other_user.user_id]}
+
+        res = self.client.post(self.add_url, payload, format="json")
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.data["detail"], "Only the owner can add members")
+
+    def test_user_not_in_workspace_cannot_add(self):
+        self.client.force_authenticate(self.non_member_user)
+
+        payload = {"user_ids": [self.other_user.user_id]}
+
+        res = self.client.post(self.add_url, payload, format="json")
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.data["detail"], "You are not a member of this workspace")
+
+    def test_add_member_skips_existing_member(self):
+        self.client.force_authenticate(self.owner)
+
+        payload = {"user_ids": [self.member.user_id]}  # already member
+
+        res = self.client.post(self.add_url, payload, format="json")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(str(self.member.user_id), res.data["skipped"])
+
+    def test_add_member_skips_invalid_user(self):
+        self.client.force_authenticate(self.owner)
+
+        fake_uuid = str(uuid.uuid4())  # valid UUID but not associated with any user
+
+        payload = {"user_ids": [fake_uuid]}
+
+        res = self.client.post(self.add_url, payload, format="json")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(fake_uuid, res.data["skipped"])
+
+    # ------------------------------------------------------------
+    # REMOVE MEMBERS TESTS
+    # ------------------------------------------------------------
+
+    def test_owner_can_remove_member(self):
+        self.client.force_authenticate(self.owner)
+
+        res = self.client.delete(self.remove_url(self.member.user_id))
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["detail"], "Member removed successfully")
+
+        self.assertFalse(
+            WorkspaceMember.objects.filter(
+                workspace=self.workspace, user=self.member
+            ).exists()
+        )
+
+    def test_non_owner_cannot_remove_member(self):
+        self.client.force_authenticate(self.member)
+
+        res = self.client.delete(self.remove_url(self.other_user.user_id))
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.data["detail"], "Only the owner can remove members")
+
+    def test_user_not_in_workspace_cannot_remove(self):
+        self.client.force_authenticate(self.non_member_user)
+
+        res = self.client.delete(self.remove_url(self.member.user_id))
+
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.data["detail"], "You are not a member of this workspace")
+
+    def test_cannot_remove_owner(self):
+        self.client.force_authenticate(self.owner)
+
+        res = self.client.delete(self.remove_url(self.owner.user_id))
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data["detail"], "Owner cannot be removed")
+
+    def test_remove_member_not_found(self):
+        self.client.force_authenticate(self.owner)
+
+        fake_uuid = str(uuid.uuid4())  # Valid UUID but not assigned to any user
+
+        res = self.client.delete(self.remove_url(fake_uuid))
+
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.data["detail"], "Member not found in workspace")
+
+    def test_remove_member_invalid_workspace(self):
+        self.client.force_authenticate(self.owner)
+
+        fake_ws = uuid.uuid4()  # valid UUID, but no workspace exists
+
+        bad_url = f"/api/workspaces/{fake_ws}/members/{self.member.user_id}/"
+
+        res = self.client.delete(bad_url)
+
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.data["detail"], "Workspace not found")

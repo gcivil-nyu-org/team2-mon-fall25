@@ -28,10 +28,44 @@ class EventSerializer(serializers.ModelSerializer):
     # Return attendees as a list of participant objects with names
     attendees_detail = serializers.SerializerMethodField(read_only=True)
 
+    # RSVP fields
+    userRsvpStatus = serializers.SerializerMethodField(read_only=True)
+    rsvpSummary = serializers.SerializerMethodField(read_only=True)
+    attendeesWithRsvp = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Event
         fields = "__all__"
         read_only_fields = ["workspace", "created_by", "created_at", "updated_at"]
+
+    def get_userRsvpStatus(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                participant = EventParticipant.objects.get(event=obj, user=request.user)
+                return participant.status
+            except EventParticipant.DoesNotExist:
+                return None
+        return None
+
+    def get_rsvpSummary(self, obj):
+        summary = {"accepted": 0, "declined": 0, "tentative": 0, "pending": 0}
+        # Group by status for efficiency could be better, but this is simple
+        participants = EventParticipant.objects.filter(event=obj)
+        for p in participants:
+            if p.status in summary:
+                summary[p.status] += 1
+        return summary
+
+    def get_attendeesWithRsvp(self, obj):
+        participants = EventParticipant.objects.filter(event=obj).select_related("user")
+        result = []
+        for p in participants:
+            if p.user:
+                result.append(
+                    {"name": p.user.full_name or p.user.username, "status": p.status}
+                )
+        return result
 
     def get_created_by_name(self, obj):
         """Return the full_name of the user who created the event."""

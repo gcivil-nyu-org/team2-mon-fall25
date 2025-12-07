@@ -30,6 +30,8 @@ export function WorkspaceSwitcher({
     localStorage.setItem("cd.workspace", id);
     onChange(id);
     setOpen(false);
+    // Dispatch custom event to notify same-tab listeners
+    window.dispatchEvent(new Event('workspaceChanged'));
   }
 
   const active = workspaces.find((w) => w.id === value)?.name ?? value;

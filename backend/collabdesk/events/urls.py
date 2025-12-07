@@ -5,6 +5,7 @@ app_name = "events"
 urlpatterns = [
     path("", EventListCreateView.as_view(), name="event-list"),
     path("<uuid:pk>/", EventDetailView.as_view(), name="event-detail"),
+    path("<uuid:event_id>/rsvp/", EventRSVPUpdateView.as_view(), name="event-rsvp"),
     path(
         "participants/", EventParticipantCreateView.as_view(), name="participant-list"
     ),

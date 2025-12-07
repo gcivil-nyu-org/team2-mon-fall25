@@ -296,46 +296,26 @@ const handleJoinWorkspace = async (code: string) => {
     placeholder="Search by name"
     className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
   />
-
   <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
-    {filtered.map((user) => {
-      const isSelected = selected.some((s) => s.user_id === user.user_id);
-      return (
-        <div
-          key={user.user_id}
-          onClick={() => toggleSelect(user)}
-          className={`cursor-pointer w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
-            ${
-              isSelected
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
-                : "bg-white text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            }`}
-        >
-          {user.full_name || user.email}
-        </div>
-      );
-    })}
-  </div>
+  {filtered.map((user) => {
+    const isSelected = selected.some((s) => s.user_id === user.user_id);
+    return (
+      <div
+        key={user.user_id}
+        onClick={() => toggleSelect(user)}
+        className={`cursor-pointer w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
+          ${
+            isSelected
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+              : "bg-white text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+          }`}
+      >
+        {user.full_name || user.email}
+      </div>
+    );
+  })}
+</div>
 
-
-
-            {/* <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
-              {filtered.map((user) => {
-                const selectedUser = selected.some((s) => s.id === user.id);
-                return (
-                <button
-                key={user.user_id}
-                onClick={() => toggleSelect(user)}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                  selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
-                }`}
-                >
-                  {user.full_name}
-                  <span className="text-xs text-gray-500 ml-2">{user.email}</span>
-                  </button>
-                  );
-                  })}
-            </div> */}
           </div>
 
           <button

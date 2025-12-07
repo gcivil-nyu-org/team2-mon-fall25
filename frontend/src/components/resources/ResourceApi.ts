@@ -1,5 +1,5 @@
 // API for Resources feature - integrates with backend
-import { 
+import {
   fetchResources as apiFetchResources,
   uploadResource as apiUploadResource,
   downloadResource as apiDownloadResource,
@@ -16,6 +16,7 @@ export interface Resource {
   fileSize: number; // in bytes
   fileUrl: string; // URL or file path
   uploadedBy: string; // username
+  uploadedById: number; // user ID
   uploaded: string; // ISO date string (matches backend "uploaded")
   tags: string[];
 }
@@ -102,7 +103,8 @@ function convertBackendResource(backendResource: BackendResource): Resource {
     fileType: backendResource.type.toLowerCase(),
     fileSize: backendResource.size,
     fileUrl: backendResource.file,
-    uploadedBy: `User ${backendResource.uploaded_by}`, // TODO: map to actual username
+    uploadedBy: backendResource.uploaded_by,
+    uploadedById: backendResource.uploaded_by_id,
     uploaded: backendResource.uploaded,
     tags: backendResource.tags && backendResource.tags.length > 0 ? backendResource.tags : getTags(id),
   };

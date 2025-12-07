@@ -16,7 +16,7 @@ import {
 import { EventDetailsModal } from "./components/modals/EventDetailsModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { Resources } from "./components/resources/Resources";
@@ -50,6 +50,18 @@ type CalEvent = {
   createdBy?: number;
   createdByName?: string;
   attendeesNames?: string[];
+  attendeesIds?: number[];
+  userRsvpStatus?: RSVPStatus;
+  rsvpSummary?: {
+    accepted: number;
+    declined: number;
+    tentative: number;
+    pending: number;
+  };
+  attendeesWithRsvp?: Array<{
+    name: string;
+    status: RSVPStatus;
+  }>;
 };
 
 export default function App() {
@@ -82,7 +94,7 @@ export default function App() {
 
         return null;
       }
-    });
+    })/*  */;
     setTokenReady(true);
   }, [isAuthenticated, getAccessTokenSilently, logout]);
 
@@ -284,6 +296,10 @@ export default function App() {
       createdBy: e.created_by,
       createdByName: e.created_by_name,
       attendeesNames: (e.attendees_detail || []).map((p) => p.full_name).filter(Boolean),
+      attendeesIds: (e.attendees_detail || []).map((p) => p.id).filter(Boolean),
+      userRsvpStatus: e.userRsvpStatus,
+      rsvpSummary: e.rsvpSummary,
+      attendeesWithRsvp: e.attendeesWithRsvp,
     }));
   }, [backendEvents]);
 
@@ -340,6 +356,24 @@ export default function App() {
       console.error("Failed to delete event:", error);
       toast.error("Failed to delete event. Please try again.");
     }
+  };
+
+  // Handle event updates from modal (e.g. RSVP changes)
+  const handleEventUpdate = (updatedEvent: CalEvent) => {
+    setBackendEvents((prev) =>
+      prev.map((e) => {
+        if (e.event_id === updatedEvent.id) {
+          return {
+            ...e,
+            userRsvpStatus: updatedEvent.userRsvpStatus,
+            rsvpSummary: updatedEvent.rsvpSummary,
+            attendeesWithRsvp: updatedEvent.attendeesWithRsvp,
+            // Update other fields if needed
+          };
+        }
+        return e;
+      })
+    );
   };
 
   // Leave workspace logic
@@ -551,8 +585,6 @@ export default function App() {
             onViewChange={setCalendarView}
             currentUserId={currentUserId}
           />
-        ) : null}
-      </div>
 
       {/* Add / Smart Schedule / Block Modals */}
       <AddToCalendar
@@ -569,11 +601,11 @@ export default function App() {
         currentUserId={currentUserUUID}
       />
 
-      <UnavailabilityModal
-        open={showBlock}
-        onClose={() => setShowBlock(false)}
-        onBlocked={handleBlocked}
-      />
+          <UnavailabilityModal
+            open={showBlock}
+            onClose={() => setShowBlock(false)}
+            onBlocked={handleBlocked}
+          />
 
       {/* Event details modal */}
       <EventDetailsModal
@@ -594,7 +626,7 @@ export default function App() {
           {/* Workspace Action Selection Modal - cannot be closed */}
           <WorkspaceActionModal
             open={showActionModal}
-            onClose={() => {}} // Cannot close - must select an option
+            onClose={() => { }} // Cannot close - must select an option
             onCreateWorkspace={() => {
               setShowActionModal(false);
               setShowCreate(true);
@@ -652,11 +684,10 @@ export default function App() {
                       <button
                         key={user.user_id}
                         onClick={() => toggleSelect(user)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150 ${
-                          selectedUser
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300"
-                            : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150 ${selectedUser
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                          }`}
                       >
                         <span className="font-medium">{user.full_name}</span>
                         <span className="text-xs text-gray-500 ml-2">{user.email}</span>
