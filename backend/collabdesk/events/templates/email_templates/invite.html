@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Event Invitation: {{ event.title }}</title>
+</head>
+<body>
+    <p>Hello,</p>
+    <p>You have been invited to a new event!</p>
+    
+    <h2>{{ event.title }}</h2>
+    
+    <p><strong>Hosted by:</strong> {{ creator_name }}</p>
+    <p><strong>When:</strong> {{ start_time }} - {{ end_time }}</p>
+    
+    <p>
+        Please respond to the invitation in your calendar.
+    </p>
+
+    <p>Thanks,<br>
+    The Collabdesk Team</p>
+</body>
+</html>

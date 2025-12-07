@@ -4,7 +4,10 @@ from .models import Event, EventParticipant
 from django.conf import settings
 import pytz
 from django.contrib.auth import get_user_model
+from .email import send_event_invitation_email
+import logging
 
+logger = logging.getLogger(__name__)
 
 class ConflictException(APIException):
     status_code = status.HTTP_409_CONFLICT
@@ -174,6 +177,14 @@ class EventSerializer(serializers.ModelSerializer):
                     seen.add(u.id)
                     users.append(u)
 
+            # --- LOGGING START ---
+            resolved_details = [
+                {"id": u.id, "email": getattr(u, "email", "N/A")}
+                for u in users
+            ]
+            logger.info(f"   Final Resolved Users to Invite: {resolved_details}")
+            # --- LOGGING END ---
+
             participants = [
                 EventParticipant(
                     event=event,
@@ -189,6 +200,15 @@ class EventSerializer(serializers.ModelSerializer):
                 EventParticipant.objects.bulk_create(
                     participants, ignore_conflicts=True
                 )
+
+        all_attendees = users
+        all_attendees_emails = [u.email for u in all_attendees if u.email]
+
+        # --- LOG LINE ---
+        logger.info(f"   All Attendee Emails for Event '{event.title}': {all_attendees_emails}") 
+        # --- LOG LINE ---
+
+        send_event_invitation_email(event, all_attendees_emails)
 
         return event
 
