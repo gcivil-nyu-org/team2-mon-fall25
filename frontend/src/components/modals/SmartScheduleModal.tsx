@@ -26,10 +26,12 @@ export function SmartScheduleModal({
   open,
   onClose,
   onScheduled,
+  currentUserId,
 }: {
   open: boolean;
   onClose: () => void;
   onScheduled: (m: ScheduledMeeting) => void;
+  currentUserId?: string;
 }) {
   // Step 1 state
   const [title, setTitle] = useState("");
@@ -63,7 +65,13 @@ export function SmartScheduleModal({
       try {
         const data = await getWorkspaceMembers();
         if (!mounted) return;
-        const mapped: Member[] = data.map((m) => ({ id: m.user_id, name: m.username, avatar: m.username?.slice(0,1) }));
+        const mapped: Member[] = data
+          .filter((m) => m.user_id !== currentUserId)
+          .map((m) => ({
+            id: m.user_id,
+            name: m.full_name || m.username,
+            avatar: (m.full_name || m.username)?.slice(0, 1),
+          }));
         setMembers(mapped);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to load members";
@@ -86,7 +94,7 @@ export function SmartScheduleModal({
     return () => {
       mounted = false;
     };
-  }, [open]);
+  }, [open, currentUserId]);
 
   const recs: Recommended[] = useMemo(() => {
     // Prioritize API-returned recommended times

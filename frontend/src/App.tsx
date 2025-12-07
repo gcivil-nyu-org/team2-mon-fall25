@@ -199,6 +199,7 @@ export default function App() {
 
   // Current user and calendar view state
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
+  const [currentUserUUID, setCurrentUserUUID] = useState<string | undefined>();
   const [calendarView, setCalendarView] = useState<"my" | "all">("all");
   const [selectedEventForDetails, setSelectedEventForDetails] = useState<CalEvent | null>(null);
 
@@ -210,6 +211,7 @@ export default function App() {
       try {
         const user = await fetchCurrentUser();
         setCurrentUserId(user.id);
+        setCurrentUserUUID(user.user_id);
       } catch (error) {
         console.error("Failed to load current user:", error);
       }
@@ -501,16 +503,22 @@ export default function App() {
                 </button>
               </header>
 
-              {loading ? (
-                <div className="text-center py-8 text-zinc-500">Loading events...</div>
-              ) : (
+              <div className="relative">
                 <CalendarWeek
                   weekStart={weekStart}
                   events={events}
                   onEventClick={handleEventClick}
                   currentUserId={currentUserId}
                 />
-              )}
+                {loading && (
+                  <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
+                    <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
+                      <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : current === "dashboard" ? (
             <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
@@ -521,7 +529,7 @@ export default function App() {
           ) : current === "tasks" ? (
             <Tasks />
           ) : current === "resources" ? (
-            <Resources workspace={workspace} />
+            <Resources workspace={workspace} currentUserId={currentUserId} />
           ) : current === "message" ? (
             <MessageBoard openThreadMessageId={openThreadMessageId} />
           ) : current === "chat" ? (
@@ -558,6 +566,7 @@ export default function App() {
         open={showSmart}
         onClose={() => setShowSmart(false)}
         onScheduled={handleAddMeeting}
+        currentUserId={currentUserUUID}
       />
 
       <UnavailabilityModal
