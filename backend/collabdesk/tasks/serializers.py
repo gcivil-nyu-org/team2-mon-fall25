@@ -101,14 +101,26 @@ class TaskSerializer(serializers.ModelSerializer):
         # If updating, check for circular dependencies
         if self.instance:
             task_id = self.instance.id
+
+            # Get current dependencies to compare
+            current_dep_ids = set(
+                self.instance.dependencies.values_list("id", flat=True)
+            )
+            new_dep_ids = set(dep.id for dep in value)
+
+            # Only check newly added dependencies
+            added_deps = new_dep_ids - current_dep_ids
+
             for dep in value:
                 if dep.id == task_id:
                     raise serializers.ValidationError("A task cannot depend on itself")
-                # Check if this would create a cycle
-                if self._would_create_cycle(task_id, dep.id):
-                    raise serializers.ValidationError(
-                        f"Adding dependency '{dep.title}' would create a circular dependency"
-                    )
+
+                # Only validate newly added dependencies for circular reference
+                if dep.id in added_deps:
+                    if self._would_create_cycle(task_id, dep.id):
+                        raise serializers.ValidationError(
+                            f"Adding dependency '{dep.title}' would create a circular dependency"
+                        )
 
         return value
 
