@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "resources",
     "storages",
     "notes",
+    "chat",
     "django.contrib.postgres",
 ]
 
@@ -230,6 +231,10 @@ AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = "collabdesk-resources"
 
 AWS_S3_REGION_NAME = os.environ.get("region", "us-east-1")
+
+# Google Gemini AI Configuration
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 
 # S3 settings (only used if AWS_STORAGE_BUCKET_NAME is set)
 AWS_S3_ADDRESSING_STYLE = "virtual"

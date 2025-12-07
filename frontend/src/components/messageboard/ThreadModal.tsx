@@ -294,8 +294,20 @@ export function ThreadModal({
             </div>
 
             <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words">
-              {parent?.content ?? ""}
-            </p>
+  {parent?.content?.split(/(@[A-Za-z\s\.\-]+?)(?=\s*[,!?;:\n]|$)/g).map((part, index) => {
+    if (part.startsWith('@')) {
+      return (
+        <span 
+          key={index}
+          className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded"
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  })}
+</p>
 
             {/* ✅ Reply count (instant update without refresh) */}
             <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

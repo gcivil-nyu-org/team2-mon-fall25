@@ -3,6 +3,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // const API_BASE_URL = 'http://localhost:8000';
 export { API_BASE_URL };
 
+export type RSVPStatus = "pending" | "accepted" | "declined" | "tentative";
+
 export type BackendEvent = {
   event_id: string;
   title: string;
@@ -17,6 +19,17 @@ export type BackendEvent = {
   workspace_id: string;
   created_at: string;
   updated_at: string;
+  userRsvpStatus?: RSVPStatus;
+  rsvpSummary?: {
+    accepted: number;
+    declined: number;
+    tentative: number;
+    pending: number;
+  };
+  attendeesWithRsvp?: Array<{
+    name: string;
+    status: RSVPStatus;
+  }>;
 };
 
 export type CreateEventPayload = {
@@ -43,10 +56,10 @@ export type Workspace = {
   invite_code?: string;
   members?: WorkspaceMember[];
   owner?: {
-  id: number;
-  email: string;
-  username: string;
-};
+    id: number;
+    email: string;
+    username: string;
+  };
 };
 
 export type WorkspaceListItem = {
@@ -233,7 +246,7 @@ export async function createWorkspace(
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Failed to create workspace:", errorText);
-  throw new Error("Failed to create workspace");
+    throw new Error("Failed to create workspace");
   }
 
   const data = await response.json();
@@ -425,9 +438,10 @@ export async function addWorkspaceMembers(
     }
   );
 
-  if (!response.ok) {
-    throw new Error('Failed to add workspace members');
-  }
+if (!response.ok) {
+  const err = await response.json().catch(() => null);
+  throw new Error(err?.detail || 'Failed to add workspace members');
+}
 }
 
 /**
@@ -494,7 +508,8 @@ export type BackendResource = {
   name: string;
   type: string;
   size: number;
-  uploaded_by: number;
+  uploaded_by: string; // name
+  uploaded_by_id: number; // id
   uploaded: string;
   file: string;
   workspace: string;
@@ -534,11 +549,11 @@ export async function uploadResource(file: File, name: string, tags?: string[]):
 
 export async function downloadResource(resourceId: string): Promise<void> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/resources/${resourceId}/download/`);
-  
+
   if (!response.ok) {
     throw new Error('Failed to download resource');
   }
-  
+
   // Check if response is JSON (presigned URL) or file blob
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
@@ -551,7 +566,7 @@ export async function downloadResource(resourceId: string): Promise<void> {
       return;
     }
   }
-  
+
   // Direct file download (local storage)
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
@@ -599,5 +614,27 @@ export async function getResourcePreviewUrlById(resourceId: string): Promise<{
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   return { url, revoke: () => window.URL.revokeObjectURL(url) };
+}
+
+export async function updateEventRSVP(eventId: string, status: RSVPStatus): Promise<void> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/${eventId}/rsvp/`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update RSVP');
+  }
+}
+
+export async function fetchEventById(eventId: string): Promise<BackendEvent> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/${eventId}/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch event details');
+  }
+  return response.json();
 }
 

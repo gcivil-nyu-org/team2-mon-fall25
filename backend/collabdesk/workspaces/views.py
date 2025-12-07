@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Workspace, WorkspaceMember
+from users.models import User
 from .serializer import (
     WorkspaceSerializer,
     WorkspaceCreateSerializer,
@@ -176,3 +177,105 @@ class WorkspaceMembersListView(APIView):
         members = WorkspaceMember.objects.filter(workspace=workspace)
         serializer = WorkspaceMemberSerializer(members, many=True)
         return Response(serializer.data)
+
+
+class WorkspaceAddMembersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, workspace_id):
+        user = request.user
+        user_ids = request.data.get("user_ids", [])
+
+        # Validate workspace
+        try:
+            workspace = Workspace.objects.get(workspace_id=workspace_id)
+        except Workspace.DoesNotExist:
+            return Response({"detail": "Workspace not found"}, status=404)
+
+        # Only owner can add members
+        try:
+            current_member = WorkspaceMember.objects.get(workspace=workspace, user=user)
+            if current_member.role != "owner":
+                return Response(
+                    {"detail": "Only the owner can add members"}, status=403
+                )
+        except WorkspaceMember.DoesNotExist:
+            return Response(
+                {"detail": "You are not a member of this workspace"}, status=403
+            )
+
+        added_members = []
+        skipped_members = []
+
+        for uid in user_ids:
+            try:
+                member_user = User.objects.get(user_id=uid)
+
+                # Skip if already a member
+                if WorkspaceMember.objects.filter(
+                    workspace=workspace, user=member_user
+                ).exists():
+                    skipped_members.append(uid)
+                    continue
+
+                WorkspaceMember.objects.create(
+                    workspace=workspace,
+                    user=member_user,
+                    role="member",
+                    invited_by=user,
+                    is_active=True,
+                )
+                added_members.append(uid)
+
+            except User.DoesNotExist:
+                skipped_members.append(uid)
+
+        return Response(
+            {
+                "added": added_members,
+                "skipped": skipped_members,
+                "detail": "Members added successfully",
+            },
+            status=200,
+        )
+
+
+class WorkspaceRemoveMemberView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, workspace_id, user_id):
+        user = request.user
+
+        # Validate workspace
+        try:
+            workspace = Workspace.objects.get(workspace_id=workspace_id)
+        except Workspace.DoesNotExist:
+            return Response({"detail": "Workspace not found"}, status=404)
+
+        # Only owner can remove members
+        try:
+            current_member = WorkspaceMember.objects.get(workspace=workspace, user=user)
+            if current_member.role != "owner":
+                return Response(
+                    {"detail": "Only the owner can remove members"}, status=403
+                )
+        except WorkspaceMember.DoesNotExist:
+            return Response(
+                {"detail": "You are not a member of this workspace"}, status=403
+            )
+
+        # Member to remove
+        try:
+            member = WorkspaceMember.objects.get(
+                workspace=workspace, user__user_id=user_id
+            )
+        except WorkspaceMember.DoesNotExist:
+            return Response({"detail": "Member not found in workspace"}, status=404)
+
+        # Cannot remove owner
+        if member.role == "owner":
+            return Response({"detail": "Owner cannot be removed"}, status=400)
+
+        member.delete()
+
+        return Response({"detail": "Member removed successfully"}, status=200)
