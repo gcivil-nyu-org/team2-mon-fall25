@@ -10,10 +10,10 @@ class Task(models.Model):
         DONE = "done", "Done"
 
     class Priority(models.IntegerChoices):
-        LOW = 1, "Low"
+        # FIXED: Changed to match frontend expectations
+        HIGH = 1, "High"  # Changed from LOW
         MEDIUM = 2, "Medium"
-        HIGH = 3, "High"
-        # URGENT = 4, "Urgent"
+        LOW = 3, "Low"  # Changed from HIGH
 
     title = models.CharField(max_length=250)
     description = models.TextField(blank=True)
@@ -46,6 +46,14 @@ class Task(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     tags = models.JSONField(blank=True, default=list)
     archived = models.BooleanField(default=False)
+    # Dependencies - tasks that must be completed before this one
+    dependencies = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        related_name="dependent_tasks",
+        blank=True,
+        help_text="Tasks that must be completed before this task",
+    )
 
     class Meta:
         ordering = ["-priority", "due_date", "-created_at"]
@@ -57,3 +65,8 @@ class Task(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
+
+    @property
+    def can_complete(self):
+        """Check if all dependencies are completed"""
+        return not self.dependencies.exclude(status=self.Status.DONE).exists()
