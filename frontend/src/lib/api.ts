@@ -149,6 +149,40 @@ export async function fetchEvents(): Promise<BackendEvent[]> {
   return response.json();
 }
 
+// # This code fetches upcoming 3 events for a specific workspace
+export async function fetchUpcomingEvents(): Promise<BackendEvent[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/events/latest/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load upcoming events");
+  }
+
+  return response.json();
+}
+
+
+
+/**
+ * Fetch the latest 3 resources for the current workspace.
+ * Uses authenticatedFetch to include auth + workspace headers.
+ */
+export async function fetchLatestResources(): Promise<BackendResource[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/resources/latest/`
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(errorText || "Failed to fetch latest resources");
+  }
+
+  return response.json();
+}
+
+
+
 export async function createEvent(payload: CreateEventPayload): Promise<BackendEvent> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/events/`, {
     method: 'POST',

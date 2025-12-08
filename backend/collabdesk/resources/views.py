@@ -394,3 +394,27 @@ def list_files(request):
             {"success": False, "error": result.get("error", "Unknown error occurred")},
             status=500,
         )
+
+
+class LatestResourcesView(generics.ListAPIView):
+    serializer_class = ResourceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
+
+    def get_queryset(self):
+        request = self.request
+        user = request.user
+
+        # If workspace context available
+        if hasattr(request, "workspace") and request.workspace:
+            qs = Resource.objects.filter(workspace=request.workspace)
+        else:
+            # fallback: all user's workspaces
+            user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
+            qs = Resource.objects.filter(workspace_id__in=user_workspaces)
+
+        # Latest 3 updated resources
+        return qs.order_by("-uploaded")[:3]

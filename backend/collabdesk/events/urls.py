@@ -29,4 +29,5 @@ urlpatterns = [
         WorkspaceMembersView.as_view(),
         name="workspace-members",
     ),
+    path("latest/", LatestEventsView.as_view(), name="latest-events"),
 ]
