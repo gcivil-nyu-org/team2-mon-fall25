@@ -1,5 +1,3 @@
-import React from "react";
-
 export function LatestResourcesCard({ resources }: { resources: any[] }) {
 if (!resources || resources.length === 0) {
   return (

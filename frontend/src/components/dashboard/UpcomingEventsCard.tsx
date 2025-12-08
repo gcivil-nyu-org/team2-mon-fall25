@@ -1,5 +1,3 @@
-import React from "react";
-
 export function UpcomingEventsCard({ events }: { events: any[] }) {
   // Graceful empty UI
   if (!events || events.length === 0) {
