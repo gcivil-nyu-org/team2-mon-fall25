@@ -3,6 +3,7 @@ from .views import *
 
 app_name = "events"
 urlpatterns = [
+    path("latest/", LatestEventsView.as_view(), name="event-latest"),
     path("", EventListCreateView.as_view(), name="event-list"),
     path("<uuid:pk>/", EventDetailView.as_view(), name="event-detail"),
     path("<uuid:event_id>/rsvp/", EventRSVPUpdateView.as_view(), name="event-rsvp"),

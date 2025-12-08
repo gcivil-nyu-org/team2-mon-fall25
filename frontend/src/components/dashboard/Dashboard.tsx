@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceInfoCard } from "./WorkspaceInfoCard";
-import { fetchWorkspaceInformation, fetchCurrentUser, type Workspace } from "../../lib/api";
+import { UpcomingEventsCard } from "./UpcomingEventsCard";
+import { LatestResourcesCard } from "./LatestResourcesCard";
+import { fetchWorkspaceInformation, fetchCurrentUser, fetchUpcomingEvents, fetchLatestResources, type Workspace } from "../../lib/api";
 import { getMessages, formatRelativeTime, type Message } from "../messageboard/MessageBoardApi";
 
 export function Dashboard({
@@ -16,6 +18,8 @@ export function Dashboard({
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [latestResources, setLatestResources] = useState<any[]>([]);
   const [recentMessages, setRecentMessages] = useState<Message[]>([]);
 
   // Fetch current user ID
@@ -33,6 +37,39 @@ export function Dashboard({
 
     loadCurrentUser();
   }, [isAuthenticated, authLoading]);
+
+  // Fetch latest resources
+useEffect(() => {
+  if (!isAuthenticated) return;
+
+  const loadResources = async () => {
+    try {
+      const data = await fetchLatestResources();
+      setLatestResources(data);
+    } catch (err) {
+      console.error("Failed to fetch latest resources:", err);
+    }
+  };
+
+  loadResources();
+}, [isAuthenticated]);
+
+// Fetch latest 3 events for the dashboard
+useEffect(() => {
+  if (!isAuthenticated) return;
+
+  const loadEvents = async () => {
+    try {
+      const data = await fetchUpcomingEvents();
+      setUpcomingEvents(data);
+    } catch (err) {
+      console.error("Failed to fetch latest events:", err);
+    }
+  };
+
+  loadEvents();
+}, [isAuthenticated]);
+
 
   useEffect(() => {
     if (authLoading) return; // Wait for Auth0 to finish checking
@@ -95,6 +132,13 @@ export function Dashboard({
         currentUserId={currentUserId}
         onWorkspaceUpdate={handleWorkspaceUpdate}
       />
+
+      {/* Events + Resources side-by-side */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <UpcomingEventsCard events={upcomingEvents} />
+        <LatestResourcesCard resources={latestResources} />
+      </div>
+
 
       {/* Recent Messages Section */}
       {recentMessages.length > 0 && (

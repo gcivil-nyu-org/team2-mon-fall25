@@ -17,6 +17,43 @@ import sys
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "events": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django.server": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+    },
+}
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -99,6 +136,7 @@ INSTALLED_APPS = [
     "resources",
     "storages",
     "notes",
+    "chat",
     "django.contrib.postgres",
 ]
 
@@ -230,6 +268,11 @@ AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = "collabdesk-resources"
 
 AWS_S3_REGION_NAME = os.environ.get("region", "us-east-1")
+AWS_SES_REGION_NAME = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+
+# Google Gemini AI Configuration
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 
 # S3 settings (only used if AWS_STORAGE_BUCKET_NAME is set)
 AWS_S3_ADDRESSING_STYLE = "virtual"
@@ -238,6 +281,7 @@ AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 AWS_S3_VERIFY = True
 AWS_S3_FILE_OVERWRITE = False
 AWS_S3_SIGNATURE_VERSION = "s3v4"
+SES_SENDER_EMAIL = "no-reply@collabdesk.me"
 
 # Choose storage backend based on whether a bucket name is configured.
 # if AWS_STORAGE_BUCKET_NAME:

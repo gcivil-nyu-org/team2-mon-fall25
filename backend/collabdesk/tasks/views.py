@@ -2,12 +2,21 @@ from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from django.utils import timezone
+
+# from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Task
-from .serializers import TaskSerializer
+
+# from .serializers import TaskSerializer
 from collabdesk.middleware import set_workspace_context
 import logging
+
+# from .serializers import TaskSerializer
+from .serializers import TaskSerializer, UserMinimalSerializer, TaskDependencySerializer
+
+# from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -49,15 +58,19 @@ class TaskViewSet(viewsets.ModelViewSet):
                 f"Fetching tasks for user={user.email}, "
                 f"workspace={self.request.workspace.name}"
             )
-            return Task.objects.filter(workspace=self.request.workspace).select_related(
-                "created_by", "assignee", "workspace"
+            return (
+                Task.objects.filter(workspace=self.request.workspace)
+                .select_related("created_by", "assignee", "workspace")
+                .prefetch_related("dependencies")
             )
 
         # Otherwise, return tasks from all user's workspaces
         logger.info(f"Fetching tasks from all workspaces for user={user.email}")
         user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
-        return Task.objects.filter(workspace_id__in=user_workspaces).select_related(
-            "created_by", "assignee", "workspace"
+        return (
+            Task.objects.filter(workspace_id__in=user_workspaces)
+            .select_related("created_by", "assignee", "workspace")
+            .prefetch_related("dependencies")
         )
 
     def perform_create(self, serializer):
@@ -88,14 +101,79 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """
         Handle task updates, including automatic completion timestamp.
+        Enhanced with better dependency checking and status validation.
         """
-        obj = serializer.save()
-        # set completed_at automatically when status is DONE and completed_at not set
-        if obj.status == Task.Status.DONE and obj.completed_at is None:
-            import django.utils.timezone as tz
+        task = self.get_object()
 
-            obj.completed_at = tz.now()
-            obj.save()
+        # Check if trying to mark as done with incomplete dependencies
+        if "status" in serializer.validated_data:
+            new_status = serializer.validated_data["status"]
+            if new_status == Task.Status.DONE:
+                if not task.can_complete:
+                    incomplete_deps = task.dependencies.exclude(status=Task.Status.DONE)
+                    dep_titles = [dep.title for dep in incomplete_deps]
+                    raise ValidationError(
+                        {
+                            "status": f"Cannot mark as done. These dependencies must be completed first: {', '.join(dep_titles)}"
+                        }
+                    )
+
+        # Save the task
+        obj = serializer.save()
+
+        # Set completed_at automatically when status is DONE
+        if obj.status == Task.Status.DONE:
+            if obj.completed_at is None:
+                obj.completed_at = timezone.now()
+                obj.save(update_fields=["completed_at"])
+        # Clear completed_at if status is changed from DONE to something else
+        elif obj.completed_at is not None:
+            obj.completed_at = None
+            obj.save(update_fields=["completed_at"])
+
+    @action(detail=False, methods=["get"], url_path="workspace-members")
+    def workspace_members(self, request):
+        """
+        Get list of users in the current workspace for task assignment.
+        Requires workspace context (X-Workspace-ID header).
+        """
+        if not hasattr(request, "workspace") or not request.workspace:
+            raise PermissionDenied(
+                "Workspace context required. Please provide X-Workspace-ID header."
+            )
+
+        # Get all members of the workspace
+        workspace = request.workspace
+        members = workspace.members.all().select_related("user")
+        users = [member.user for member in members]
+
+        serializer = UserMinimalSerializer(users, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="available-tasks")
+    def available_tasks(self, request):
+        """
+        Get list of tasks in the current workspace for creating dependencies.
+        Requires workspace context (X-Workspace-ID header).
+        Optionally exclude a specific task (for edit mode) using ?exclude_id=<task_id>
+        """
+        if not hasattr(request, "workspace") or not request.workspace:
+            raise PermissionDenied(
+                "Workspace context required. Please provide X-Workspace-ID header."
+            )
+
+        # Get all non-archived tasks in workspace
+        tasks = Task.objects.filter(
+            workspace=request.workspace, archived=False
+        ).order_by("-created_at")
+
+        # Optionally exclude a task (useful when editing to prevent self-dependency)
+        exclude_id = request.query_params.get("exclude_id")
+        if exclude_id:
+            tasks = tasks.exclude(id=exclude_id)
+
+        serializer = TaskDependencySerializer(tasks, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="archive")
     def archive(self, request, pk=None):

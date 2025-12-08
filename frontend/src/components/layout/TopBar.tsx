@@ -34,9 +34,11 @@ function useDarkMode() {
 export function TopBar({
   workspaceName,
   onWorkspace,
+  onMenuClick,
 }: {
   workspaceName: string;
   onWorkspace: (id: string) => void;
+  onMenuClick?: () => void;
 }) {
   const { isDark, setIsDark } = useDarkMode();
   const [workspaceList, setWorkspaceList] = useState<Workspace[]>([]);
@@ -188,7 +190,30 @@ const handleJoinWorkspace = async (code: string) => {
     <>
       <header className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="flex h-14 items-center gap-3 px-4">
-          <div className="text-xl font-semibold tracking-tight">CollabDesk</div>
+          {/* Mobile menu button */}
+          {onMenuClick && (
+            <button
+              onClick={onMenuClick}
+              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              aria-label="Open menu"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+          )}
+
+          <div className="text-lg sm:text-xl font-semibold tracking-tight">CollabDesk</div>
 
           {/* Workspace switcher + Add button */}
           <div className="ml-2 flex items-center gap-2">
@@ -208,9 +233,9 @@ const handleJoinWorkspace = async (code: string) => {
             </button>
           </div>
 
-          {/* User info */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm">{user?.name}</span>
+          {/* User info - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-2">
+            <span className="text-sm truncate max-w-[150px] lg:max-w-[200px]">{user?.name}</span>
           </div>
 
           {/* Dark mode toggle */}
@@ -271,46 +296,26 @@ const handleJoinWorkspace = async (code: string) => {
     placeholder="Search by name"
     className="mt-1 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-transparent px-3 py-2 text-sm"
   />
-
   <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
-    {filtered.map((user) => {
-      const isSelected = selected.some((s) => s.user_id === user.user_id);
-      return (
-        <div
-          key={user.user_id}
-          onClick={() => toggleSelect(user)}
-          className={`cursor-pointer w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
-            ${
-              isSelected
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
-                : "bg-white text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            }`}
-        >
-          {user.full_name || user.email}
-        </div>
-      );
-    })}
-  </div>
+  {filtered.map((user) => {
+    const isSelected = selected.some((s) => s.user_id === user.user_id);
+    return (
+      <div
+        key={user.user_id}
+        onClick={() => toggleSelect(user)}
+        className={`cursor-pointer w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-150
+          ${
+            isSelected
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800"
+              : "bg-white text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+          }`}
+      >
+        {user.full_name || user.email}
+      </div>
+    );
+  })}
+</div>
 
-
-
-            {/* <div className="mt-2 max-h-32 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-md">
-              {filtered.map((user) => {
-                const selectedUser = selected.some((s) => s.id === user.id);
-                return (
-                <button
-                key={user.user_id}
-                onClick={() => toggleSelect(user)}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                  selectedUser ? "bg-zinc-200 dark:bg-zinc-700" : ""
-                }`}
-                >
-                  {user.full_name}
-                  <span className="text-xs text-gray-500 ml-2">{user.email}</span>
-                  </button>
-                  );
-                  })}
-            </div> */}
           </div>
 
           <button

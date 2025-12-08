@@ -209,7 +209,7 @@ export function ResourceUploadModal({
           <button
             onClick={handleUpload}
             disabled={isUploading || !file || !name.trim()}
-            className="w-full rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {isUploading ? "Uploading..." : "Upload Document"}
           </button>

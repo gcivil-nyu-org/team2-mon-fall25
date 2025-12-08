@@ -16,6 +16,7 @@ from django.contrib.auth import get_user_model
 
 @api_view(["GET"])
 @authentication_classes([Auth0Authentication])
+@permission_classes([permissions.IsAuthenticated])
 def current_user(request):
     """
     Get the current authenticated user's profile information.

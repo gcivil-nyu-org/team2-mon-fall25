@@ -7,9 +7,10 @@ interface Props {
   task: Task;
   onDelete?: (taskId: string) => void;
   onPriorityChange?: (taskId: string, newPriority: Task["priority"]) => void;
+  onEdit?: (task: Task) => void;
 }
 
-const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
+const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange, onEdit }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -71,7 +72,7 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-medium text-zinc-900 dark:text-zinc-100 flex-1 pr-2">
+        <h3 className="font-medium text-zinc-900 dark:text-zinc-100 flex-1 pr-2 truncate">
           {task.name}
         </h3>
         <div className="relative">
@@ -132,6 +133,17 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
                 ⚪ Low
               </button>
               <div className="border-t border-zinc-200 dark:border-zinc-700 my-1"></div>
+              {onEdit && (
+                <button
+                  onClick={() => {
+                    onEdit(task);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300"
+                >
+                  ✏️ Edit Task
+                </button>
+              )}
               <button
                 onClick={handleDeleteClick}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
@@ -163,17 +175,15 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange }) => {
         {/* Dependencies Indicator */}
         {task.dependencies && task.dependencies.length > 0 && (
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-help${
               task.canComplete
                 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                : "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
             }`}
             title={
               task.canComplete
-                ? "All dependencies complete"
-                : `${task.incompleteDependencyCount || 0} incomplete ${
-                    task.incompleteDependencyCount === 1 ? "dependency" : "dependencies"
-                  }`
+                 ? `All ${task.dependencies.length} dependencies complete:\n${task.dependencies.map(d => `• ${d.title}`).join('\n')}`
+                : `${task.dependencies.filter(d => d.status !== 'done').length} incomplete dependencies:\n${task.dependencies.filter(d => d.status !== 'done').map(d => `• ${d.title}`).join('\n')}`
             }
           >
             🔗 {task.dependencies.length}

@@ -22,4 +22,5 @@ urlpatterns = [
     path("download/<str:file_key>/", views.download_file, name="download"),
     path("delete/<str:file_key>/", views.delete_file, name="delete"),
     path("list/", views.list_files, name="list"),
+    path("latest/", LatestResourcesView.as_view(), name="latest-resources"),
 ]

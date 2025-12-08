@@ -1,35 +1,59 @@
 import React, { useState, useEffect } from "react";
 import { type Task, type TaskDependency } from "../../types";
-import { fetchWorkspaceMembers, type WorkspaceMemberExtended } from "../../lib/api";
 import DependencySelector from "../tasks/DependencySelector";
+import { getWorkspaceMembers, getAvailableTasks } from "../tasks/TaskApi";
+import { useAccessToken } from "../../auth/useAccessToken";
 
 interface Props {
   onClose: () => void;
-  onCreate: (task: Task) => void;
-  availableTasks?: Task[]; // For dependency selection
+  onCreate?: (task: Task) => void;
+  onUpdate?: (taskId: string, updates: Partial<Task>) => void;
+  task?: Task; // Existing task for edit mode
+  mode?: "create" | "edit";
+  availableTasks?: Task[]; // Optional - kept for backwards compatibility but not used
 }
 
-const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) => {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
-  const [tags, setTags] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<number | null>(null);
-  const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>([]);
-
-  const [workspaceMembers, setWorkspaceMembers] = useState<WorkspaceMemberExtended[]>([]);
+const TaskModal: React.FC<Props> = ({
+  onClose,
+  onCreate,
+  onUpdate,
+  task,
+  mode = "create"
+}) => {
+  const [name, setName] = useState(task?.name || "");
+  const [description, setDescription] = useState(task?.description || "");
+  const [dueDate, setDueDate] = useState(task?.dueDate || "");
+  const [priority, setPriority] = useState<"high" | "medium" | "low">(task?.priority || "medium");
+  const [tags, setTags] = useState<string>(task?.tags?.join(", ") || "");
+  const [assigneeId, setAssigneeId] = useState<number | null>(task?.assignedToId || null);
+  const [selectedDependencies, setSelectedDependencies] = useState<TaskDependency[]>(task?.dependencies || []);
+  const token = useAccessToken(); 
+  
+  const [workspaceMembers, setWorkspaceMembers] = useState<Array<{
+    id: number;
+    email: string;
+    full_name: string;
+    first_name?: string;
+    last_name?: string;
+  }>>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  
+  // NEW: State for available tasks
+  const [availableTasks, setAvailableTasks] = useState<Array<{
+    id: number;
+    title: string;
+    status: string;
+    priority: number;
+  }>>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
   // Fetch workspace members on mount
   useEffect(() => {
     const loadMembers = async () => {
+      if (!token) return;
       try {
-        const workspaceId = localStorage.getItem("cd.workspace");
-        if (workspaceId) {
-          const members = await fetchWorkspaceMembers(workspaceId);
-          setWorkspaceMembers(members);
-        }
+        const members = await getWorkspaceMembers(token);
+        setWorkspaceMembers(members);
       } catch (error) {
         console.error("Failed to load workspace members:", error);
       } finally {
@@ -37,33 +61,91 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
       }
     };
     loadMembers();
-  }, []);
+  }, [token]);
 
-  const handleSubmit = () => {
+  // NEW: Fetch available tasks for dependencies
+  useEffect(() => {
+    const loadAvailableTasks = async () => {
+      if (!token) return;
+      try {
+        // Exclude current task when editing to prevent self-dependency
+        const tasks = await getAvailableTasks(token, mode === "edit" && task ? String(task.id) : undefined);
+        setAvailableTasks(tasks);
+      } catch (error) {
+        console.error("Failed to load available tasks:", error);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    loadAvailableTasks();
+  }, [token, mode, task]);
+
+  // Convert available tasks to frontend format for DependencySelector
+  const formattedAvailableTasks: Task[] = availableTasks.map(t => ({
+    id: String(t.id),
+    name: t.title,
+    status: t.status as "todo" | "in-progress" | "done",
+    priority: t.priority === 1 ? "high" : t.priority === 2 ? "medium" : "low",
+    description: "",
+    dueDate: "",
+    tags: [],
+  }));
+
+  const handleSubmit = async () => {
     if (!name.trim()) {
       alert("Please enter a task name");
       return;
     }
 
     const selectedMember = workspaceMembers.find(m => m.id === assigneeId);
-
     const incompleteDeps = selectedDependencies.filter(d => d.status !== 'done').length;
+    const processedTags = tags.split(",").map((t) => t.trim()).filter(Boolean);
 
-    const newTask: Task = {
-      id: Date.now().toString(),
-      name,
-      description,
-      dueDate,
-      priority,
-      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      status: "todo",
-      assignedToId: assigneeId || undefined,
-      assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
-      dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
-      canComplete: incompleteDeps === 0,
-      incompleteDependencyCount: incompleteDeps,
-    };
-    onCreate(newTask);
+    if (mode === "edit" && task && onUpdate) {
+      // Edit mode: call onUpdate with changes
+      const updates: Partial<Task> = {
+        name,
+        description,
+        dueDate,
+        priority,
+        tags: processedTags,
+        assignedToId: assigneeId || undefined,
+        assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
+        dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
+        canComplete: incompleteDeps === 0,
+        dependencyIds: selectedDependencies.map(d => d.id),
+        incompleteDependencyCount: incompleteDeps,
+      };
+      try {
+  await onUpdate(task.id, updates);
+} catch (error) {
+  console.error("Error in modal:", error);
+  // Error is already handled in Tasks.tsx
+}
+    } else if (mode === "create" && onCreate) {
+      // Create mode: call onCreate with new task
+      const newTask: Task = {
+        id: Date.now().toString(),
+        name,
+        description,
+        dueDate,
+        priority,
+        tags: processedTags,
+        status: "todo",
+        assignedToId: assigneeId || undefined,
+        assignedTo: selectedMember ? selectedMember.full_name || selectedMember.email : undefined,
+        dependencies: selectedDependencies.length > 0 ? selectedDependencies : undefined,
+        canComplete: incompleteDeps === 0,
+        dependencyIds: selectedDependencies.map(d => d.id),
+        incompleteDependencyCount: incompleteDeps,
+      };
+      try {
+  await onCreate(newTask);
+} catch (error) {
+  console.error("Error in modal:", error);
+  // Error is already handled in Tasks.tsx
+}
+    }
   };
 
   return (
@@ -78,12 +160,12 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
           <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Create New Task
+            {mode === "edit" ? "Edit Task" : "Create New Task"}
           </h2>
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Task Name */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -152,9 +234,9 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                            transition-all"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
                 <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
           </div>
@@ -210,14 +292,19 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
 
           {/* Dependencies */}
           <DependencySelector
-            availableTasks={availableTasks}
+            availableTasks={formattedAvailableTasks}
             selectedDependencies={selectedDependencies}
             onAdd={(taskId) => {
-              const task = availableTasks.find(t => t.id === taskId);
-              if (task) {
+              const foundTask = formattedAvailableTasks.find(t => t.id === taskId);
+              if (foundTask) {
                 setSelectedDependencies([
                   ...selectedDependencies,
-                  { id: task.id, title: task.name, status: task.status }
+                  { 
+                    id: foundTask.id, 
+                    title: foundTask.name, 
+                    status: foundTask.status, 
+                    priority: foundTask.priority
+                  }
                 ]);
               }
             }}
@@ -225,6 +312,11 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
               setSelectedDependencies(selectedDependencies.filter(d => d.id !== taskId));
             }}
           />
+          {loadingTasks && (
+            <p className="text-xs text-zinc-500">
+              Loading available tasks...
+            </p>
+          )}
         </div>
 
         {/* Footer */}
@@ -232,7 +324,7 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300
-                       hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                       hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
           >
             Cancel
           </button>
@@ -240,9 +332,9 @@ const TaskModal: React.FC<Props> = ({ onClose, onCreate, availableTasks = [] }) 
             onClick={handleSubmit}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white
                        text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-100
-                       transition-colors"
+                       transition-colors whitespace-nowrap"
           >
-            Create Task
+            {mode === "edit" ? "Save Changes" : "Create Task"}
           </button>
         </div>
       </div>

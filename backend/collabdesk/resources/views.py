@@ -1,6 +1,7 @@
 import os
 import boto3
 import logging
+import uuid
 from rest_framework import generics, status
 from django.conf import settings
 from rest_framework.views import APIView
@@ -35,7 +36,6 @@ class ResourceDownloadView(APIView):
         except Resource.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         key = resource.file.name
-        print(key)
 
         # If an S3 bucket is configured, generate a presigned S3 URL.
         if getattr(settings, "AWS_STORAGE_BUCKET_NAME", None):
@@ -305,11 +305,9 @@ def download_file(request, file_key):
     # file_key is either a UUID (profile_id) or an S3 key string
     # Try to find Resource by UUID first
     try:
-        import uuid as uuid_lib
-
         try:
             # Try to parse as UUID
-            resource_uuid = uuid_lib.UUID(file_key)
+            resource_uuid = uuid.UUID(file_key)
             resource = Resource.objects.get(profile_id=resource_uuid)
             # Use the file field value as the S3 key
             s3_key = resource.file.name
@@ -342,11 +340,9 @@ def delete_file(request, file_key):
     # file_key is either a UUID (profile_id) or an S3 key string
     # Try to find and delete Resource by UUID first
     try:
-        import uuid as uuid_lib
-
         try:
             # Try to parse as UUID
-            resource_uuid = uuid_lib.UUID(file_key)
+            resource_uuid = uuid.UUID(file_key)
             resource = Resource.objects.get(profile_id=resource_uuid)
             # Use the file field value as the S3 key
             s3_key = resource.file.name
@@ -398,3 +394,27 @@ def list_files(request):
             {"success": False, "error": result.get("error", "Unknown error occurred")},
             status=500,
         )
+
+
+class LatestResourcesView(generics.ListAPIView):
+    serializer_class = ResourceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
+
+    def get_queryset(self):
+        request = self.request
+        user = request.user
+
+        # If workspace context available
+        if hasattr(request, "workspace") and request.workspace:
+            qs = Resource.objects.filter(workspace=request.workspace)
+        else:
+            # fallback: all user's workspaces
+            user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
+            qs = Resource.objects.filter(workspace_id__in=user_workspaces)
+
+        # Latest 3 updated resources
+        return qs.order_by("-uploaded")[:3]

@@ -132,10 +132,10 @@ export function Resources({ workspace, currentUserId }: { workspace: string; cur
           </h1>
           <button
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
           >
             <svg
-              className="w-4 h-4"
+              className="w-4 h-4 shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -152,9 +152,9 @@ export function Resources({ workspace, currentUserId }: { workspace: string; cur
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 w-full sm:min-w-[200px]">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"
               fill="none"
@@ -181,7 +181,7 @@ export function Resources({ workspace, currentUserId }: { workspace: string; cur
           <select
             value={selectedFileType}
             onChange={(e) => setSelectedFileType(e.target.value)}
-            className="px-3 py-2 text-sm rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
+            className="px-3 py-2 text-sm rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 min-w-[120px] shrink"
           >
             <option value="">All Types</option>
             {availableFileTypes.map((type) => (
@@ -195,7 +195,7 @@ export function Resources({ workspace, currentUserId }: { workspace: string; cur
           <select
             value={selectedTag}
             onChange={(e) => setSelectedTag(e.target.value)}
-            className="px-3 py-2 text-sm rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
+            className="px-3 py-2 text-sm rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 min-w-[120px] shrink"
           >
             <option value="">All Tags</option>
             {availableTags.map((tag) => (

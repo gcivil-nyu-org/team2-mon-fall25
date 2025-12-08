@@ -61,6 +61,7 @@ const Tasks: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [view, setView] = useState<"board" | "list">("board");
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Get all unique tags from tasks
   const allTags = useMemo(() => {
@@ -141,42 +142,55 @@ const Tasks: React.FC = () => {
       console.error(err);
     }
   };
-//   const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
-//   try {
-//     await updateTask(id, updates);
-//     const data = await getTasks();
-//     setTasks(data);
-//   } catch (err) {
-//     console.error(err);
-//   }
-// };
-
-//   const handleDeleteTask = async (id: string | number) => {
-//   try {
-//     await deleteTask(id);
-//     const data = await getTasks();
-//     setTasks(data);
-//   } catch (err) {
-//     console.error(err);
-//   }
-// };
-
-  const handleTaskStatusChange = async (taskId: string, newStatus: Task["status"]) => {
+  const handleUpdateTask = async (id: string, updates: Partial<Task>) => {
   try {
-    // Optimistically update UI
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
-
-    // Update backend
-    await updateTask(taskId, { status: newStatus }, token);
-  } catch (err) {
-    console.error(err);
+    await updateTask(id, updates, token);
+    const data = await getTasks(token);
+    setTasks(data);
+    setEditingTask(null);
+    setShowModal(false);
+  } catch (err: any) {
+    console.error("❌ Error updating task:", err);
+    
+    let errorMessage = "Failed to update task.";
+    if (err.message) {
+      errorMessage = err.message;
+    }
+    
+    if (errorMessage.includes("circular dependency")) {
+      alert("❌ Cannot save changes:\n\nThis would create a circular dependency. A task cannot depend on another task that depends on it.\n\nPlease remove the conflicting dependency and try again.");
+    } else if (errorMessage.includes("must be completed first")) {
+      alert("❌ Cannot mark as done:\n\n" + errorMessage);
+    } else {
+      alert("❌ Error: " + errorMessage);
+    }
+    
+    // Don't close modal - let user fix the issue
   }
 };
 
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setShowModal(true);
+  };
+
+  const handleTaskStatusChange = async (taskId: string, newStatus: Task["status"]) => {
+    try {
+      // 1. Update the status on the backend
+      await updateTask(taskId, { status: newStatus }, token);
+
+      // 2. REFRESH ALL TASKS: This is the crucial step. 
+      //    It ensures all dependent tasks get the latest data,
+      //    updating their dependency status (e.g., canComplete).
+      const data = await getTasks(token);
+      setTasks(data);
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update task status.");
+      // Optional: If you had done an optimistic update, you'd revert it here.
+    }
+  };
 
   const handleTaskPriorityChange = async (
   taskId: string,
@@ -219,9 +233,9 @@ const Tasks: React.FC = () => {
       <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 mb-6">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
           {/* Left side - Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full">
+          <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full lg:w-auto">
             {/* Search Bar */}
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 sm:min-w-[180px] lg:min-w-[200px]">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"
                 fill="none"
@@ -253,7 +267,7 @@ const Tasks: React.FC = () => {
               className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700
                          bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100
                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         transition-all text-sm min-w-[140px]"
+                         transition-all text-sm min-w-[120px] lg:min-w-[140px] shrink"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -268,7 +282,7 @@ const Tasks: React.FC = () => {
               className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700
                          bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100
                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         transition-all text-sm min-w-[140px]"
+                         transition-all text-sm min-w-[120px] lg:min-w-[140px] shrink"
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
             >
@@ -283,7 +297,7 @@ const Tasks: React.FC = () => {
               className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700
                          bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100
                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         transition-all text-sm min-w-[140px]"
+                         transition-all text-sm min-w-[120px] lg:min-w-[140px] shrink"
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
             >
@@ -297,7 +311,7 @@ const Tasks: React.FC = () => {
           </div>
 
           {/* Right side - View Toggle and New Task Button */}
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center shrink-0">
             {/* View Toggle */}
             <div className="inline-flex rounded-lg border border-zinc-300 dark:border-zinc-700 p-0.5">
               <button
@@ -327,10 +341,11 @@ const Tasks: React.FC = () => {
               onClick={() => setShowModal(true)}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium
                          bg-black dark:bg-white text-white dark:text-black
-                         hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
+                         hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors
+                         whitespace-nowrap shrink-0"
             >
               <svg
-                className="w-4 h-4"
+                className="w-4 h-4 shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -420,6 +435,7 @@ const Tasks: React.FC = () => {
     onTaskPriorityChange={handleTaskPriorityChange} // Priority change works
     onQuickAdd={handleQuickAddTask}                 // Quick add from columns
     onOpenFullModal={() => setShowModal(true)}      // Open full modal for details
+    onEdit={handleEditTask}                         // Edit task
   />
 ) : (
   <TaskList
@@ -427,14 +443,21 @@ const Tasks: React.FC = () => {
     onTaskStatusChange={handleTaskStatusChange}
     onTaskDelete={handleTaskDelete}
     onTaskPriorityChange={handleTaskPriorityChange}
+    onEdit={handleEditTask}                         // Edit task
   />
 )}
 
       {/* Modal */}
       {showModal && (
         <TaskModal
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setEditingTask(null);
+          }}
           onCreate={handleCreateTask}
+          onUpdate={handleUpdateTask}
+          task={editingTask || undefined}
+          mode={editingTask ? "edit" : "create"}
           availableTasks={tasks}
         />
       )}
