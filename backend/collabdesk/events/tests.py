@@ -6,16 +6,17 @@ from datetime import timedelta
 from django.utils import timezone
 from django.test import TestCase
 from .models import Event, EventParticipant
-from workspaces.models import Workspace, WorkspaceMember
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 from django.test import override_settings
 from django.conf import settings
 from unittest.mock import patch, MagicMock
 from rest_framework import status
 from .serializers import EventSerializer
 from .views import RecommendTimeSlots
+from users.models import User
+from workspaces.models import Workspace, WorkspaceMember
 
 
 def createDefaultEvent():
@@ -1135,3 +1136,165 @@ class RSVPTests(TestCase):
         self.assertEqual(summary["accepted"], 1)  # Creator
         self.assertEqual(summary["declined"], 1)  # Attendee
         self.assertEqual(summary["pending"], 0)
+
+
+class LatestEventsViewTests(APITestCase):
+
+    def setUp(self):
+        # Create user
+        self.user = User.objects.create_user(
+            email="test@example.com", username="testuser", password="password123"
+        )
+
+        # Create workspace WITH created_by
+        self.workspace = Workspace.objects.create(
+            name="Workspace A", created_by=self.user
+        )
+
+        # Add membership
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="member"
+        )
+
+        # Authenticate user
+        self.client.force_authenticate(self.user)
+
+        # Endpoint url
+        self.url = reverse(
+            "events:event-latest"
+        )  # make sure this name matches your urls.py
+
+    #
+    # 1️⃣ AUTH REQUIREMENT
+    #
+    def test_requires_authentication(self):
+        """Unauthenticated requests should return 403 (forbidden)."""
+        unauth_client = APIClient()
+
+        response = unauth_client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    #
+    # Utility function to create an event quickly
+    #
+    def _create_event(self, title, minutes_delta):
+        return Event.objects.create(
+            title=title,
+            description="Test event",
+            start_time=timezone.now() + timedelta(minutes=minutes_delta),
+            end_time=timezone.now() + timedelta(minutes=minutes_delta + 60),
+            event_type="GROUP",
+            location="Room 101",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+
+    #
+    # 2️⃣ RETURN ONLY EVENTS FROM SELECTED WORKSPACE
+    #
+    def test_returns_only_workspace_events(self):
+        """Only events belonging to the selected workspace should be returned."""
+
+        # Another workspace
+        other_ws = Workspace.objects.create(name="Other WS", created_by=self.user)
+
+        # Event in other workspace (should NOT appear)
+        Event.objects.create(
+            title="Other WS Event",
+            description="X",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            event_type="GROUP",
+            location="X",
+            created_by=self.user,
+            workspace=other_ws,
+        )
+
+        # Events in this workspace
+        e1 = self._create_event("A", 10)
+        e2 = self._create_event("B", 20)
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [e["title"] for e in response.json()]
+
+        self.assertIn("A", titles)
+        self.assertIn("B", titles)
+        self.assertNotIn("Other WS Event", titles)
+
+    #
+    # 3️⃣ NO WORKSPACE HEADER → RETURN FROM ALL USER'S WORKSPACES
+    #
+    def test_no_workspace_header_returns_all_user_workspaces(self):
+        """If no workspace header is used, return events from all user's workspaces."""
+
+        # Create another workspace user belongs to
+        ws2 = Workspace.objects.create(name="WS2", created_by=self.user)
+        WorkspaceMember.objects.create(workspace=ws2, user=self.user, role="member")
+
+        # Event in WS1
+        e1 = self._create_event("WS1 Event", 15)
+
+        # Event in WS2
+        e2 = Event.objects.create(
+            title="WS2 Event",
+            description="Event 2",
+            start_time=timezone.now() + timedelta(minutes=30),
+            end_time=timezone.now() + timedelta(minutes=90),
+            event_type="GROUP",
+            location="Loc",
+            created_by=self.user,
+            workspace=ws2,
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [e["title"] for e in response.json()]
+
+        self.assertIn("WS1 Event", titles)
+        self.assertIn("WS2 Event", titles)
+
+    #
+    # 4️⃣ EVENTS SORTED BY START_TIME ASCENDING
+    #
+    def test_events_sorted_by_start_time(self):
+        """Events must be sorted by start_time ascending."""
+
+        e3 = self._create_event("C", 30)
+        e1 = self._create_event("A", 5)
+        e2 = self._create_event("B", 10)
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        titles = [e["title"] for e in response.json()]
+
+        self.assertEqual(titles, ["A", "B", "C"])
+
+    #
+    # 5️⃣ LIMIT TO 3 EVENTS ONLY
+    #
+    def test_limits_to_three_events(self):
+        """The API must return only the latest 3 upcoming events."""
+
+        self._create_event("E1", 10)
+        self._create_event("E2", 20)
+        self._create_event("E3", 30)
+        self._create_event("E4", 40)  # Should NOT appear
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        titles = [e["title"] for e in response.json()]
+
+        self.assertEqual(len(titles), 3)
+        self.assertNotIn("E4", titles)
