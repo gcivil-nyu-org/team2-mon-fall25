@@ -2,21 +2,96 @@
 <html>
 <head>
     <title>Event Invitation: {{ event.title }}</title>
+    <style>
+        /* Global styles for better readability */
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f4f4f4; /* Light background for the whole email */
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        /* Container for the main content box */
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            padding: 20px 30px;
+            background-color: #ffffff; /* White background for the content */
+            border-radius: 8px; /* Soft rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+            border-top: 5px solid #007bff; /* Primary color accent border */
+        }
+        /* Header/Title styling */
+        h2 {
+            color: #333333;
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eeeeee;
+        }
+        /* Highlight for important details */
+        .detail-item {
+            margin-bottom: 10px;
+            color: #555555;
+            line-height: 1.6;
+        }
+        .detail-item strong {
+            color: #333333;
+            display: inline-block;
+            width: 80px; /* Aligns the labels */
+        }
+        /* Call to Action area */
+        .cta-area {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #eeeeee;
+        }
+        /* Footer/Sign-off */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #dddddd;
+            color: #aaaaaa;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <p>Hello,</p>
-    <p>You have been invited to a new event!</p>
     
-    <h2>{{ event.title }}</h2>
-    
-    <p><strong>Hosted by:</strong> {{ creator_name }}</p>
-    <p><strong>When:</strong> {{ start_time }} - {{ end_time }}</p>
-    
-    <p>
-        Please respond to the invitation in your calendar.
-    </p>
+    <div class="container">
+        
+        <p style="font-size: 16px; color: #333333;">Hello,</p>
+        <p style="font-size: 18px; color: #555555;">You have been invited to a new event!</p>
+        
+        <h2>{{ event.title }}</h2>
+        
+        <div class="detail-item">
+            <strong>Hosted by:</strong> {{ creator_name }}
+        </div>
+        
+        <div class="detail-item">
+            <strong>When:</strong> {{ start_time }} - {{ end_time }}
+        </div>
+        
+        <div class="cta-area">
+            <p style="margin: 0; color: #007bff; font-weight: bold;">
+                <a href="#" style="color: #007bff; text-decoration: none;">
+                    Check your calendar to respond to the invitation.
+                </a>
+            </p>
+        </div>
 
-    <p>Thanks,<br>
-    The Collabdesk Team</p>
+        <div class="footer">
+            <p style="margin-bottom: 0;">Thanks,</p>
+            <p style="margin-top: 2px;">Collabdesk Team</p>
+        </div>
+        
+    </div>
+    
 </body>
 </html>
