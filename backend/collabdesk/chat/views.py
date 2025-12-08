@@ -9,8 +9,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from collabdesk.middleware import set_workspace_context
 from resources.s3_utils import upload_file_to_s3
+from notes.models import Note
 from .models import ChatDocument, AIConversation
 from .serializers import (
     ChatDocumentSerializer,
@@ -351,7 +353,7 @@ class SaveToNotesView(APIView):
         set_workspace_context(request)
 
     def post(self, request, pk):
-        """Mark conversation as saved to notes"""
+        """Save AI conversation as a note in the notes app"""
         user = request.user
 
         # Validate workspace context
@@ -367,18 +369,43 @@ class SaveToNotesView(APIView):
                 AIConversation, id=pk, user=user, workspace=request.workspace
             )
 
-            # Update saved_to_notes flag
-            conversation.saved_to_notes = True
-            conversation.save()
+            # Check if already saved to notes
+            if conversation.saved_to_notes:
+                return Response(
+                    {"error": "This conversation has already been saved to notes"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Use transaction to ensure both operations succeed or fail together
+            with transaction.atomic():
+                # Create a new Note with the AI conversation content
+                note = Note.objects.create(
+                    owner=user,
+                    workspace=request.workspace,
+                    title=conversation.title,
+                    content=conversation.ai_response,
+                    tags=["ai-generated", conversation.action_type],
+                )
+
+                # Update saved_to_notes flag
+                conversation.saved_to_notes = True
+                conversation.save()
 
             serializer = AIConversationSerializer(conversation)
 
             logger.info(
-                f"Conversation marked as saved to notes: {conversation.title} "
-                f"by user={user.email}"
+                f"Conversation saved to notes: {conversation.title} "
+                f"(note_id={note.id}) by user={user.email}"
             )
 
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "conversation": serializer.data,
+                    "note_id": note.id,
+                    "message": "Successfully saved to notes",
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except AIConversation.DoesNotExist:
             return Response(
