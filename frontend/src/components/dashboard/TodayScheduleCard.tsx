@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { type BackendEvent, fetchEvents } from "../../lib/api";
-import { format, isToday, isBefore, isAfter } from "date-fns";
+import { format, isToday, isAfter } from "date-fns";
 
 interface TodayScheduleCardProps {
   onEventClick?: (eventId: string) => void;
@@ -135,10 +135,6 @@ export function TodayScheduleCard({ onEventClick, onNavigate }: TodayScheduleCar
           {todayEvents.map((event, index) => {
             const startTime = new Date(event.start_time);
             const endTime = new Date(event.end_time);
-            const isNext = index === nextEventIndex;
-            const isPast = isBefore(endTime, new Date());
-            const isOngoing =
-              isAfter(new Date(), startTime) && isBefore(new Date(), endTime);
 
             // Calculate duration in minutes
             const durationMinutes = Math.round(

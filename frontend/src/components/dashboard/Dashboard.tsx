@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceInfoCard } from "./WorkspaceInfoCard";
-import { UpcomingEventsCard } from "./UpcomingEventsCard";
-import { LatestResourcesCard } from "./LatestResourcesCard";
 import { TaskSummaryCard } from "./TaskSummaryCard";
 import { TodayScheduleCard } from "./TodayScheduleCard";
 import { EventDetailsModal, type CalEvent } from "../modals/EventDetailsModal";
-import { fetchWorkspaceInformation, fetchCurrentUser, fetchUpcomingEvents, fetchLatestResources, fetchEventById, type Workspace } from "../../lib/api";
+import { fetchWorkspaceInformation, fetchCurrentUser, fetchEventById, type Workspace } from "../../lib/api";
 import { getMessages, formatRelativeTime, type Message } from "../messageboard/MessageBoardApi";
 import { parseISO } from "date-fns";
 
@@ -24,8 +22,6 @@ export function Dashboard({
   const [currentUserId, setCurrentUserId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
-  const [latestResources, setLatestResources] = useState<any[]>([]);
   const [recentMessages, setRecentMessages] = useState<Message[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [eventModalOpen, setEventModalOpen] = useState(false);
@@ -45,39 +41,6 @@ export function Dashboard({
 
     loadCurrentUser();
   }, [isAuthenticated, authLoading]);
-
-  // Fetch latest resources
-useEffect(() => {
-  if (!isAuthenticated) return;
-
-  const loadResources = async () => {
-    try {
-      const data = await fetchLatestResources();
-      setLatestResources(data);
-    } catch (err) {
-      console.error("Failed to fetch latest resources:", err);
-    }
-  };
-
-  loadResources();
-}, [isAuthenticated]);
-
-// Fetch latest 3 events for the dashboard
-useEffect(() => {
-  if (!isAuthenticated) return;
-
-  const loadEvents = async () => {
-    try {
-      const data = await fetchUpcomingEvents();
-      setUpcomingEvents(data);
-    } catch (err) {
-      console.error("Failed to fetch latest events:", err);
-    }
-  };
-
-  loadEvents();
-}, [isAuthenticated]);
-
 
   useEffect(() => {
     if (authLoading) return; // Wait for Auth0 to finish checking
@@ -137,7 +100,6 @@ useEffect(() => {
         title: backendEvent.title,
         start: parseISO(backendEvent.start_time),
         end: parseISO(backendEvent.end_time),
-        kind: backendEvent.event_kind as "meeting" | "unavailable",
         description: backendEvent.description,
         location: backendEvent.location,
         createdBy: backendEvent.created_by,
