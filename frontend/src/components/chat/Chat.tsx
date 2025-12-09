@@ -246,17 +246,17 @@ export function Chat() {
 
   // Show chat interface
   return (
-    <div className="flex-1 flex flex-col gap-4">
+    <>
       {/* Error banner */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl mb-4">
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </div>
       )}
 
-      <div className="flex gap-6 min-h-[700px]">
+      <div className="flex gap-6">
         {/* Main Content Card */}
-        <div className="flex-1 flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden min-h-[700px]">
+        <div className="flex-1 flex flex-col rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <svg className="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24">
@@ -339,6 +339,6 @@ export function Chat() {
         onDiscard={handleDiscardAndNew}
         documentName={currentDocument?.name}
       />
-    </div>
+    </>
   );
 }
