@@ -568,7 +568,7 @@ export default function App() {
             <MessageBoard openThreadMessageId={openThreadMessageId} />
           ) : current === "chat" ? (
             <>
-              <header className="mb-3">
+              <header className="mb-6">
                 <h1 className="text-2xl font-semibold">AI Chat</h1>
               </header>
               <Chat />

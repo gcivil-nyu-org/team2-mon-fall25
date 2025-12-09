@@ -99,7 +99,7 @@ export function DocumentUploadZone({ onUpload, isUploading }: DocumentUploadZone
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[500px]">
+    <div className="flex-1 flex items-center justify-center py-12 px-6">
       <div className="max-w-2xl w-full space-y-6">
         {/* Step 1: Choose Action Type */}
         <div className="space-y-3">
