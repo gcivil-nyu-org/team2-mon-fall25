@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "./MessageBoardApi";
 import { useAuth0 } from "@auth0/auth0-react";
-import { fetchAllUsers } from "../../lib/api";
-import type { User as ApiUser } from "../../lib/api";
+// import { fetchAllUsers } from "../../lib/api";
+// import type { User as ApiUser } from "../../lib/api";
 import { useDebounce } from './useDebounce';
 import {
   getMessages,
