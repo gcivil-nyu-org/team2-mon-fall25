@@ -39,6 +39,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   const messageEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
   const lastMessageIdRef = useRef<string | null>(null);
+  const [reactingMessageIds, setReactingMessageIds] = useState<Set<string>>(new Set());
 
   // Track current workspace to trigger reload on workspace change
   const [currentWorkspace, setCurrentWorkspace] = useState<string>(() =>
@@ -78,22 +79,70 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
   }, [currentWorkspace]);
 
   // Load all users for mentions
+  // useEffect(() => {
+  //   const loadAllUsers = async () => {
+  //     try {
+  //       const usersData = await fetchAllUsers();
+  //       const map = new Map<string, string>();
+  //       usersData.forEach((u: ApiUser) => {
+  //         map.set(String(u.id), u.full_name);
+  //       });
+  //       setUserMap(map);
+  //     } catch (error) {
+  //       console.error("Failed to load all users:", error);
+  //     }
+  //   };
+  //   loadAllUsers();
+  // }, []);
   useEffect(() => {
-    const loadAllUsers = async () => {
-      try {
-        const usersData = await fetchAllUsers();
-        const map = new Map<string, string>();
-        usersData.forEach((u: ApiUser) => {
-          map.set(String(u.id), u.full_name);
-        });
-        setUserMap(map);
-      } catch (error) {
-        console.error("Failed to load all users:", error);
-      }
-    };
-    loadAllUsers();
-  }, []);
+  const loadWorkspaceMembers = async () => {
+    if (!currentWorkspace) {
+      console.log("No workspace selected, skipping user load");
+      setUserMap(new Map());
+      return;
+    }
 
+    try {
+      const token = await getAccessTokenSilently();
+      
+      // Fetch workspace members instead of all users
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/api/workspaces/${currentWorkspace}/members/`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "X-Workspace-ID": currentWorkspace,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workspace members: ${response.statusText}`);
+      }
+
+      const membersData = await response.json();
+      const map = new Map<string, string>();
+      
+      // Handle different possible response formats
+      const members = Array.isArray(membersData) ? membersData : membersData.members || [];
+      
+      members.forEach((member: any) => {
+        // Handle different user object structures
+        const userId = String(member.user?.id || member.id || member.user_id);
+        const userName = member.user?.full_name || member.full_name || member.user?.name || member.name || "Unknown User";
+        map.set(userId, userName);
+      });
+      
+      setUserMap(map);
+      console.log(`Loaded ${map.size} workspace members`);
+    } catch (error) {
+      console.error("Failed to load workspace members:", error);
+      setUserMap(new Map());
+    }
+  };
+
+  loadWorkspaceMembers();
+}, [currentWorkspace, getAccessTokenSilently]);
   // Load messages
   const loadMessages = useCallback(async () => {
     if (!currentWorkspace || userMap.size === 0) {
@@ -249,67 +298,105 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
     }
   };
 
-  const handleReaction = async (messageId: string, emoji: string) => {
-    const messageToUpdate = messages.find((m) => m.id === messageId);
-    if (!messageToUpdate) return;
-    const hasReacted = messageToUpdate.reactions.some(
-      (r) => r.emoji === emoji && r.users.includes(currentUser.id)
-    );
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== messageId) return m;
+const handleReaction = async (messageId: string, emoji: string) => {
+  // Prevent multiple simultaneous reactions on the same message
+  const reactionKey = `${messageId}-${emoji}`;
+  if (reactingMessageIds.has(reactionKey)) {
+    return;
+  }
 
-        let newReactions = [...m.reactions];
+  const messageToUpdate = messages.find((m) => m.id === messageId);
+  if (!messageToUpdate) return;
+  
+  const currentUserIdString = String(currentUser.id);
+  const hasReacted = messageToUpdate.reactions.some(
+    (r) => r.emoji === emoji && r.users.some(uid => String(uid) === currentUserIdString)
+  );
 
-        if (hasReacted) {
-          newReactions = newReactions
-            .map((r) =>
-              r.emoji === emoji
-                ? {
-                  ...r,
-                  users: r.users.filter((u) => u !== currentUser.id),
-                  count: r.users.filter((u) => u !== currentUser.id).length,
-                }
-                : r
-            )
-            .filter((r) => r.count > 0);
-        } else {
-          const existing = newReactions.find((r) => r.emoji === emoji);
-          if (existing) {
-            if (!existing.users.includes(currentUser.id)) {
-              existing.users.push(currentUser.id);
-              existing.count = existing.users.length;
-            }
-          } else {
-            newReactions.push({ emoji, users: [currentUser.id], count: 1 });
-          }
-        }
+  // Mark as processing
+  setReactingMessageIds(prev => new Set(prev).add(reactionKey));
 
-        return { ...m, reactions: newReactions };
-      })
-    );
+  // Optimistically update UI immediately
+  setMessages((prev) =>
+    prev.map((m) => {
+      if (m.id !== messageId) return m;
 
-    try {
-      const token = await getAccessTokenSilently();
-      let updatedMessageFromServer: Message;
+      let newReactions = [...m.reactions];
+
       if (hasReacted) {
-        updatedMessageFromServer = await removeReaction(messageId, emoji, token);
+        // Remove reaction
+        newReactions = newReactions
+          .map((r) => {
+            if (r.emoji === emoji) {
+              const newUsers = r.users.filter((u) => String(u) !== currentUserIdString);
+              const newUserNames = r.userNames 
+                ? r.userNames.filter((_, idx) => String(r.users[idx]) !== currentUserIdString)
+                : undefined;
+              return {
+                ...r,
+                users: newUsers,
+                userNames: newUserNames,
+                count: newUsers.length,
+              };
+            }
+            return r;
+          })
+          .filter((r) => r.count > 0);
       } else {
-        updatedMessageFromServer = await addReaction(messageId, emoji, token);
+        // Add reaction
+        const existing = newReactions.find((r) => r.emoji === emoji);
+        if (existing) {
+          if (!existing.users.some(u => String(u) === currentUserIdString)) {
+            existing.users = [...existing.users, currentUser.id];
+            existing.userNames = existing.userNames 
+              ? [...existing.userNames, currentUser.name]
+              : [currentUser.name];
+            existing.count = existing.users.length;
+          }
+        } else {
+          newReactions.push({ 
+            emoji, 
+            users: [currentUser.id], 
+            userNames: [currentUser.name],
+            count: 1 
+          });
+        }
       }
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId
-            ? { ...updatedMessageFromServer, author: m.author }
-            : m
-        )
-      );
-    } catch (error) {
-      console.error("Failed to persist message reaction:", error);
-    }
-  };
 
-  const handleUpdate = async () => {
+      return { ...m, reactions: newReactions };
+    })
+  );
+
+  try {
+    const token = await getAccessTokenSilently();
+    
+    if (hasReacted) {
+      await removeReaction(messageId, emoji, token);
+    } else {
+      await addReaction(messageId, emoji, token);
+    }
+    
+    // Don't overwrite with server response - optimistic update is enough
+    // Only sync if there's an error
+  } catch (error) {
+    console.error("Failed to persist message reaction:", error);
+    
+    // Revert the optimistic update on error
+    // setMessages((prev) =>
+    //   prev.map((m) =>
+    //     m.id === messageId ? messageToUpdate : m
+    //   )
+    // );
+  } finally {
+    setReactingMessageIds(prev => {
+      const next = new Set(prev);
+      next.delete(reactionKey);
+      return next;
+    });
+  }
+};
+
+const handleUpdate = async () => {
     if (!threadMessage) return;
 
     const currentParentMessage = messages.find(m => m.id === threadMessage.id);
@@ -418,6 +505,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
             onReaction={handleReaction}
             onReply={(message) => setThreadMessage(message)}
             currentUser={currentUser}
+            userMap={userMap}
           />
           <div ref={messageEndRef} />
           {showNewMessageIndicator && (
@@ -470,6 +558,7 @@ export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: st
         parentMessage={threadMessage}
         onUpdate={handleUpdate}
         updateParentMessageLocally={updateParentMessageLocally}
+        userMap={userMap}  
       />
     </div>
   );

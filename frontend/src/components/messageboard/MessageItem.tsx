@@ -12,6 +12,7 @@ interface MessageItemProps {
   onReaction: (messageId: string, emoji: string) => void;
   onReply?: (message: Message) => void;
   currentUser: { id: string; name: string; email: string };
+  userMap: Map<string, string>;
 }
 
 export function MessageItem({
@@ -21,6 +22,7 @@ export function MessageItem({
   onReaction,
   onReply,
   currentUser,
+  userMap,
 }: MessageItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
@@ -55,60 +57,142 @@ export function MessageItem({
   };
 
   // Highlight @mentions in content
-  const renderContent = () => {
-    if (isEditing) {
-      return (
-        <div className="mt-2">
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 resize-none"
-            rows={3}
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={handleSaveEdit}
-              className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancelEdit}
-              className="px-3 py-1 text-xs rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      );
-    }
+  // const renderContent = () => {
+  //   if (isEditing) {
+  //     return (
+  //       <div className="mt-2">
+  //         <textarea
+  //           value={editContent}
+  //           onChange={(e) => setEditContent(e.target.value)}
+  //           className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 resize-none"
+  //           rows={3}
+  //           autoFocus
+  //         />
+  //         <div className="flex gap-2 mt-2">
+  //           <button
+  //             onClick={handleSaveEdit}
+  //             className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+  //           >
+  //             Save
+  //           </button>
+  //           <button
+  //             onClick={handleCancelEdit}
+  //             className="px-3 py-1 text-xs rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+  //           >
+  //             Cancel
+  //           </button>
+  //         </div>
+  //       </div>
+  //     );
+  //   }
 
-    const parts = message.content.split(/(@[A-Za-z\s\.\-]+?)(?=\s*[,!?;:\n]|$)/g);
+  //   const parts = message.content.split(/(@[A-Za-z\s\.\-]+?)(?=\s*[,!?;:\n]|$)/g);
+  //   return (
+  //     <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap break-words">
+  //       {parts.map((part, index) => {
+  //         if (part.startsWith("@")) {
+  //           return (
+  //             <span
+  //               key={index}
+  //               className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded"
+  //             >
+  //               {part}
+  //             </span>
+  //           );
+  //         }
+  //         return part;
+  //       })}
+  //       {message.isEdited && (
+  //         <span className="text-xs text-zinc-400 dark:text-zinc-600 ml-1">
+  //           (edited)
+  //         </span>
+  //       )}
+  //     </p>
+  //   );
+  // };
+  // Update MessageItem.tsx - renderContent function
+
+// Replace the existing renderContent function with this improved version:
+
+  const renderContent = () => {
+  if (isEditing) {
+    return (
+      <div className="mt-2">
+        <textarea
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 resize-none"
+          rows={3}
+          autoFocus
+        />
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={handleSaveEdit}
+            className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Save
+          </button>
+          <button
+            onClick={handleCancelEdit}
+            className="px-3 py-1 text-xs rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get valid user names
+  const validUserNames = Array.from(userMap.values());
+  const sortedNames = [...validUserNames].sort((a, b) => b.length - a.length);
+  const escapedNames = sortedNames.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  
+  if (escapedNames.length === 0) {
     return (
       <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap break-words">
-        {parts.map((part, index) => {
-          if (part.startsWith("@")) {
-            return (
-              <span
-                key={index}
-                className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded"
-              >
-                {part}
-              </span>
-            );
-          }
-          return part;
-        })}
+        {message.content}
         {message.isEdited && (
-          <span className="text-xs text-zinc-400 dark:text-zinc-600 ml-1">
-            (edited)
-          </span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-600 ml-1">(edited)</span>
         )}
       </p>
     );
-  };
+  }
 
+  const mentionPattern = new RegExp(`(@(?:${escapedNames.join('|')}))(?=\\s|[,!?;:.)]|$)`, 'g');
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionPattern.exec(message.content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ text: message.content.substring(lastIndex, match.index), isMention: false });
+    }
+    parts.push({ text: match[0], isMention: true });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < message.content.length) {
+    parts.push({ text: message.content.substring(lastIndex), isMention: false });
+  }
+
+  return (
+    <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap break-words">
+      {parts.map((part, index) => 
+        part.isMention ? (
+          <span key={index} className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded">
+            {part.text}
+          </span>
+        ) : (
+          <span key={index}>{part.text}</span>
+        )
+      )}
+      {message.isEdited && (
+        <span className="text-xs text-zinc-400 dark:text-zinc-600 ml-1">(edited)</span>
+      )}
+    </p>
+  );
+};
   return (
     <div
       className={`group bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 mb-3 hover:shadow-md transition-all ${
@@ -119,7 +203,7 @@ export function MessageItem({
         {/* Avatar */}
         <div className="flex-shrink-0">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
-            {message.author.charAt(0).toUpperCase()}
+            {(userMap.get(message.authorId) || message.author).charAt(0).toUpperCase()}
           </div>
         </div>
 
@@ -128,7 +212,7 @@ export function MessageItem({
           {/* Header */}
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              {message.author}
+              {userMap.get(message.authorId) || message.author}
             </span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               {formatRelativeTime(message.timestamp)}
@@ -157,7 +241,11 @@ export function MessageItem({
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700"
                         : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                     }`}
-                    title={reaction.users.join(", ")}
+                    title={
+  reaction.userNames 
+    ? reaction.userNames.join(", ") // Use stored names from backend
+    : reaction.users.map((uid) => userMap.get(uid) ?? (uid === currentUser.id ? currentUser.name : uid)).join(", ") // Fallback to userMap
+}
                   >
                     <span>{reaction.emoji}</span>
                     <span>{reaction.count}</span>
