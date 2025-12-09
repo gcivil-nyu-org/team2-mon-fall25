@@ -555,7 +555,7 @@ export default function App() {
               </div>
             </>
           ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
+            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} onNavigate={(route) => setCurrent(route as CalRoute)} />
           ) : current === "settings" ? (
             <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
           ) : current === "notes" ? (

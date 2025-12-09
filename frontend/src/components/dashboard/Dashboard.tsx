@@ -3,15 +3,21 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { WorkspaceInfoCard } from "./WorkspaceInfoCard";
 import { UpcomingEventsCard } from "./UpcomingEventsCard";
 import { LatestResourcesCard } from "./LatestResourcesCard";
-import { fetchWorkspaceInformation, fetchCurrentUser, fetchUpcomingEvents, fetchLatestResources, type Workspace } from "../../lib/api";
+import { TaskSummaryCard } from "./TaskSummaryCard";
+import { TodayScheduleCard } from "./TodayScheduleCard";
+import { EventDetailsModal, type CalEvent } from "../modals/EventDetailsModal";
+import { fetchWorkspaceInformation, fetchCurrentUser, fetchUpcomingEvents, fetchLatestResources, fetchEventById, type Workspace } from "../../lib/api";
 import { getMessages, formatRelativeTime, type Message } from "../messageboard/MessageBoardApi";
+import { parseISO } from "date-fns";
 
 export function Dashboard({
   workspaceId,
-  onOpenMessageThread
+  onOpenMessageThread,
+  onNavigate
 }: {
   workspaceId: string;
   onOpenMessageThread?: (messageId: string) => void;
+  onNavigate?: (route: string) => void;
 }) {
   const { isAuthenticated, isLoading: authLoading, getAccessTokenSilently } = useAuth0();
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -21,6 +27,8 @@ export function Dashboard({
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [latestResources, setLatestResources] = useState<any[]>([]);
   const [recentMessages, setRecentMessages] = useState<Message[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
 
   // Fetch current user ID
   useEffect(() => {
@@ -119,6 +127,35 @@ useEffect(() => {
     setWorkspace(updatedWorkspace);
   };
 
+  const handleEventClick = async (eventId: string) => {
+    try {
+      const backendEvent = await fetchEventById(eventId);
+
+      // Convert backend event to CalEvent format
+      const calEvent: CalEvent = {
+        id: backendEvent.event_id,
+        title: backendEvent.title,
+        start: parseISO(backendEvent.start_time),
+        end: parseISO(backendEvent.end_time),
+        kind: backendEvent.event_kind as "meeting" | "unavailable",
+        description: backendEvent.description,
+        location: backendEvent.location,
+        createdBy: backendEvent.created_by,
+        createdByName: backendEvent.created_by_name,
+        attendeesNames: (backendEvent.attendees_detail || []).map((p) => p.full_name).filter(Boolean),
+        attendeesIds: (backendEvent.attendees_detail || []).map((p) => p.id).filter(Boolean),
+        userRsvpStatus: backendEvent.userRsvpStatus,
+        rsvpSummary: backendEvent.rsvpSummary,
+        attendeesWithRsvp: backendEvent.attendeesWithRsvp,
+      };
+
+      setSelectedEvent(calEvent);
+      setEventModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch event details:", error);
+    }
+  };
+
   if (loading) return <div className="p-6">Loading workspace...</div>;
   if (error) return <div className="p-6 text-red-500">{error}</div>;
   if (!workspace) return null;
@@ -127,18 +164,11 @@ useEffect(() => {
     <div className="w-full p-6">
       <h1 className="text-2xl font-semibold mb-6">Dashboard</h1>
 
-      <WorkspaceInfoCard
-        workspace={workspace}
-        currentUserId={currentUserId}
-        onWorkspaceUpdate={handleWorkspaceUpdate}
-      />
-
-      {/* Events + Resources side-by-side */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <UpcomingEventsCard events={upcomingEvents} />
-        <LatestResourcesCard resources={latestResources} />
+      {/* Task Summary + Today's Schedule side-by-side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <TaskSummaryCard onNavigate={onNavigate} />
+        <TodayScheduleCard onEventClick={handleEventClick} onNavigate={onNavigate} />
       </div>
-
 
       {/* Recent Messages Section */}
       {recentMessages.length > 0 && (
@@ -202,7 +232,26 @@ useEffect(() => {
         </div>
       )}
 
-      {/* No members modal yet since API doesn't return members */}
+      {/* Workspace Info Card */}
+      <div className="mt-6">
+        <WorkspaceInfoCard
+          workspace={workspace}
+          currentUserId={currentUserId}
+          onWorkspaceUpdate={handleWorkspaceUpdate}
+        />
+      </div>
+
+      {/* Event Details Modal */}
+      <EventDetailsModal
+        open={eventModalOpen}
+        onClose={() => setEventModalOpen(false)}
+        event={selectedEvent}
+        currentUserId={currentUserId}
+        onRsvpChange={() => {
+          // Optionally refresh events after RSVP change
+          console.log("RSVP changed");
+        }}
+      />
     </div>
   );
 }
