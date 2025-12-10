@@ -1299,6 +1299,7 @@ class LatestEventsViewTests(APITestCase):
         self.assertEqual(len(titles), 3)
         self.assertNotIn("E4", titles)
 
+
 class EventSerializerUpdateTests(TestCase):
     def setUp(self):
         self.User = get_user_model()
@@ -1344,16 +1345,16 @@ class EventSerializerUpdateTests(TestCase):
         EventParticipant.objects.create(event=self.event, user=user1, status="invited")
 
         # Update to have user2 and user3 (remove user1)
-        data = {
-            "attendees": [user2.id, user3.id]
-        }
-        
+        data = {"attendees": [user2.id, user3.id]}
+
         # Mock request context because serializer uses request.user for added_by
         request = MagicMock()
         request.user = self.user
         context = {"request": request}
 
-        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         serializer.save()
 
@@ -1370,15 +1371,15 @@ class EventSerializerUpdateTests(TestCase):
         user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
         user2 = self.User.objects.create_user(username="u2", email="u2@test.com")
 
-        data = {
-            "attendees": [user1.id, str(user2.user_id)]
-        }
+        data = {"attendees": [user1.id, str(user2.user_id)]}
 
         request = MagicMock()
         request.user = self.user
         context = {"request": request}
 
-        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         serializer.save()
 
@@ -1393,15 +1394,15 @@ class EventSerializerUpdateTests(TestCase):
         user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
         EventParticipant.objects.create(event=self.event, user=user1, status="invited")
 
-        data = {
-            "attendees": []
-        }
+        data = {"attendees": []}
 
         request = MagicMock()
         request.user = self.user
         context = {"request": request}
 
-        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         serializer.save()
 
@@ -1412,9 +1413,7 @@ class EventSerializerUpdateTests(TestCase):
         user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
         EventParticipant.objects.create(event=self.event, user=user1, status="invited")
 
-        data = {
-            "title": "New Title"
-        }
+        data = {"title": "New Title"}
         # attendees field missing
 
         serializer = EventSerializer(instance=self.event, data=data, partial=True)
