@@ -1298,3 +1298,128 @@ class LatestEventsViewTests(APITestCase):
 
         self.assertEqual(len(titles), 3)
         self.assertNotIn("E4", titles)
+
+class EventSerializerUpdateTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            username="creator", email="creator@test.com", password="password"
+        )
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        self.event = Event.objects.create(
+            title="Original Title",
+            description="Original Description",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            event_type="GROUP",
+            location="Original Location",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+        self.factory = APIClient()
+
+    def test_update_basic_fields(self):
+        """Test updating basic fields without changing attendees."""
+        data = {
+            "title": "Updated Title",
+            "location": "Updated Location",
+        }
+        serializer = EventSerializer(instance=self.event, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated_event = serializer.save()
+
+        self.assertEqual(updated_event.title, "Updated Title")
+        self.assertEqual(updated_event.location, "Updated Location")
+        self.assertEqual(updated_event.description, "Original Description")
+
+    def test_update_attendees_add_remove(self):
+        """Test adding and removing attendees."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        user2 = self.User.objects.create_user(username="u2", email="u2@test.com")
+        user3 = self.User.objects.create_user(username="u3", email="u3@test.com")
+
+        # Initially add user1
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        # Update to have user2 and user3 (remove user1)
+        data = {
+            "attendees": [user2.id, user3.id]
+        }
+        
+        # Mock request context because serializer uses request.user for added_by
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        participants = EventParticipant.objects.filter(event=self.event)
+        participant_ids = set(p.user.id for p in participants)
+
+        self.assertEqual(len(participants), 2)
+        self.assertIn(user2.id, participant_ids)
+        self.assertIn(user3.id, participant_ids)
+        self.assertNotIn(user1.id, participant_ids)
+
+    def test_update_attendees_mixed_types(self):
+        """Test updating attendees with mixed integer IDs and UUID strings."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        user2 = self.User.objects.create_user(username="u2", email="u2@test.com")
+
+        data = {
+            "attendees": [user1.id, str(user2.user_id)]
+        }
+
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        participants = EventParticipant.objects.filter(event=self.event)
+        self.assertEqual(participants.count(), 2)
+        participant_ids = set(p.user.id for p in participants)
+        self.assertIn(user1.id, participant_ids)
+        self.assertIn(user2.id, participant_ids)
+
+    def test_update_attendees_empty(self):
+        """Test clearing all attendees."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        data = {
+            "attendees": []
+        }
+
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(instance=self.event, data=data, partial=True, context=context)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(EventParticipant.objects.filter(event=self.event).count(), 0)
+
+    def test_update_attendees_no_change(self):
+        """Test that not providing attendees field does not change participants."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        data = {
+            "title": "New Title"
+        }
+        # attendees field missing
+
+        serializer = EventSerializer(instance=self.event, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(EventParticipant.objects.filter(event=self.event).count(), 1)
+        self.assertEqual(self.event.title, "New Title")
