@@ -227,8 +227,7 @@ class EventSerializer(serializers.ModelSerializer):
         logger.info(f"   Event '{instance.title}' updated successfully.")
 
         # Send invitations to newly added participants
-        if newly_added_emails:
-            send_event_invitation_email(instance, newly_added_emails)
+        send_event_invitation_email(instance, newly_added_emails)
 
         return instance
 
