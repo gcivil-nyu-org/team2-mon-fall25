@@ -150,6 +150,9 @@ class EventSerializer(serializers.ModelSerializer):
         # Update standard fields
         instance = super().update(instance, validated_data)
 
+        # For newly added participants, track their emails for invitations
+        newly_added_emails = []
+
         # If attendees field was provided, update participants
         if raw_attendees is not None:
             User = get_user_model()
@@ -198,6 +201,15 @@ class EventSerializer(serializers.ModelSerializer):
             to_add = new_user_ids - current_user_ids
             users_to_add = [u for u in users if u.id in to_add]
 
+            # CAPTURE EMAILS FOR NEWLY ADDED USERS
+            newly_added_emails = [u.email for u in users_to_add if u.email]
+
+            # --- LOG LINE ---
+            logger.info(
+                f"   New Attendee Emails to Notify for Event '{instance.title}': {newly_added_emails}"
+            )
+            # --- LOG LINE ---
+
             new_participants = [
                 EventParticipant(
                     event=instance,
@@ -211,6 +223,12 @@ class EventSerializer(serializers.ModelSerializer):
             ]
             if new_participants:
                 EventParticipant.objects.bulk_create(new_participants)
+
+        logger.info(f"   Event '{instance.title}' updated successfully.")
+
+        # Send invitations to newly added participants
+        if newly_added_emails:
+            send_event_invitation_email(instance, newly_added_emails)
 
         return instance
 
