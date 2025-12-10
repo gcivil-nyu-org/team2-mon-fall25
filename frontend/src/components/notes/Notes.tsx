@@ -239,6 +239,7 @@ useEffect(() => {
 
 function convertToWorkspaceMember(m: WorkspaceMemberExtended): WorkspaceMember {
   return {
+    id: m.id,
     user_id: m.user_id,
     username: m.username,
     full_name: m.full_name,

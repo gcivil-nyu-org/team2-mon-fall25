@@ -77,6 +77,7 @@ export type User = {
 };
 
 export type WorkspaceMember = {
+  id: number;
   user_id: string; // matches WorkspaceMemberSerializer.user_id
   username: string;
   full_name: string;
@@ -149,6 +150,40 @@ export async function fetchEvents(): Promise<BackendEvent[]> {
   return response.json();
 }
 
+// # This code fetches upcoming 3 events for a specific workspace
+export async function fetchUpcomingEvents(): Promise<BackendEvent[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/events/latest/`
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load upcoming events");
+  }
+
+  return response.json();
+}
+
+
+
+/**
+ * Fetch the latest 3 resources for the current workspace.
+ * Uses authenticatedFetch to include auth + workspace headers.
+ */
+export async function fetchLatestResources(): Promise<BackendResource[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/resources/latest/`
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(errorText || "Failed to fetch latest resources");
+  }
+
+  return response.json();
+}
+
+
+
 export async function createEvent(payload: CreateEventPayload): Promise<BackendEvent> {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/events/`, {
     method: 'POST',
@@ -161,6 +196,23 @@ export async function createEvent(payload: CreateEventPayload): Promise<BackendE
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || 'Failed to create event');
+  }
+
+  return response.json();
+}
+
+export async function updateEvent(eventId: string, payload: Partial<CreateEventPayload>): Promise<BackendEvent> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/events/${eventId}/`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update event');
   }
 
   return response.json();
@@ -438,10 +490,10 @@ export async function addWorkspaceMembers(
     }
   );
 
-if (!response.ok) {
-  const err = await response.json().catch(() => null);
-  throw new Error(err?.detail || 'Failed to add workspace members');
-}
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.detail || 'Failed to add workspace members');
+  }
 }
 
 /**

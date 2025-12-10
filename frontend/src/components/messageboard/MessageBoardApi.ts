@@ -39,7 +39,8 @@ export interface Message {
 
 export interface Reaction {
   emoji: string;
-  users: string[];
+  users: string[]; // User IDs for comparison
+  userNames?: string[]; // User names for display
   count: number;
 }
 
@@ -173,6 +174,10 @@ export const searchMessages = async (query: string, token?: string): Promise<Mes
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const transformMessage = (msg: any): Message => {
   const authorEmail = msg.user?.name || "unknown@example.com";
+  const authorName =
+    msg.user?.full_name ||
+    msg.user?.email ||
+    "Unknown User";
   const authorId = msg.user?.id.toString() || "unknown";
   const createdTime = new Date(msg.createdAt).getTime();
   const updatedTime = new Date(msg.updatedAt).getTime();
@@ -180,17 +185,17 @@ const transformMessage = (msg: any): Message => {
   return ({
     id: msg.id.toString(),
     content: msg.content,
-    author: authorEmail,
+    author: authorName,
     authorId: authorId,
     authorEmail: authorEmail,
     timestamp: msg.createdAt,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     reactions: (msg.reactions || []).map((r: any) => ({
-      emoji: r.emoji,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      users: (r.users || []).map((u: any) => u.id.toString()),
-      count: (r.users || []).length,
-    })),
+  emoji: r.emoji,
+  users: (r.users || []).map((u: any) => u.id || u.auth0_sub || u), // ✅ Store IDs for comparison
+  userNames: (r.users || []).map((u: any) => u.full_name || u.name || "Unknown"), // ✅ Store names separately
+  count: (r.users || []).length,
+})),
     mentions: extractMentions(msg.content),
     isEdited: updatedTime > createdTime, 
     parentId: msg.parent ? msg.parent.toString() : null,

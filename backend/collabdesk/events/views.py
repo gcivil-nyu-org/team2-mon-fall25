@@ -440,3 +440,27 @@ class EventRSVPUpdateView(APIView):
             return Response(
                 {"error": "User is not a participant"}, status=status.HTTP_403_FORBIDDEN
             )
+
+
+class LatestEventsView(generics.ListAPIView):
+    serializer_class = EventSerializer
+    permission_classes = [IsAuthenticated]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
+
+    def get_queryset(self):
+        request = self.request
+        user = request.user
+
+        # If workspace context available
+        if hasattr(request, "workspace") and request.workspace:
+            qs = Event.objects.filter(workspace=request.workspace)
+        else:
+            # fallback: all user's workspaces
+            user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
+            qs = Event.objects.filter(workspace_id__in=user_workspaces)
+
+        # return latest 3 upcoming
+        return qs.order_by("start_time")[:3]

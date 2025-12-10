@@ -6,16 +6,17 @@ from datetime import timedelta
 from django.utils import timezone
 from django.test import TestCase
 from .models import Event, EventParticipant
-from workspaces.models import Workspace, WorkspaceMember
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 from django.test import override_settings
 from django.conf import settings
 from unittest.mock import patch, MagicMock
 from rest_framework import status
 from .serializers import EventSerializer
 from .views import RecommendTimeSlots
+from users.models import User
+from workspaces.models import Workspace, WorkspaceMember
 
 
 def createDefaultEvent():
@@ -1135,3 +1136,289 @@ class RSVPTests(TestCase):
         self.assertEqual(summary["accepted"], 1)  # Creator
         self.assertEqual(summary["declined"], 1)  # Attendee
         self.assertEqual(summary["pending"], 0)
+
+
+class LatestEventsViewTests(APITestCase):
+
+    def setUp(self):
+        # Create user
+        self.user = User.objects.create_user(
+            email="test@example.com", username="testuser", password="password123"
+        )
+
+        # Create workspace WITH created_by
+        self.workspace = Workspace.objects.create(
+            name="Workspace A", created_by=self.user
+        )
+
+        # Add membership
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="member"
+        )
+
+        # Authenticate user
+        self.client.force_authenticate(self.user)
+
+        # Endpoint url
+        self.url = reverse(
+            "events:event-latest"
+        )  # make sure this name matches your urls.py
+
+    #
+    # 1️⃣ AUTH REQUIREMENT
+    #
+    def test_requires_authentication(self):
+        """Unauthenticated requests should return 403 (forbidden)."""
+        unauth_client = APIClient()
+
+        response = unauth_client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    #
+    # Utility function to create an event quickly
+    #
+    def _create_event(self, title, minutes_delta):
+        return Event.objects.create(
+            title=title,
+            description="Test event",
+            start_time=timezone.now() + timedelta(minutes=minutes_delta),
+            end_time=timezone.now() + timedelta(minutes=minutes_delta + 60),
+            event_type="GROUP",
+            location="Room 101",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+
+    #
+    # 2️⃣ RETURN ONLY EVENTS FROM SELECTED WORKSPACE
+    #
+    def test_returns_only_workspace_events(self):
+        """Only events belonging to the selected workspace should be returned."""
+
+        # Another workspace
+        other_ws = Workspace.objects.create(name="Other WS", created_by=self.user)
+
+        # Event in other workspace (should NOT appear)
+        Event.objects.create(
+            title="Other WS Event",
+            description="X",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            event_type="GROUP",
+            location="X",
+            created_by=self.user,
+            workspace=other_ws,
+        )
+
+        # Events in this workspace
+        e1 = self._create_event("A", 10)
+        e2 = self._create_event("B", 20)
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [e["title"] for e in response.json()]
+
+        self.assertIn("A", titles)
+        self.assertIn("B", titles)
+        self.assertNotIn("Other WS Event", titles)
+
+    #
+    # 3️⃣ NO WORKSPACE HEADER → RETURN FROM ALL USER'S WORKSPACES
+    #
+    def test_no_workspace_header_returns_all_user_workspaces(self):
+        """If no workspace header is used, return events from all user's workspaces."""
+
+        # Create another workspace user belongs to
+        ws2 = Workspace.objects.create(name="WS2", created_by=self.user)
+        WorkspaceMember.objects.create(workspace=ws2, user=self.user, role="member")
+
+        # Event in WS1
+        e1 = self._create_event("WS1 Event", 15)
+
+        # Event in WS2
+        e2 = Event.objects.create(
+            title="WS2 Event",
+            description="Event 2",
+            start_time=timezone.now() + timedelta(minutes=30),
+            end_time=timezone.now() + timedelta(minutes=90),
+            event_type="GROUP",
+            location="Loc",
+            created_by=self.user,
+            workspace=ws2,
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [e["title"] for e in response.json()]
+
+        self.assertIn("WS1 Event", titles)
+        self.assertIn("WS2 Event", titles)
+
+    #
+    # 4️⃣ EVENTS SORTED BY START_TIME ASCENDING
+    #
+    def test_events_sorted_by_start_time(self):
+        """Events must be sorted by start_time ascending."""
+
+        e3 = self._create_event("C", 30)
+        e1 = self._create_event("A", 5)
+        e2 = self._create_event("B", 10)
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        titles = [e["title"] for e in response.json()]
+
+        self.assertEqual(titles, ["A", "B", "C"])
+
+    #
+    # 5️⃣ LIMIT TO 3 EVENTS ONLY
+    #
+    def test_limits_to_three_events(self):
+        """The API must return only the latest 3 upcoming events."""
+
+        self._create_event("E1", 10)
+        self._create_event("E2", 20)
+        self._create_event("E3", 30)
+        self._create_event("E4", 40)  # Should NOT appear
+
+        response = self.client.get(
+            self.url, HTTP_X_WORKSPACE_ID=str(self.workspace.workspace_id)
+        )
+
+        titles = [e["title"] for e in response.json()]
+
+        self.assertEqual(len(titles), 3)
+        self.assertNotIn("E4", titles)
+
+
+class EventSerializerUpdateTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            username="creator", email="creator@test.com", password="password"
+        )
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace", created_by=self.user
+        )
+        self.event = Event.objects.create(
+            title="Original Title",
+            description="Original Description",
+            start_time=timezone.now(),
+            end_time=timezone.now() + timedelta(hours=1),
+            event_type="GROUP",
+            location="Original Location",
+            created_by=self.user,
+            workspace=self.workspace,
+        )
+        self.factory = APIClient()
+
+    def test_update_basic_fields(self):
+        """Test updating basic fields without changing attendees."""
+        data = {
+            "title": "Updated Title",
+            "location": "Updated Location",
+        }
+        serializer = EventSerializer(instance=self.event, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated_event = serializer.save()
+
+        self.assertEqual(updated_event.title, "Updated Title")
+        self.assertEqual(updated_event.location, "Updated Location")
+        self.assertEqual(updated_event.description, "Original Description")
+
+    def test_update_attendees_add_remove(self):
+        """Test adding and removing attendees."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        user2 = self.User.objects.create_user(username="u2", email="u2@test.com")
+        user3 = self.User.objects.create_user(username="u3", email="u3@test.com")
+
+        # Initially add user1
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        # Update to have user2 and user3 (remove user1)
+        data = {"attendees": [user2.id, user3.id]}
+
+        # Mock request context because serializer uses request.user for added_by
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        participants = EventParticipant.objects.filter(event=self.event)
+        participant_ids = set(p.user.id for p in participants)
+
+        self.assertEqual(len(participants), 2)
+        self.assertIn(user2.id, participant_ids)
+        self.assertIn(user3.id, participant_ids)
+        self.assertNotIn(user1.id, participant_ids)
+
+    def test_update_attendees_mixed_types(self):
+        """Test updating attendees with mixed integer IDs and UUID strings."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        user2 = self.User.objects.create_user(username="u2", email="u2@test.com")
+
+        data = {"attendees": [user1.id, str(user2.user_id)]}
+
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        participants = EventParticipant.objects.filter(event=self.event)
+        self.assertEqual(participants.count(), 2)
+        participant_ids = set(p.user.id for p in participants)
+        self.assertIn(user1.id, participant_ids)
+        self.assertIn(user2.id, participant_ids)
+
+    def test_update_attendees_empty(self):
+        """Test clearing all attendees."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        data = {"attendees": []}
+
+        request = MagicMock()
+        request.user = self.user
+        context = {"request": request}
+
+        serializer = EventSerializer(
+            instance=self.event, data=data, partial=True, context=context
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(EventParticipant.objects.filter(event=self.event).count(), 0)
+
+    def test_update_attendees_no_change(self):
+        """Test that not providing attendees field does not change participants."""
+        user1 = self.User.objects.create_user(username="u1", email="u1@test.com")
+        EventParticipant.objects.create(event=self.event, user=user1, status="invited")
+
+        data = {"title": "New Title"}
+        # attendees field missing
+
+        serializer = EventSerializer(instance=self.event, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertEqual(EventParticipant.objects.filter(event=self.event).count(), 1)
+        self.assertEqual(self.event.title, "New Title")
