@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import status
 from django.utils import timezone  # Keep this import for good practice
+from .serializers import TaskSerializer
 
 from .views import TaskViewSet
 from .models import Task
@@ -136,3 +137,181 @@ class TaskViewSetTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.task.refresh_from_db()
         self.assertTrue(self.task.archived)
+
+    def test_workspace_members_returns_users(self):
+        view = TaskViewSet.as_view({"get": "workspace_members"})
+        request = self._create_request_context("GET", "/api/tasks/workspace-members/")
+        response = view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(len(response.data) >= 1)
+        self.assertEqual(response.data[0]["email"], self.user.email)
+
+    def test_workspace_members_without_workspace(self):
+        view = TaskViewSet.as_view({"get": "workspace_members"})
+        request = self._create_request_context("GET", "/api/tasks/workspace-members/")
+        del request.workspace  # remove workspace context
+        response = view(request)
+
+        # DRF returns 403 Forbidden when PermissionDenied is raised
+        self.assertEqual(response.status_code, 403)
+
+    def test_available_tasks_returns_tasks(self):
+        task2 = Task.objects.create(
+            title="Another Task",
+            status=Task.Status.TODO,
+            workspace=self.workspace,
+            created_by=self.user,
+        )
+        view = TaskViewSet.as_view({"get": "available_tasks"})
+        request = self._create_request_context("GET", "/api/tasks/available-tasks/")
+        response = view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(any(t["id"] == task2.id for t in response.data))
+
+    def test_available_tasks_with_exclude_id(self):
+        view = TaskViewSet.as_view({"get": "available_tasks"})  # use method name here
+        request = self._create_request_context(
+            "GET", f"/api/tasks/available-tasks/?exclude_id={self.task.id}"
+        )
+        response = view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(any(t["id"] == self.task.id for t in response.data))
+
+    def test_archive_task_sets_archived_true(self):
+        view = TaskViewSet.as_view({"post": "archive"})
+        request = self._create_request_context(
+            "POST", f"/api/tasks/{self.task.id}/archive/"
+        )
+        response = view(request, pk=self.task.id)
+        self.assertEqual(response.status_code, 200)
+        self.task.refresh_from_db()
+        self.assertTrue(self.task.archived)
+
+
+class TaskSerializerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="u@test.com", email="u@test.com", password="pass123"
+        )
+
+        self.workspace = Workspace.objects.create(name="WS", created_by=self.user)
+
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, user=self.user, role="owner"
+        )
+
+        self.task1 = Task.objects.create(
+            title="Task 1",
+            workspace=self.workspace,
+            created_by=self.user,
+            status=Task.Status.TODO,
+        )
+
+        self.task2 = Task.objects.create(
+            title="Task 2",
+            workspace=self.workspace,
+            created_by=self.user,
+            status=Task.Status.TODO,
+        )
+
+    # -------------------------------
+    # BASIC SERIALIZER CREATION TEST
+    # -------------------------------
+    def test_serializer_creates_task(self):
+        data = {
+            "title": "Created From Serializer",
+            "status": Task.Status.TODO,
+            "assignee": self.user.id,
+            "dependencies": [self.task1.id],
+        }
+
+        serializer = TaskSerializer(data=data, context={"workspace": self.workspace})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        task = serializer.save(workspace=self.workspace, created_by=self.user)
+        self.assertEqual(task.title, "Created From Serializer")
+        self.assertIn(self.task1, task.dependencies.all())
+
+    # -------------------------------
+    # SELF-DEPENDENCY VALIDATION
+    # -------------------------------
+    def test_cannot_depend_on_itself(self):
+        data = {
+            "title": "Invalid",
+            "status": Task.Status.TODO,
+            "dependencies": [self.task1.id],
+        }
+
+        serializer = TaskSerializer(instance=self.task1, data=data, partial=True)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("dependencies", serializer.errors)
+
+    # -------------------------------
+    # CIRCULAR DEPENDENCY VALIDATION
+    # -------------------------------
+    def test_circular_dependency_detection(self):
+        A = self.task1
+        B = self.task2
+        C = Task.objects.create(
+            title="Task C",
+            workspace=self.workspace,
+            created_by=self.user,
+            status=Task.Status.TODO,
+        )
+
+        # Build DFS-reachable chain (reverse direction)
+        #
+        # B → C
+        # C → A
+        #
+        # Now adding B → A should create cycle:
+        # A ← C ← B  AND  B → A
+        #
+        # Valid cycle.
+
+        B.dependencies.add(C)  # B depends on C
+        C.dependencies.add(A)  # C depends on A
+
+        # Now try: B depends on A (creates loop)
+        data = {"dependencies": [A.id]}
+
+        serializer = TaskSerializer(instance=B, data=data, partial=True)
+
+        valid = serializer.is_valid()
+        print("VALID:", valid)
+        print("ERRORS:", serializer.errors)
+
+        self.assertFalse(valid)
+        self.assertIn("dependencies", serializer.errors)
+
+    # -------------------------------
+    # NON-CIRCULAR VALID DEPENDENCIES
+    # -------------------------------
+    def test_valid_dependency(self):
+        data = {"dependencies": [self.task1.id]}
+
+        serializer = TaskSerializer(instance=self.task2, data=data, partial=True)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    # -------------------------------
+    # dependency_details FIELD
+    # -------------------------------
+    def test_dependency_details_is_read_only(self):
+        self.task2.dependencies.add(self.task1)
+
+        serializer = TaskSerializer(instance=self.task2)
+
+        # Ensure dependency_details exists and is correct
+        details = serializer.data["dependency_details"]
+        self.assertEqual(len(details), 1)
+        self.assertEqual(details[0]["id"], self.task1.id)
+
+    # -------------------------------
+    # can_complete FIELD READ-ONLY
+    # -------------------------------
+    def test_can_complete_read_only(self):
+        serializer = TaskSerializer(instance=self.task1)
+        self.assertIn("can_complete", serializer.data)
+        # Basic sanity check: Boolean
+        self.assertIsInstance(serializer.data["can_complete"], bool)
