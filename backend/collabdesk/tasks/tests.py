@@ -187,6 +187,109 @@ class TaskViewSetTests(TestCase):
         self.task.refresh_from_db()
         self.assertTrue(self.task.archived)
 
+    def test_create_task_without_workspace_context(self):
+        """Creating a task without workspace should return 403"""
+        view = TaskViewSet.as_view({"post": "create"})
+        data = {"title": "No Workspace Task", "status": Task.Status.TODO}
+
+        request = self._create_request_context("POST", "/api/tasks/", data=data)
+        del request.workspace  # remove workspace context
+
+        response = view(request)
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_status_done_with_incomplete_dependencies(self):
+        """Cannot mark task as DONE if dependencies are incomplete"""
+        dep = Task.objects.create(
+            title="Dep Task",
+            status=Task.Status.TODO,
+            workspace=self.workspace,
+            created_by=self.user,
+        )
+        self.task.dependencies.add(dep)
+
+        view = TaskViewSet.as_view({"patch": "partial_update"})
+        request = self._create_request_context(
+            "PATCH", f"/api/tasks/{self.task.id}/", data={"status": Task.Status.DONE}
+        )
+        response = view(request, pk=self.task.id)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("status", response.data)
+        self.assertIn("dependencies", str(response.data["status"]))
+
+    def test_update_status_done_sets_completed_at(self):
+        """Marking a task as DONE sets completed_at timestamp automatically"""
+        self.task.dependencies.clear()  # ensure no blocking dependencies
+        view = TaskViewSet.as_view({"patch": "partial_update"})
+        request = self._create_request_context(
+            "PATCH", f"/api/tasks/{self.task.id}/", data={"status": Task.Status.DONE}
+        )
+
+        response = view(request, pk=self.task.id)
+        self.assertEqual(response.status_code, 200)
+        self.task.refresh_from_db()
+        self.assertIsNotNone(self.task.completed_at)
+
+    def test_update_status_from_done_clears_completed_at(self):
+        """Changing status from DONE to another clears completed_at"""
+        self.task.status = Task.Status.DONE
+        self.task.completed_at = timezone.now()
+        self.task.save()
+
+        view = TaskViewSet.as_view({"patch": "partial_update"})
+        request = self._create_request_context(
+            "PATCH", f"/api/tasks/{self.task.id}/", data={"status": Task.Status.TODO}
+        )
+        response = view(request, pk=self.task.id)
+
+        self.assertEqual(response.status_code, 200)
+        self.task.refresh_from_db()
+        self.assertIsNone(self.task.completed_at)
+
+    def test_queryset_filters_by_workspace(self):
+        """Tasks returned by get_queryset are only from current workspace"""
+        other_ws = Workspace.objects.create(name="Other WS", created_by=self.user)
+        other_task = Task.objects.create(
+            title="Other Task",
+            workspace=other_ws,
+            created_by=self.user,
+            status=Task.Status.TODO,
+        )
+
+        view = TaskViewSet.as_view({"get": "list"})
+        request = self._create_request_context("GET", "/api/tasks/")
+        response = view(request)
+
+        task_ids = [t["id"] for t in response.data]
+        self.assertIn(self.task.id, task_ids)
+        self.assertNotIn(other_task.id, task_ids)
+
+    def test_list_tasks_with_search_filter(self):
+        """Search filter should return matching tasks"""
+        view = TaskViewSet.as_view({"get": "list"})
+        request = self._create_request_context("GET", "/api/tasks/?search=Retrieval")
+        response = view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["title"], self.task.title)
+
+    def test_list_tasks_with_ordering(self):
+        """Ordering tasks by priority works"""
+        Task.objects.create(
+            title="High Priority",
+            status=Task.Status.TODO,
+            priority=10,
+            workspace=self.workspace,
+            created_by=self.user,
+        )
+
+        view = TaskViewSet.as_view({"get": "list"})
+        request = self._create_request_context("GET", "/api/tasks/?ordering=-priority")
+        response = view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["priority"], 10)
+
 
 class TaskSerializerTests(TestCase):
     def setUp(self):
