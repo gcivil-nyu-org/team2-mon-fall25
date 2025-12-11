@@ -92,11 +92,11 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
       <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 break-words min-w-0">
             My Tasks
           </h2>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap flex-shrink-0">
             {stats.total} {stats.total === 1 ? "task" : "tasks"}
           </span>
         </div>
@@ -113,10 +113,10 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
           <div className="space-y-3">
               {/* Overdue */}
               {stats.overdue > 0 && (
-                <div className="group relative flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10 border border-red-200 dark:border-red-800 transition-all duration-200">
-                  <div className="flex items-center gap-2">
+                <div className="group relative flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-red-50 to-red-100/50 dark:from-red-900/20 dark:to-red-900/10 border border-red-200 dark:border-red-800 transition-all duration-200">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <svg
-                      className="w-4 h-4 text-red-600 dark:text-red-400"
+                      className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -128,11 +128,11 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
                         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-red-900 dark:text-red-100">
+                    <span className="text-sm font-medium text-red-900 dark:text-red-100 break-words">
                       Overdue
                     </span>
                   </div>
-                  <span className="text-xl font-bold text-red-600 dark:text-red-400 tabular-nums">
+                  <span className="text-xl font-bold text-red-600 dark:text-red-400 tabular-nums flex-shrink-0">
                     {stats.overdue}
                   </span>
                 </div>
@@ -140,10 +140,10 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
 
               {/* Due Today */}
               {stats.dueToday > 0 && (
-                <div className="group relative flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100/50 dark:from-yellow-900/20 dark:to-yellow-900/10 border border-yellow-200 dark:border-yellow-800 transition-all duration-200">
-                  <div className="flex items-center gap-2">
+                <div className="group relative flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100/50 dark:from-yellow-900/20 dark:to-yellow-900/10 border border-yellow-200 dark:border-yellow-800 transition-all duration-200">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <svg
-                      className="w-4 h-4 text-yellow-600 dark:text-yellow-400"
+                      className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -155,11 +155,11 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
                         d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                    <span className="text-sm font-medium text-yellow-900 dark:text-yellow-100 break-words">
                       Due Today
                     </span>
                   </div>
-                  <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400 tabular-nums">
+                  <span className="text-xl font-bold text-yellow-600 dark:text-yellow-400 tabular-nums flex-shrink-0">
                     {stats.dueToday}
                   </span>
                 </div>
@@ -167,10 +167,10 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
 
               {/* In Progress */}
               {stats.inProgress > 0 && (
-                <div className="group relative flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/10 border border-blue-200 dark:border-blue-800 transition-all duration-200">
-                  <div className="flex items-center gap-2">
+                <div className="group relative flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-900/10 border border-blue-200 dark:border-blue-800 transition-all duration-200">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <svg
-                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -182,11 +182,11 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100 break-words">
                       In Progress
                     </span>
                   </div>
-                  <span className="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+                  <span className="text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums flex-shrink-0">
                     {stats.inProgress}
                   </span>
                 </div>
@@ -194,10 +194,10 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
 
               {/* Completed */}
               {stats.completed > 0 && (
-                <div className="group relative flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10 border border-green-200 dark:border-green-800 transition-all duration-200">
-                  <div className="flex items-center gap-2">
+                <div className="group relative flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-green-50 to-green-100/50 dark:from-green-900/20 dark:to-green-900/10 border border-green-200 dark:border-green-800 transition-all duration-200">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <svg
-                      className="w-4 h-4 text-green-600 dark:text-green-400"
+                      className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -209,11 +209,11 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                    <span className="text-sm font-medium text-green-900 dark:text-green-100 break-words">
                       Completed
                     </span>
                   </div>
-                  <span className="text-xl font-bold text-green-600 dark:text-green-400 tabular-nums">
+                  <span className="text-xl font-bold text-green-600 dark:text-green-400 tabular-nums flex-shrink-0">
                     {stats.completed}
                   </span>
                 </div>
