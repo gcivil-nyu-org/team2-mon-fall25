@@ -729,7 +729,7 @@ class AIChatViewErrorTests(APITestCase):
         """Test: Non-existent conversation returns 404"""
         self.client.force_authenticate(user=self.user)
         response = self.client.post(
-            f"/api/chat/conversations/99999999-9999-9999-9999-999999999999/save-to-notes/",
+            "/api/chat/conversations/99999999-9999-9999-9999-999999999999/save-to-notes/",
             **self.headers,
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
