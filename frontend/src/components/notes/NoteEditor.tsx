@@ -166,7 +166,8 @@ export function NoteEditor({
   const handleShareNote = async (userIds: string[]) => {
     if (!note) return;
     try {
-      await NotesApi.shareNote(note.id, { user_ids: userIds });
+      const memberIds = userIds.map(id => Number(id));
+      await NotesApi.shareNote(note.id, { ids: memberIds });
       toast.success('Note shared successfully');
       setSharingNote(null);
     } catch (error) {

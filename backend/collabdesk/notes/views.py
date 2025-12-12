@@ -108,20 +108,34 @@ class ShareNoteView(APIView):
         workspace_member_ids = set(
             WorkspaceMember.objects.filter(
                 workspace=note.workspace, is_active=True
-            ).values_list("user_id", flat=True)
+            ).values_list("id", flat=True)
         )
 
         # Validate: All selected users MUST be workspace members
-        for uid in user_ids:
-            if int(uid) not in workspace_member_ids:
+        for wm_id in user_ids:
+            try:
+                wm_id = int(wm_id)
+            except ValueError:
                 return Response(
-                    {"error": f"User {uid} is not a member of this workspace"},
+                    {"error": f"Invalid workspace member id: {wm_id}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if wm_id not in workspace_member_ids:
+                return Response(
+                    {"error": f"Member {wm_id} is not part of this workspace"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
         # Save sharing relationships
-        note.shared_with.set(user_ids)
-        note.is_shared = len(user_ids) > 0
+        user_ids_to_share = WorkspaceMember.objects.filter(
+            id__in=user_ids,
+            workspace=note.workspace,
+            is_active=True,
+        ).values_list("user_id", flat=True)
+
+        note.shared_with.set(user_ids_to_share)
+        note.is_shared = len(user_ids_to_share) > 0
         note.save()
 
         return Response(NoteSerializer(note).data, status=200)
