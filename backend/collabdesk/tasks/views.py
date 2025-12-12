@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from rest_framework.views import APIView
+from datetime import date
 
 # from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
@@ -183,3 +185,45 @@ class TaskViewSet(viewsets.ModelViewSet):
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
+
+
+class TaskSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        today = date.today()
+
+        workspace_id = request.query_params.get("workspace")
+
+        if not workspace_id:
+            return Response({"error": "workspace query param is required"}, status=400)
+
+        tasks = Task.objects.filter(assignee=user, workspace_id=workspace_id)
+
+        total = tasks.count()
+        completed = tasks.filter(status="done").count()
+        in_progress = tasks.filter(status="in-progress").count()
+
+        overdue = tasks.filter(
+            status__in=["todo", "in-progress"],
+            due_date__isnull=False,
+            due_date__lt=today,
+        ).count()
+
+        due_today = tasks.filter(
+            status__in=["todo", "in-progress"], due_date__isnull=False, due_date=today
+        ).count()
+
+        completion_percentage = round((completed / total) * 100, 2) if total > 0 else 0
+
+        return Response(
+            {
+                "overdue": overdue,
+                "dueToday": due_today,
+                "inProgress": in_progress,
+                "completed": completed,
+                "total": total,
+                "completionPercentage": completion_percentage,
+            }
+        )

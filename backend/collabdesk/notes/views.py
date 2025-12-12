@@ -4,6 +4,8 @@ from rest_framework import status, permissions
 from django.shortcuts import get_object_or_404
 from collabdesk.permissions import Auth0Authentication
 from .models import Note
+from users.models import User
+from uuid import UUID
 from .serializers import NoteSerializer
 from workspaces.models import WorkspaceMember
 
@@ -82,69 +84,59 @@ class ShareNoteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        """
-        Share a note with multiple workspace members.
-        Expected payload:
-        {
-            "user_ids": ["24", "72", "91"]
-        }
-        """
         note = get_object_or_404(Note, pk=pk)
 
-        # Ensure logged-in user owns the note
+        # Only owner can share
         if note.owner != request.user:
             return Response(
                 {"error": "Only the owner can share this note."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Extract user ID list
-        user_ids = request.data.get("user_ids", [])
-        if not isinstance(user_ids, list):
-            return Response({"error": "user_ids must be a list"}, status=400)
+        member_ids = request.data.get("ids", [])
+        if not isinstance(member_ids, list):
+            return Response(
+                {"error": "ids must be a list"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Get workspace members
-        workspace = note.workspace
-        workspace_member_ids = set(
+            # 1️⃣ Resolve incoming IDs → users_user.id
+        try:
+            resolved_users = User.objects.filter(user_id__in=member_ids)
+            resolved_user_ids = list(resolved_users.values_list("id", flat=True))
+
+        except Exception:
+            return Response(
+                {"error": "Invalid user ids"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(resolved_user_ids) != len(member_ids):
+            return Response(
+                {"error": "One or more users do not exist"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        workspace_user_ids = set(
             WorkspaceMember.objects.filter(
-                workspace=note.workspace, is_active=True
+                workspace=note.workspace,
+                is_active=True,
+                user_id__in=resolved_user_ids,
             ).values_list("user_id", flat=True)
         )
 
-        # Validate: All selected users MUST be workspace members
-        for uid in user_ids:
-            if int(uid) not in workspace_member_ids:
-                return Response(
-                    {"error": f"User {uid} is not a member of this workspace"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # Save sharing relationships
-        note.shared_with.set(user_ids)
-        note.is_shared = len(user_ids) > 0
-        note.save()
-
-        return Response(NoteSerializer(note).data, status=200)
-
-    def delete(self, request, pk, user_id):
-        """Unshare with a specific user"""
-        note = get_object_or_404(Note, pk=pk)
-
-        # Only owner can unshare
-        if note.owner != request.user:
+        if len(workspace_user_ids) != len(resolved_user_ids):
             return Response(
-                {"error": "Only the owner can unshare this note."},
-                status=status.HTTP_403_FORBIDDEN,
+                {"error": "One or more users are not part of this workspace"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        note.shared_with.remove(user_id)
+        note.shared_with.set(workspace_user_ids)
+        note.is_shared = len(workspace_user_ids) > 0
+        note.save()
+        note.refresh_from_db()
 
-        # If no more users, mark note as not shared
-        if note.shared_with.count() == 0:
-            note.is_shared = False
-            note.save()
-
-        return Response({"status": "unshared"}, status=200)
+        return Response(NoteSerializer(note).data, status=status.HTTP_200_OK)
 
 
 class SharedNotesListView(APIView):

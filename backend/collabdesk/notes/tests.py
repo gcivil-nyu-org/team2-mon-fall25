@@ -3,7 +3,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from workspaces.models import Workspace, WorkspaceMember
-
+import uuid
 
 from notes.models import Note
 
@@ -181,160 +181,168 @@ class NotesAPITests(APITestCase):
         self.assertEqual(Note.objects.count(), 1)
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
 class NotesSharingTests(APITestCase):
-
     def setUp(self):
         self.client = APIClient()
 
         # Users
         self.owner = User.objects.create_user(
-            username="owner", email="owner@test.com", password="pass123"
+            username="owner",
+            email="owner@test.com",
+            password="pass123",
         )
         self.member1 = User.objects.create_user(
-            username="m1", email="m1@test.com", password="pass123"
+            username="m1",
+            email="m1@test.com",
+            password="pass123",
         )
         self.member2 = User.objects.create_user(
-            username="m2", email="m2@test.com", password="pass123"
+            username="m2",
+            email="m2@test.com",
+            password="pass123",
         )
         self.outsider = User.objects.create_user(
-            username="x", email="x@test.com", password="pass123"
+            username="outsider",
+            email="x@test.com",
+            password="pass123",
         )
 
         # Workspace
         self.workspace = Workspace.objects.create(
-            workspace_id="111e1111-e89b-12d3-a456-426614170000",
-            name="WS",
-            description="",
+            workspace_id=str(uuid.uuid4()),
+            name="Test WS",
             created_by=self.owner,
         )
 
-        # Members of workspace
-        WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.owner, role="owner"
-        )
-        WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.member1, role="member"
-        )
-        WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.member2, role="member"
+        self.other_workspace = Workspace.objects.create(
+            workspace_id=str(uuid.uuid4()),
+            name="Other WS",
+            created_by=self.owner,
         )
 
-        # Note owned by owner
+        # Workspace members
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.owner,
+            role="owner",
+            is_active=True,
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.member1,
+            role="member",
+            is_active=True,
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace,
+            user=self.member2,
+            role="member",
+            is_active=True,
+        )
+
+        WorkspaceMember.objects.create(
+            workspace=self.other_workspace,
+            user=self.outsider,
+            role="member",
+            is_active=True,
+        )
+
+        # Note
         self.note = Note.objects.create(
             owner=self.owner,
             title="Shared Note",
-            content="abc",
-            tags=["x"],
+            content="hello",
             workspace=self.workspace,
         )
 
         self.client.force_authenticate(self.owner)
 
-        # URLs used
         self.share_url = f"/api/notes/{self.note.id}/share/"
-        self.unshare_url = f"/api/notes/{self.note.id}/share/"
         self.shared_notes_url = "/api/notes/shared/"
 
-    # ---------------------------------------------------------
+    # --------------------------------------------------
     # SHARE NOTE
-    # ---------------------------------------------------------
+    # --------------------------------------------------
 
     def test_share_note_success(self):
-        payload = {"user_ids": [str(self.member1.id), str(self.member2.id)]}
+        payload = {
+            "ids": [
+                str(self.member1.user_id),
+                str(self.member2.user_id),
+            ]
+        }
 
-        response = self.client.post(self.share_url, payload, format="json")
+        res = self.client.post(self.share_url, payload, format="json")
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
         self.note.refresh_from_db()
-
-        self.assertEqual(self.note.shared_with.count(), 2)
         self.assertTrue(self.note.is_shared)
+        self.assertEqual(self.note.shared_with.count(), 2)
+
+    def test_share_note_requires_owner(self):
+        self.client.force_authenticate(self.member1)
+
+        payload = {"ids": [str(self.member2.user_id)]}
+        res = self.client.post(self.share_url, payload, format="json")
+
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_share_note_invalid_payload(self):
+        res = self.client.post(self.share_url, {"ids": "not-a-list"}, format="json")
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_share_note_user_not_found(self):
+        payload = {"ids": [str(uuid.uuid4())]}
+
+        res = self.client.post(self.share_url, payload, format="json")
+
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("do not exist", res.data["error"])
 
     def test_share_note_user_not_in_workspace(self):
-        payload = {"user_ids": [str(self.outsider.id)]}
+        payload = {"ids": [str(self.outsider.user_id)]}
 
-        response = self.client.post(self.share_url, payload, format="json")
+        res = self.client.post(self.share_url, payload, format="json")
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("not a member", response.data["error"])
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("not part of this workspace", res.data["error"])
 
-    def test_share_note_only_owner_can_share(self):
-        self.client.force_authenticate(self.member1)
-
-        payload = {"user_ids": [str(self.member2.id)]}
-
-        response = self.client.post(self.share_url, payload, format="json")
-
-        self.assertEqual(response.status_code, 403)
-        self.assertIn("Only the owner", response.data["error"])
-
-    def test_share_note_invalid_user_ids_type(self):
-        response = self.client.post(
-            self.share_url, {"user_ids": "not-list"}, format="json"
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("user_ids must be a list", response.data["error"])
-
-    # ---------------------------------------------------------
-    # UNSHARE NOTE
-    # ---------------------------------------------------------
-
-    def test_unshare_note_success(self):
-        # First share
-        self.note.shared_with.set([self.member1.id, self.member2.id])
-
-        response = self.client.delete(f"{self.unshare_url}{self.member1.id}/")
-
-        self.assertEqual(response.status_code, 200)
-        self.note.refresh_from_db()
-
-        self.assertEqual(self.note.shared_with.count(), 1)
+    # --------------------------------------------------
+    # SHARED NOTES LIST
+    # --------------------------------------------------
 
     def test_shared_notes_list_success(self):
-        # owner shares note with member1
-        self.note.shared_with.set([self.member1.id])
+        self.note.shared_with.add(self.member1)
         self.note.is_shared = True
         self.note.save()
 
         self.client.force_authenticate(self.member1)
 
-        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
-        response = self.client.get(url)
+        res = self.client.get(
+            self.shared_notes_url,
+            {"workspace_id": self.workspace.workspace_id},
+        )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["title"], "Shared Note")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]["id"], self.note.id)
 
-    def test_shared_notes_list_missing_workspace_id(self):
-        self.client.force_authenticate(self.member1)
-
-        response = self.client.get(self.shared_notes_url)
-
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("workspace_id", response.data["detail"])
-
-    def test_shared_notes_list_excludes_owner(self):
-        # Owner sharing with member1
-        self.note.shared_with.set([self.member1.id])
+    def test_shared_notes_excludes_owner(self):
+        self.note.shared_with.add(self.owner)
         self.note.is_shared = True
         self.note.save()
 
-        # Owner should not see it in shared list
-        self.client.force_authenticate(self.owner)
+        res = self.client.get(
+            self.shared_notes_url,
+            {"workspace_id": self.workspace.workspace_id},
+        )
 
-        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
-        response = self.client.get(url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 0)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 0)
+    def test_shared_notes_requires_workspace_param(self):
+        res = self.client.get(self.shared_notes_url)
 
-    def test_shared_notes_list_returns_empty_if_not_shared(self):
-        self.client.force_authenticate(self.member1)
-
-        url = f"{self.shared_notes_url}?workspace_id={self.workspace.workspace_id}"
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)

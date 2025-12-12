@@ -166,7 +166,8 @@ export function NoteEditor({
   const handleShareNote = async (userIds: string[]) => {
     if (!note) return;
     try {
-      await NotesApi.shareNote(note.id, { user_ids: userIds });
+      console.log('Sharing note with user IDs:', userIds);
+      await NotesApi.shareNote(note.id, { ids: userIds });
       toast.success('Note shared successfully');
       setSharingNote(null);
     } catch (error) {
@@ -417,13 +418,14 @@ export function NoteEditor({
 
       {/* Share Modal */}
       {sharingNote && (
+        console.log("workspaceMembers BEFORE mapping", workspaceMembers),
         <ShareNoteModal
           isOpen={true}
           onClose={() => setSharingNote(null)}
           onShare={handleShareNote}
           note={sharingNote}
           workspaceMembers={workspaceMembers.map(m => ({
-                id: m.id,        
+                id: String(m.id),   // 🔥 force id = user_id here     
                 name: m.name,  
                 email: m.email     
     }))}

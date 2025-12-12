@@ -191,6 +191,7 @@ static async getSharedNotes(workspaceId: string): Promise<Note[]> {
       saveNotesToStorage(allNotes);
       return allNotes[index];
     }
+    console.log("Sharing note with IDs:", data);
 
     const response = await authenticatedFetch(`${NOTES_BASE_URL}/${id}/share/`, {
       method: 'POST',

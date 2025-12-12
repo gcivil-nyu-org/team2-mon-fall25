@@ -1,9 +1,12 @@
 from django.test import TestCase
+from rest_framework.test import APITestCase
+from rest_framework import status
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, force_authenticate
-from rest_framework import status
 from django.utils import timezone  # Keep this import for good practice
 from .serializers import TaskSerializer
+from datetime import date, timedelta
+from django.test import override_settings
 
 from .views import TaskViewSet
 from .models import Task
@@ -418,3 +421,106 @@ class TaskSerializerTests(TestCase):
         self.assertIn("can_complete", serializer.data)
         # Basic sanity check: Boolean
         self.assertIsInstance(serializer.data["can_complete"], bool)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class TaskSummaryViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="testuser@example.com",
+            password="password",
+        )
+
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            email="otheruser@example.com",
+            password="password",
+        )
+
+        self.workspace = Workspace.objects.create(
+            name="Test Workspace",
+            created_by=self.user,
+        )
+
+        self.other_workspace = Workspace.objects.create(
+            name="Other Workspace",
+            created_by=self.user,
+        )
+        self.url = "/api/summary/"
+
+        self.client.force_authenticate(user=self.user)
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.get(self.url, {"workspace": self.workspace.workspace_id})
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_missing_workspace_param(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data["error"], "workspace query param is required")
+
+    def test_empty_tasks(self):
+        res = self.client.get(self.url, {"workspace": self.workspace.pk})
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total"], 0)
+        self.assertEqual(res.data["completed"], 0)
+        self.assertEqual(res.data["inProgress"], 0)
+        self.assertEqual(res.data["overdue"], 0)
+        self.assertEqual(res.data["dueToday"], 0)
+        self.assertEqual(res.data["completionPercentage"], 0)
+
+    def test_task_summary_counts(self):
+        today = date.today()
+
+        Task.objects.create(
+            title="Done task",
+            assignee=self.user,
+            workspace=self.workspace,
+            status="done",
+        )
+
+        Task.objects.create(
+            title="In progress today",
+            assignee=self.user,
+            workspace=self.workspace,
+            status="in-progress",
+            due_date=today,
+        )
+
+        Task.objects.create(
+            title="Overdue task",
+            assignee=self.user,
+            workspace=self.workspace,
+            status="todo",
+            due_date=today - timedelta(days=1),
+        )
+
+        Task.objects.create(
+            title="No due date",
+            assignee=self.user,
+            workspace=self.workspace,
+            status="todo",
+        )
+
+        Task.objects.create(
+            title="Other workspace",
+            assignee=self.user,
+            workspace=self.other_workspace,
+            status="todo",
+            due_date=today - timedelta(days=1),
+        )
+
+        res = self.client.get(self.url, {"workspace": self.workspace.pk})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        data = res.data
+
+        self.assertEqual(data["total"], 4)
+        self.assertEqual(data["completed"], 1)
+        self.assertEqual(data["inProgress"], 1)
+        self.assertEqual(data["overdue"], 1)
+        self.assertEqual(data["dueToday"], 1)
+        self.assertEqual(data["completionPercentage"], 25.0)

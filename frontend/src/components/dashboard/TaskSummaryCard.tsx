@@ -220,6 +220,39 @@ export function TaskSummaryCard({ onNavigate }: TaskSummaryCardProps) {
               )}
             </div>
         )}
+        {/* Completion Progress */}
+      {stats.total > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Completion
+            </span>
+            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              {Math.round(stats.completionPercentage)}% completed
+            </span>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full h-2 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+              stats.completionPercentage >= 80
+                ? "bg-green-600"
+                : stats.completionPercentage >= 40
+                ? "bg-yellow-500"
+                : "bg-red-500"
+            }`}
+
+              style={{ width: `${stats.completionPercentage}%` }}
+            />
+          </div>
+
+          <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 text-right">
+            {100 - Math.round(stats.completionPercentage)}% left
+          </div>
+        </div>
+      )}
+
 
         {/* View All Tasks Link */}
         <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800">
