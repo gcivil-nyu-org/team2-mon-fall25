@@ -707,7 +707,7 @@ class AIChatViewErrorTests(APITestCase):
         self.assertIn("File too large", response.data["error"])
 
     # Fix: Use SimpleUploadedFile to ensure size/type checks pass before S3 mock
-    @patch("resources.s3_utils.upload_file_to_s3")
+    @patch("chat.views.upload_file_to_s3")
     def test_document_upload_s3_failure(self, mock_s3_upload):
         """Test: S3 upload failure returns 500"""
         mock_s3_upload.return_value = {
