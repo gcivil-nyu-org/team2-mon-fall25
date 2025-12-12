@@ -79,6 +79,7 @@ class NoteUpdateView(APIView):
 
         return Response(serializer.errors, status=400)
 
+
 class ShareNoteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -98,7 +99,7 @@ class ShareNoteView(APIView):
                 {"error": "ids must be a list"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
+
             # 1️⃣ Resolve incoming IDs → users_user.id
         try:
             resolved_users = User.objects.filter(user_id__in=member_ids)
@@ -136,6 +137,7 @@ class ShareNoteView(APIView):
         note.refresh_from_db()
 
         return Response(NoteSerializer(note).data, status=status.HTTP_200_OK)
+
 
 class SharedNotesListView(APIView):
     permission_classes = [permissions.IsAuthenticated]

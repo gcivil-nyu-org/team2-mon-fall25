@@ -422,6 +422,7 @@ class TaskSerializerTests(TestCase):
         # Basic sanity check: Boolean
         self.assertIsInstance(serializer.data["can_complete"], bool)
 
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class TaskSummaryViewTests(APITestCase):
     def setUp(self):
@@ -436,7 +437,6 @@ class TaskSummaryViewTests(APITestCase):
             email="otheruser@example.com",
             password="password",
         )
-
 
         self.workspace = Workspace.objects.create(
             name="Test Workspace",
@@ -471,7 +471,6 @@ class TaskSummaryViewTests(APITestCase):
         self.assertEqual(res.data["overdue"], 0)
         self.assertEqual(res.data["dueToday"], 0)
         self.assertEqual(res.data["completionPercentage"], 0)
-
 
     def test_task_summary_counts(self):
         today = date.today()
@@ -525,4 +524,3 @@ class TaskSummaryViewTests(APITestCase):
         self.assertEqual(data["overdue"], 1)
         self.assertEqual(data["dueToday"], 1)
         self.assertEqual(data["completionPercentage"], 25.0)
-

@@ -231,7 +231,6 @@ class NotesSharingTests(APITestCase):
             is_active=True,
         )
 
-
         # Note owned by owner
         self.note = Note.objects.create(
             owner=self.owner,
@@ -260,9 +259,7 @@ class NotesSharingTests(APITestCase):
             workspace=self.workspace, user=self.member2, is_active=True
         )
 
-        payload = {
-            "user_ids": [wm1.user_id, wm2.user_id]
-        }
+        payload = {"user_ids": [wm1.user_id, wm2.user_id]}
 
         response = self.client.post(self.share_url, payload, format="json")
 
@@ -272,7 +269,6 @@ class NotesSharingTests(APITestCase):
         self.assertEqual(self.note.shared_with.count(), 2)
         self.assertTrue(self.note.is_shared)
 
-
     def test_share_note_user_not_in_workspace(self):
         payload = {"user_ids": [self.outsider.id]}
 
@@ -280,7 +276,6 @@ class NotesSharingTests(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("not part of this workspace", response.data["error"])
-
 
     def test_share_note_only_owner_can_share(self):
         self.client.force_authenticate(self.member1)
