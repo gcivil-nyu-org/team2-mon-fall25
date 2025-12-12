@@ -185,7 +185,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
-    
+
 
 class TaskSummaryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -197,15 +197,9 @@ class TaskSummaryView(APIView):
         workspace_id = request.query_params.get("workspace")
 
         if not workspace_id:
-            return Response(
-                {"error": "workspace query param is required"},
-                status=400
-            )
+            return Response({"error": "workspace query param is required"}, status=400)
 
-        tasks = Task.objects.filter(
-            assignee=user,
-            workspace_id=workspace_id
-        )
+        tasks = Task.objects.filter(assignee=user, workspace_id=workspace_id)
 
         total = tasks.count()
         completed = tasks.filter(status="done").count()
@@ -214,24 +208,22 @@ class TaskSummaryView(APIView):
         overdue = tasks.filter(
             status__in=["todo", "in-progress"],
             due_date__isnull=False,
-            due_date__lt=today
+            due_date__lt=today,
         ).count()
 
         due_today = tasks.filter(
-            status__in=["todo", "in-progress"],
-            due_date__isnull=False,
-            due_date=today
+            status__in=["todo", "in-progress"], due_date__isnull=False, due_date=today
         ).count()
 
-        completion_percentage = (
-            round((completed / total) * 100, 2) if total > 0 else 0
-        )
+        completion_percentage = round((completed / total) * 100, 2) if total > 0 else 0
 
-        return Response({
-            "overdue": overdue,
-            "dueToday": due_today,
-            "inProgress": in_progress,
-            "completed": completed,
-            "total": total,
-            "completionPercentage": completion_percentage
-        })
+        return Response(
+            {
+                "overdue": overdue,
+                "dueToday": due_today,
+                "inProgress": in_progress,
+                "completed": completed,
+                "total": total,
+                "completionPercentage": completion_percentage,
+            }
+        )

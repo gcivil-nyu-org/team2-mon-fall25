@@ -33,7 +33,7 @@ export interface UpdateNoteData {
 }
 
 export interface ShareNoteData {
-  ids: number[];
+  ids: string[];
 }
 
 export type ViewMode = 'grid' | 'list';

@@ -211,14 +211,26 @@ class NotesSharingTests(APITestCase):
 
         # Members of workspace
         WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.owner, role="owner"
+            workspace=self.workspace,
+            user=self.owner,
+            role="owner",
+            is_active=True,
         )
+
         WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.member1, role="member"
+            workspace=self.workspace,
+            user=self.member1,
+            role="member",
+            is_active=True,
         )
+
         WorkspaceMember.objects.create(
-            workspace=self.workspace, user=self.member2, role="member"
+            workspace=self.workspace,
+            user=self.member2,
+            role="member",
+            is_active=True,
         )
+
 
         # Note owned by owner
         self.note = Note.objects.create(
@@ -241,23 +253,34 @@ class NotesSharingTests(APITestCase):
     # ---------------------------------------------------------
 
     def test_share_note_success(self):
-        payload = {"user_ids": [str(self.member1.id), str(self.member2.id)]}
+        wm1 = WorkspaceMember.objects.get(
+            workspace=self.workspace, user=self.member1, is_active=True
+        )
+        wm2 = WorkspaceMember.objects.get(
+            workspace=self.workspace, user=self.member2, is_active=True
+        )
+
+        payload = {
+            "user_ids": [wm1.user_id, wm2.user_id]
+        }
 
         response = self.client.post(self.share_url, payload, format="json")
 
         self.assertEqual(response.status_code, 200)
-        self.note.refresh_from_db()
 
+        self.note.refresh_from_db()
         self.assertEqual(self.note.shared_with.count(), 2)
         self.assertTrue(self.note.is_shared)
 
+
     def test_share_note_user_not_in_workspace(self):
-        payload = {"user_ids": [str(self.outsider.id)]}
+        payload = {"user_ids": [self.outsider.id]}
 
         response = self.client.post(self.share_url, payload, format="json")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("not a member", response.data["error"])
+        self.assertIn("not part of this workspace", response.data["error"])
+
 
     def test_share_note_only_owner_can_share(self):
         self.client.force_authenticate(self.member1)

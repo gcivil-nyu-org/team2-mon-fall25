@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, use } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import { ShareNoteModal } from './ShareNoteModal';
 import { NotesApi } from './NotesApi';
@@ -166,8 +166,8 @@ export function NoteEditor({
   const handleShareNote = async (userIds: string[]) => {
     if (!note) return;
     try {
-      const memberIds = userIds.map(id => Number(id));
-      await NotesApi.shareNote(note.id, { ids: memberIds });
+      console.log('Sharing note with user IDs:', userIds);
+      await NotesApi.shareNote(note.id, { ids: userIds });
       toast.success('Note shared successfully');
       setSharingNote(null);
     } catch (error) {
@@ -418,13 +418,14 @@ export function NoteEditor({
 
       {/* Share Modal */}
       {sharingNote && (
+        console.log("workspaceMembers BEFORE mapping", workspaceMembers),
         <ShareNoteModal
           isOpen={true}
           onClose={() => setSharingNote(null)}
           onShare={handleShareNote}
           note={sharingNote}
           workspaceMembers={workspaceMembers.map(m => ({
-                id: m.id,        
+                id: String(m.id),   // 🔥 force id = user_id here     
                 name: m.name,  
                 email: m.email     
     }))}

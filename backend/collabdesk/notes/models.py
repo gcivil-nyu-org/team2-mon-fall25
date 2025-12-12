@@ -25,3 +25,13 @@ class Note(models.Model):
 
     def __str__(self):
         return self.title
+
+class NoteShare(models.Model):
+    note = models.ForeignKey("Note", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "note_shares"
+        unique_together = ("note", "user")
+

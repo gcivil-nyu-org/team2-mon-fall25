@@ -26,11 +26,16 @@ export function ShareNoteModal({
     if (note && isOpen) {
       // Pre-select currently shared users
       const sharedIds = new Set(note.shared_with.map((user) => user.id));
+      console.log("🔁 Pre-selecting shared user IDs:", Array.from(sharedIds));
       setSelectedUserIds(sharedIds);
     }
     setSearchQuery('');
     setError('');
   }, [note, isOpen]);
+
+  useEffect(() => {
+    console.log("🚨 ShareNoteModal received workspaceMembers:", workspaceMembers);
+  }, [workspaceMembers]);
 
   const filteredMembers = workspaceMembers.filter((member) => {
     const query = searchQuery.toLowerCase();
@@ -56,6 +61,7 @@ export function ShareNoteModal({
 
     try {
       await onShare(Array.from(selectedUserIds));
+      console.log('Note sharing updated successfully', selectedUserIds);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update sharing');
