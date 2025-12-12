@@ -63,6 +63,7 @@ export function EventDetailsModal({
     location: "",
     start: "",
     end: "",
+    duration: 30,
     attendees: [] as string[],
   });
 
@@ -74,11 +75,16 @@ export function EventDetailsModal({
 
   const handleEditClick = () => {
     if (!currentEvent) return;
+    const startTime = currentEvent.start.getTime();
+    const endTime = currentEvent.end.getTime();
+    const durationMinutes = Math.round((endTime - startTime) / (1000 * 60));
+
     setEditForm({
       title: currentEvent.title,
       location: currentEvent.location || "",
       start: format(currentEvent.start, "yyyy-MM-dd'T'HH:mm"),
       end: format(currentEvent.end, "yyyy-MM-dd'T'HH:mm"),
+      duration: durationMinutes,
       attendees: currentEvent.attendeesUserIds || [],
     });
     setIsEditing(true);
@@ -295,18 +301,91 @@ export function EventDetailsModal({
                 <input
                   type="datetime-local"
                   value={editForm.start}
-                  onChange={(e) => setEditForm({ ...editForm, start: e.target.value })}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    if (currentEvent.eventType === 'INDIVIDUAL') {
+                      // Update end time based on duration
+                      const startDate = new Date(newStart);
+                      if (!isNaN(startDate.getTime())) {
+                        const endDate = new Date(startDate.getTime() + editForm.duration * 60000);
+                        setEditForm({
+                          ...editForm,
+                          start: newStart,
+                          end: format(endDate, "yyyy-MM-dd'T'HH:mm")
+                        });
+                      } else {
+                        setEditForm({ ...editForm, start: newStart });
+                      }
+                    } else {
+                      // Individual event: validate start <= end
+                      const startDate = new Date(newStart);
+                      const endDate = new Date(editForm.end);
+                      if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && startDate > endDate) {
+                        // If start is after end, push end to match start
+                        setEditForm({
+                          ...editForm,
+                          start: newStart,
+                          end: newStart
+                        });
+                      } else {
+                        setEditForm({ ...editForm, start: newStart });
+                      }
+                    }
+                  }}
                   className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
                 />
               </div>
               <div>
-                <label className="text-sm text-zinc-600 dark:text-zinc-400">End Time</label>
-                <input
-                  type="datetime-local"
-                  value={editForm.end}
-                  onChange={(e) => setEditForm({ ...editForm, end: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                />
+                {currentEvent.eventType === 'INDIVIDUAL' ? (
+                  <>
+                    <label className="text-sm text-zinc-600 dark:text-zinc-400">Duration</label>
+                    <select
+                      value={editForm.duration}
+                      onChange={(e) => {
+                        const newDuration = parseInt(e.target.value, 10);
+                        const startDate = new Date(editForm.start);
+                        if (!isNaN(startDate.getTime())) {
+                          const endDate = new Date(startDate.getTime() + newDuration * 60000);
+                          setEditForm({
+                            ...editForm,
+                            duration: newDuration,
+                            end: format(endDate, "yyyy-MM-dd'T'HH:mm")
+                          });
+                        } else {
+                          setEditForm({ ...editForm, duration: newDuration });
+                        }
+                      }}
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                    >
+                      <option value={15}>15 min</option>
+                      <option value={30}>30 min</option>
+                      <option value={45}>45 min</option>
+                      <option value={60}>60 min</option>
+                      <option value={90}>1.5 hours</option>
+                      <option value={120}>2 hours</option>
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label className="text-sm text-zinc-600 dark:text-zinc-400">End Time</label>
+                    <input
+                      type="datetime-local"
+                      value={editForm.end}
+                      min={editForm.start}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        const startDate = new Date(editForm.start);
+                        const endDate = new Date(newEnd);
+                        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate < startDate) {
+                          // Prevent end time before start time
+                          return;
+                        }
+                        setEditForm({ ...editForm, end: newEnd });
+                      }}
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                    />
+                  </>
+                )}
               </div>
             </div>
 
