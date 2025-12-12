@@ -22,7 +22,7 @@ jobs:
         - black --check .
         - flake8 .
         # Run tests with coverage
-        - coverage run manage.py test --keepdb
+        - coverage run manage.py test --keepdb --verbosity 0
         - coverage report
       after_success:
         - coveralls
