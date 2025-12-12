@@ -359,7 +359,7 @@ export default function App() {
   };
 
   // Handle event updates from modal (e.g. RSVP changes)
-  const handleEventUpdate = (updatedEvent: CalEvent) => {
+  const handleEventUpdate = () => {
     refreshEvents();
   };
 
