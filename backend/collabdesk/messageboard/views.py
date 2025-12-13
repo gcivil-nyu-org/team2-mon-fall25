@@ -88,7 +88,10 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
 class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MessageSerializer
-    permission_classes = [permissions.IsAuthenticated, IsMessageAuthorOrWorkspaceOwnerDelete]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        IsMessageAuthorOrWorkspaceOwnerDelete,
+    ]
 
     def initial(self, request, *args, **kwargs):
         """Override to set workspace context after authentication"""

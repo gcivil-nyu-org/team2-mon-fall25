@@ -212,9 +212,10 @@ class IsWorkspaceOwner(permissions.BasePermission):
             return False
 
         # If workspace_id is in URL kwargs, check ownership at view level
-        workspace_id = view.kwargs.get('workspace_id')
+        workspace_id = view.kwargs.get("workspace_id")
         if workspace_id:
             from workspaces.models import Workspace
+
             try:
                 workspace = Workspace.objects.get(workspace_id=workspace_id)
                 return workspace.created_by_id == request.user.id
@@ -237,11 +238,12 @@ class IsWorkspaceOwner(permissions.BasePermission):
 
         # If the object is a Workspace itself
         from workspaces.models import Workspace
+
         if isinstance(obj, Workspace):
             return obj.created_by_id == request.user.id
 
         # If the object has a workspace attribute
-        workspace = getattr(obj, 'workspace', None)
+        workspace = getattr(obj, "workspace", None)
         if workspace:
             return workspace.created_by_id == request.user.id
 
@@ -272,12 +274,12 @@ class IsEventCreatorOrWorkspaceOwner(permissions.BasePermission):
             return True
 
         # Check if user is the event creator
-        created_by = getattr(obj, 'created_by', None)
+        created_by = getattr(obj, "created_by", None)
         if created_by and created_by.id == request.user.id:
             return True
 
         # Check if user is the workspace owner
-        workspace = getattr(obj, 'workspace', None)
+        workspace = getattr(obj, "workspace", None)
         if workspace and workspace.created_by_id == request.user.id:
             return True
 
@@ -308,12 +310,12 @@ class IsResourceUploaderOrWorkspaceOwner(permissions.BasePermission):
             return True
 
         # Check if user is the resource uploader
-        uploaded_by = getattr(obj, 'uploaded_by', None)
+        uploaded_by = getattr(obj, "uploaded_by", None)
         if uploaded_by and uploaded_by.id == request.user.id:
             return True
 
         # Check if user is the workspace owner
-        workspace = getattr(obj, 'workspace', None)
+        workspace = getattr(obj, "workspace", None)
         if workspace and workspace.created_by_id == request.user.id:
             return True
 
@@ -344,16 +346,14 @@ class IsMessageAuthorOrWorkspaceOwnerDelete(permissions.BasePermission):
             return True
 
         # Check if user is the message author (full access)
-        author = getattr(obj, 'author', None)
+        author = getattr(obj, "author", None)
         if author and author.id == request.user.id:
             return True
 
         # Check if user is the workspace owner (DELETE only, not edit)
-        if request.method == 'DELETE':
-            workspace = getattr(obj, 'workspace', None)
+        if request.method == "DELETE":
+            workspace = getattr(obj, "workspace", None)
             if workspace and workspace.created_by_id == request.user.id:
                 return True
 
         return False
-
-
