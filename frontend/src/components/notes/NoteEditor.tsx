@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth0 } from "@auth0/auth0-react";
 import MDEditor from '@uiw/react-md-editor';
 import { ShareNoteModal } from './ShareNoteModal';
 import { NotesApi } from './NotesApi';
@@ -33,7 +34,10 @@ export function NoteEditor({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isReadOnly = note?.is_shared || false;
+  const currentUser = useAuth0();
+  const isOwner = !!note && note.created_by.email === currentUser.user?.email;
+  const isReadOnly = !!note && note.is_shared && !isOwner;
+
 
   // Initialize fields when note changes
   useEffect(() => {
