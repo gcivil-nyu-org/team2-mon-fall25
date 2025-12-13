@@ -187,3 +187,100 @@ class IsAuthenticated(permissions.BasePermission):
         Return True if the request is authenticated via Auth0
         """
         return request.user and request.user.is_authenticated
+
+
+class IsWorkspaceOwner(permissions.BasePermission):
+    """
+    Permission class that checks if the user is the owner of the workspace.
+
+    This can be used for object-level permissions where the object has a
+    'workspace' attribute, or for view-level permissions where 'workspace_id'
+    is in the URL kwargs.
+
+    Usage:
+        - Add to permission_classes on any viewset that needs owner-only access
+        - Works with objects that have a 'workspace' foreign key
+        - Works with views that have 'workspace_id' in URL kwargs
+    """
+
+    def has_permission(self, request, view):
+        """
+        Check if user is authenticated and optionally check workspace ownership
+        at the view level when workspace_id is in URL kwargs.
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # If workspace_id is in URL kwargs, check ownership at view level
+        workspace_id = view.kwargs.get('workspace_id')
+        if workspace_id:
+            from workspaces.models import Workspace
+            try:
+                workspace = Workspace.objects.get(workspace_id=workspace_id)
+                return workspace.created_by_id == request.user.id
+            except Workspace.DoesNotExist:
+                return False
+
+        # If no workspace_id in URL, defer to object-level permission
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if the user is the owner of the workspace associated with the object.
+
+        Supports objects that:
+        - Are a Workspace instance directly
+        - Have a 'workspace' attribute (ForeignKey to Workspace)
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # If the object is a Workspace itself
+        from workspaces.models import Workspace
+        if isinstance(obj, Workspace):
+            return obj.created_by_id == request.user.id
+
+        # If the object has a workspace attribute
+        workspace = getattr(obj, 'workspace', None)
+        if workspace:
+            return workspace.created_by_id == request.user.id
+
+        return False
+
+
+class IsEventCreatorOrWorkspaceOwner(permissions.BasePermission):
+    """
+    Permission class for events that allows:
+    - All authenticated users: Read access (GET, HEAD, OPTIONS)
+    - Event creator: Full access (GET, POST, PUT, PATCH, DELETE)
+    - Workspace owner: Full access (GET, POST, PUT, PATCH, DELETE)
+    - Other users: Read-only access
+
+    Usage:
+        Add to permission_classes on event viewsets that need this behavior.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user can perform the action on the event.
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # Allow read-only access for all authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Check if user is the event creator
+        created_by = getattr(obj, 'created_by', None)
+        if created_by and created_by.id == request.user.id:
+            return True
+
+        # Check if user is the workspace owner
+        workspace = getattr(obj, 'workspace', None)
+        if workspace and workspace.created_by_id == request.user.id:
+            return True
+
+        return False
+
+

@@ -16,7 +16,7 @@ import {
 import { EventDetailsModal } from "./components/modals/EventDetailsModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, fetchWorkspaceInformation, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { Resources } from "./components/resources/Resources";
@@ -120,6 +120,7 @@ export default function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [userWorkspaces, setUserWorkspaces] = useState<{ workspace_id: string; name: string }[]>([]);
   const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
+  const [isWorkspaceOwner, setIsWorkspaceOwner] = useState(false);
 
   // Fetch user's workspaces
   useEffect(() => {
@@ -231,6 +232,26 @@ export default function App() {
 
     loadCurrentUser();
   }, [isAuthenticated, tokenReady]);
+
+  // Fetch workspace details to determine if current user is the owner
+  useEffect(() => {
+    if (!isAuthenticated || !tokenReady || !workspace || !currentUserId) {
+      setIsWorkspaceOwner(false);
+      return;
+    }
+
+    const checkWorkspaceOwnership = async () => {
+      try {
+        const workspaceDetails = await fetchWorkspaceInformation(workspace, getAccessTokenSilently);
+        setIsWorkspaceOwner(workspaceDetails.created_by_id === currentUserId);
+      } catch (error) {
+        console.error("Failed to fetch workspace details for ownership check:", error);
+        setIsWorkspaceOwner(false);
+      }
+    };
+
+    checkWorkspaceOwnership();
+  }, [isAuthenticated, tokenReady, workspace, currentUserId, getAccessTokenSilently]);
 
   // Calendar state: week start (Sun)
   const [weekStart, setWeekStart] = useState<Date>(() =>
@@ -601,6 +622,7 @@ export default function App() {
                   onClose={() => setSelectedEventForDetails(null)}
                   event={selectedEventForDetails}
                   currentUserId={currentUserId}
+                  isWorkspaceOwner={isWorkspaceOwner}
                   onDelete={handleDeleteEvent}
                   onRsvpChange={refreshEvents}
                   onEventUpdate={handleEventUpdate}

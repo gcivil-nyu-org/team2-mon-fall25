@@ -35,6 +35,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
+    created_by_id = serializers.IntegerField(source='created_by.id', read_only=True)
 
     class Meta:
         model = Workspace
@@ -43,6 +44,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "created_at",
+            "created_by_id",
             "owner",
             "members",
             "member_count",
