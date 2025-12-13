@@ -237,7 +237,7 @@ export function NotesList({
                       >
                         {note.title || 'Untitled'}
                       </h3>
-                      {note.is_shared && (
+                      {activeTab === 'shared' && (
                         <span className="flex-shrink-0 text-xs text-blue-600 dark:text-blue-400">
                           Shared
                         </span>
