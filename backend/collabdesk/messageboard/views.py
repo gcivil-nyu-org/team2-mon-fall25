@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from .models import Message, Reaction
 from .serializers import MessageSerializer
-from .permissions import IsAuthorOrReadOnly
+from collabdesk.permissions import IsMessageAuthorOrWorkspaceOwnerDelete
 from collabdesk.middleware import set_workspace_context
 import logging
 from django.db.models import Q
@@ -88,7 +88,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
 class MessageDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthorOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated, IsMessageAuthorOrWorkspaceOwnerDelete]
 
     def initial(self, request, *args, **kwargs):
         """Override to set workspace context after authentication"""

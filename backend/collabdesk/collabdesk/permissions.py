@@ -320,3 +320,40 @@ class IsResourceUploaderOrWorkspaceOwner(permissions.BasePermission):
         return False
 
 
+class IsMessageAuthorOrWorkspaceOwnerDelete(permissions.BasePermission):
+    """
+    Permission class for messages that allows:
+    - All authenticated users: Read access (GET, HEAD, OPTIONS)
+    - Message author: Full access (GET, PUT, PATCH, DELETE)
+    - Workspace owner: DELETE only (not edit)
+    - Other users: Read-only access
+
+    Usage:
+        Add to permission_classes on message viewsets that need this behavior.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user can perform the action on the message.
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # Allow read-only access for all authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Check if user is the message author (full access)
+        author = getattr(obj, 'author', None)
+        if author and author.id == request.user.id:
+            return True
+
+        # Check if user is the workspace owner (DELETE only, not edit)
+        if request.method == 'DELETE':
+            workspace = getattr(obj, 'workspace', None)
+            if workspace and workspace.created_by_id == request.user.id:
+                return True
+
+        return False
+
+

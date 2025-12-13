@@ -573,7 +573,7 @@ export default function App() {
               ) : current === "resources" ? (
                 <Resources workspace={workspace} currentUserId={currentUserId} isWorkspaceOwner={isWorkspaceOwner} />
               ) : current === "message" ? (
-                <MessageBoard openThreadMessageId={openThreadMessageId} />
+                <MessageBoard openThreadMessageId={openThreadMessageId} isWorkspaceOwner={isWorkspaceOwner} />
               ) : current === "chat" ? (
                 <>
                   <header className="mb-6">
