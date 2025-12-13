@@ -20,6 +20,7 @@ interface ThreadModalProps {
   onUpdate: () => void;
   incrementReplyCount?: () => void;
   updateParentMessageLocally: (parentId: string) => void;
+  userMap: Map<string, string>;
 }
 
 export function ThreadModal({
@@ -29,6 +30,7 @@ export function ThreadModal({
   onUpdate,
   updateParentMessageLocally,
   incrementReplyCount,
+  userMap, 
 }: ThreadModalProps) {
   const [replies, setReplies] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +39,7 @@ export function ThreadModal({
   const repliesEndRef = useRef<HTMLDivElement>(null);
   const { user, getAccessTokenSilently } = useAuth0();
   const [parent, setParent] = useState<Message | null>(parentMessage);
+  const [reactingMessageIds, setReactingMessageIds] = useState<Set<string>>(new Set());
   const CURRENT_USER = useMemo(() => ({
     id: user?.sub ?? "",  // Auth0 sub is the unique ID
     name: user?.name ?? user?.nickname ?? user?.email ?? "Unknown User",
@@ -174,11 +177,24 @@ export function ThreadModal({
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
+  // Prevent multiple simultaneous reactions on the same message
+  const reactionKey = `${messageId}-${emoji}`;
+  if (reactingMessageIds.has(reactionKey)) {
+    return;
+  }
+
   const message = replies.find((m) => m.id === messageId);
-      if (!message) return;
+  if (!message) return;
+  
+  const currentUserIdString = String(CURRENT_USER.id);
   const hasReacted = message.reactions.some(
-    (r) => r.emoji === emoji && r.users.includes(CURRENT_USER.id)
+    (r) => r.emoji === emoji && r.users.some(uid => String(uid) === currentUserIdString)
   );
+
+  // Mark as processing
+  setReactingMessageIds(prev => new Set(prev).add(reactionKey));
+
+  // Optimistically update UI immediately
   setReplies((prev) =>
     prev.map((m) => {
       if (m.id !== messageId) return m;
@@ -186,44 +202,77 @@ export function ThreadModal({
       let newReactions = [...m.reactions];
 
       if (hasReacted) {
+        // Remove reaction
         newReactions = newReactions
-          .map((r) =>
-            r.emoji === emoji
-              ? {
-                  ...r,
-                  users: r.users.filter((u) => u !== CURRENT_USER.id),
-                  count: r.users.filter((u) => u !== CURRENT_USER.id).length,
-                }
-              : r
-          )
+          .map((r) => {
+            if (r.emoji === emoji) {
+              const newUsers = r.users.filter((u) => String(u) !== currentUserIdString);
+              const newUserNames = r.userNames 
+                ? r.userNames.filter((_, idx) => String(r.users[idx]) !== currentUserIdString)
+                : undefined;
+              return {
+                ...r,
+                users: newUsers,
+                userNames: newUserNames,
+                count: newUsers.length,
+              };
+            }
+            return r;
+          })
           .filter((r) => r.count > 0);
       } else {
+        // Add reaction
         const existing = newReactions.find((r) => r.emoji === emoji);
         if (existing) {
-          if (!existing.users.includes(CURRENT_USER.id)) {
-            existing.users.push(CURRENT_USER.id);
+          if (!existing.users.some(u => String(u) === currentUserIdString)) {
+            existing.users = [...existing.users, CURRENT_USER.id];
+            existing.userNames = existing.userNames 
+              ? [...existing.userNames, CURRENT_USER.name]
+              : [CURRENT_USER.name];
             existing.count = existing.users.length;
           }
         } else {
-          newReactions.push({ emoji, users: [CURRENT_USER.id], count: 1 });
+          newReactions.push({ 
+            emoji, 
+            users: [CURRENT_USER.id], 
+            userNames: [CURRENT_USER.name],
+            count: 1 
+          });
         }
       }
 
       return { ...m, reactions: newReactions };
     })
   );
+
   try {
     const token = await getAccessTokenSilently();
+    
     if (hasReacted) {
       await removeReaction(messageId, emoji, token);
     } else {
       await addReaction(messageId, emoji, token);
     }
+    
+    // Don't overwrite with server response - optimistic update is enough
   } catch (error) {
     console.error("Failed to persist message reaction:", error);
+    
+    // Revert the optimistic update on error
+    setReplies((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? message : m
+      )
+    );
+  } finally {
+    setReactingMessageIds(prev => {
+      const next = new Set(prev);
+      next.delete(reactionKey);
+      return next;
+    });
   }
 };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -285,7 +334,9 @@ export function ThreadModal({
             <div className="flex items-baseline gap-2 mb-1">
               <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                 {/* If current user is the author, show “You” instead */}
-                {parent?.authorId === CURRENT_USER.id ? CURRENT_USER.name : parent?.author ?? "Unknown"}
+                {parent?.authorId === CURRENT_USER.id
+  ? CURRENT_USER.name
+  : userMap.get(parent?.authorId ?? "") ?? parent?.author ?? "Unknown"}
               </span>
 
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -294,19 +345,42 @@ export function ThreadModal({
             </div>
 
             <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words">
-  {parent?.content?.split(/(@[A-Za-z\s\.\-]+?)(?=\s*[,!?;:\n]|$)/g).map((part, index) => {
-    if (part.startsWith('@')) {
-      return (
-        <span 
-          key={index}
-          className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded"
-        >
-          {part}
-        </span>
-      );
+  {(() => {
+    if (!parent?.content) return null;
+    
+    const validUserNames = Array.from(userMap.values());
+    const sortedNames = [...validUserNames].sort((a, b) => b.length - a.length);
+    const escapedNames = sortedNames.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    
+    if (escapedNames.length === 0) return parent.content;
+    
+    const mentionPattern = new RegExp(`(@(?:${escapedNames.join('|')}))(?=\\s|[,!?;:.)]|$)`, 'g');
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = mentionPattern.exec(parent.content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: parent.content.substring(lastIndex, match.index), isMention: false });
+      }
+      parts.push({ text: match[0], isMention: true });
+      lastIndex = match.index + match[0].length;
     }
-    return <span key={index}>{part}</span>;
-  })}
+
+    if (lastIndex < parent.content.length) {
+      parts.push({ text: parent.content.substring(lastIndex), isMention: false });
+    }
+
+    return parts.map((part, index) =>
+      part.isMention ? (
+        <span key={index} className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded">
+          {part.text}
+        </span>
+      ) : (
+        <span key={index}>{part.text}</span>
+      )
+    );
+  })()}
 </p>
 
             {/* ✅ Reply count (instant update without refresh) */}
@@ -341,6 +415,7 @@ export function ThreadModal({
                   onDelete={handleDeleteReply}
                   onReaction={handleReaction}
                   currentUser={CURRENT_USER}
+                  userMap={userMap}
                 />
               ))}
               <div ref={repliesEndRef} />

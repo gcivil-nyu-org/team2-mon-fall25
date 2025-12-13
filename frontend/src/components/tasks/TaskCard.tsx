@@ -72,7 +72,7 @@ const TaskCard: React.FC<Props> = ({ task, onDelete, onPriorityChange, onEdit })
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-medium text-zinc-900 dark:text-zinc-100 flex-1 pr-2 truncate">
+        <h3 className="font-medium text-zinc-900 dark:text-zinc-100 flex-1 pr-2 break-words">
           {task.name}
         </h3>
         <div className="relative">

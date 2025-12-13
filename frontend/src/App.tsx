@@ -16,7 +16,7 @@ import {
 import { EventDetailsModal } from "./components/modals/EventDetailsModal";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { Settings } from "./components/settings/Settings";
-import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
+import { fetchEvents, setTokenGetter, deleteEvent, fetchCurrentUser, createWorkspace, joinWorkspace, fetchAllUsers, fetchWorkspaceList, fetchWorkspaceInformation, type BackendEvent, type User, type RSVPStatus } from "./lib/api";
 import { parseISO as parseISOBase, addWeeks, isSameWeek, startOfWeek } from "date-fns";
 import Tasks from "./components/tasks/Tasks";
 import { Resources } from "./components/resources/Resources";
@@ -120,6 +120,7 @@ export default function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [userWorkspaces, setUserWorkspaces] = useState<{ workspace_id: string; name: string }[]>([]);
   const [workspacesLoaded, setWorkspacesLoaded] = useState(false);
+  const [isWorkspaceOwner, setIsWorkspaceOwner] = useState(false);
 
   // Fetch user's workspaces
   useEffect(() => {
@@ -231,6 +232,26 @@ export default function App() {
 
     loadCurrentUser();
   }, [isAuthenticated, tokenReady]);
+
+  // Fetch workspace details to determine if current user is the owner
+  useEffect(() => {
+    if (!isAuthenticated || !tokenReady || !workspace || !currentUserId) {
+      setIsWorkspaceOwner(false);
+      return;
+    }
+
+    const checkWorkspaceOwnership = async () => {
+      try {
+        const workspaceDetails = await fetchWorkspaceInformation(workspace, getAccessTokenSilently);
+        setIsWorkspaceOwner(workspaceDetails.created_by_id === currentUserId);
+      } catch (error) {
+        console.error("Failed to fetch workspace details for ownership check:", error);
+        setIsWorkspaceOwner(false);
+      }
+    };
+
+    checkWorkspaceOwnership();
+  }, [isAuthenticated, tokenReady, workspace, currentUserId, getAccessTokenSilently]);
 
   // Calendar state: week start (Sun)
   const [weekStart, setWeekStart] = useState<Date>(() =>
@@ -359,21 +380,8 @@ export default function App() {
   };
 
   // Handle event updates from modal (e.g. RSVP changes)
-  const handleEventUpdate = (updatedEvent: CalEvent) => {
-    setBackendEvents((prev) =>
-      prev.map((e) => {
-        if (e.event_id === updatedEvent.id) {
-          return {
-            ...e,
-            userRsvpStatus: updatedEvent.userRsvpStatus,
-            rsvpSummary: updatedEvent.rsvpSummary,
-            attendeesWithRsvp: updatedEvent.attendeesWithRsvp,
-            // Update other fields if needed
-          };
-        }
-        return e;
-      })
-    );
+  const handleEventUpdate = () => {
+    refreshEvents();
   };
 
   // Leave workspace logic
@@ -471,156 +479,157 @@ export default function App() {
             onMenuClick={() => setShowMobileSidebar(true)}
           />
 
-      <div className="w-full h-full flex flex-col lg:flex-row px-3 sm:px-6 py-3 sm:py-4 gap-3 sm:gap-6">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:block lg:w-[260px] shrink-0 sticky top-14 self-start">
-          <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
-        </aside>
-
-        {/* Mobile Sidebar Drawer */}
-        {showMobileSidebar && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowMobileSidebar(false)}
-            />
-            {/* Drawer */}
-            <aside className="absolute left-0 top-0 h-full w-[280px] bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
-              <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Menu</h2>
-                <button
-                  onClick={() => setShowMobileSidebar(false)}
-                  className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  ✕
-                </button>
-              </div>
-              <Sidebar current={current} setCurrent={(k) => {
-                setCurrent(k as CalRoute);
-                setShowMobileSidebar(false);
-              }} />
+          <div className="w-full h-full flex flex-col lg:flex-row px-3 sm:px-6 py-3 sm:py-4 gap-3 sm:gap-6">
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:block lg:w-[260px] shrink-0 sticky top-14 self-start">
+              <Sidebar current={current} setCurrent={(k) => setCurrent(k as CalRoute)} />
             </aside>
-          </div>
-        )}
 
-        {/* Main content */}
-        <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
-          {current === "calendar" ? (
-            <>
-              <header className="mb-3 flex items-center gap-2">
-                <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
-                <button
-                  onClick={prevWeek}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  ‹
-                </button>
-                <button
-                  onClick={today}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={nextWeek}
-                  className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
-                >
-                  ›
-                </button>
-                <div className="ml-auto" />
-                <button
-                  onClick={() => setShowAdd(true)}
-                  className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
-                >
-                  + Add
-                </button>
-              </header>
+            {/* Mobile Sidebar Drawer */}
+            {showMobileSidebar && (
+              <div className="fixed inset-0 z-50 lg:hidden">
+                {/* Backdrop */}
+                <div
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                  onClick={() => setShowMobileSidebar(false)}
+                />
+                {/* Drawer */}
+                <aside className="absolute left-0 top-0 h-full w-[280px] bg-white dark:bg-zinc-900 shadow-2xl overflow-y-auto">
+                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">Menu</h2>
+                    <button
+                      onClick={() => setShowMobileSidebar(false)}
+                      className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <Sidebar current={current} setCurrent={(k) => {
+                    setCurrent(k as CalRoute);
+                    setShowMobileSidebar(false);
+                  }} />
+                </aside>
+              </div>
+            )}
 
-              <div className="relative">
-                <CalendarWeek
-                  weekStart={weekStart}
+            {/* Main content */}
+            <main ref={mainContentRef} className="flex-1 w-full min-h-[calc(100vh-3.5rem)] overflow-auto">
+              {current === "calendar" ? (
+                <>
+                  <header className="mb-3 flex items-center gap-2">
+                    <h1 className="text-2xl font-semibold mr-3">Calendar</h1>
+                    <button
+                      onClick={prevWeek}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      onClick={today}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={nextWeek}
+                      className="rounded-md border px-2 py-1 text-sm dark:border-zinc-700"
+                    >
+                      ›
+                    </button>
+                    <div className="ml-auto" />
+                    <button
+                      onClick={() => setShowAdd(true)}
+                      className="rounded-md border px-3 py-1.5 text-sm dark:border-zinc-700"
+                    >
+                      + Add
+                    </button>
+                  </header>
+
+                  <div className="relative">
+                    <CalendarWeek
+                      weekStart={weekStart}
+                      events={events}
+                      onEventClick={handleEventClick}
+                      currentUserId={currentUserId}
+                    />
+                    {loading && (
+                      <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
+                        <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
+                          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : current === "dashboard" ? (
+                <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} onNavigate={(route) => setCurrent(route as CalRoute)} />
+              ) : current === "settings" ? (
+                <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
+              ) : current === "notes" ? (
+                <Notes workspaceId={workspace} />
+              ) : current === "tasks" ? (
+                <Tasks />
+              ) : current === "resources" ? (
+                <Resources workspace={workspace} currentUserId={currentUserId} isWorkspaceOwner={isWorkspaceOwner} />
+              ) : current === "message" ? (
+                <MessageBoard openThreadMessageId={openThreadMessageId} isWorkspaceOwner={isWorkspaceOwner} />
+              ) : current === "chat" ? (
+                <>
+                  <header className="mb-6">
+                    <h1 className="text-2xl font-semibold">AI Chat</h1>
+                  </header>
+                  <Chat />
+                </>
+              ) : null}
+            </main>
+
+            {/* Agenda only for Calendar */}
+            {current === "calendar" && (
+              <>
+                <Agenda
                   events={events}
                   onEventClick={handleEventClick}
+                  calendarView={calendarView}
+                  onViewChange={setCalendarView}
                   currentUserId={currentUserId}
                 />
-                {loading && (
-                  <div className="absolute inset-0 z-10 flex items-start justify-center pt-20 pointer-events-none">
-                    <div className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-600 dark:border-zinc-600 dark:border-t-blue-500"></div>
-                      <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">Syncing events...</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : current === "dashboard" ? (
-            <Dashboard workspaceId={workspace} onOpenMessageThread={handleOpenMessageThread} />
-          ) : current === "settings" ? (
-            <Settings workspaceId={workspace} onLeaveWorkspace={handleLeaveWorkspace} />
-          ) : current === "notes" ? (
-            <Notes workspaceId={workspace} />
-          ) : current === "tasks" ? (
-            <Tasks />
-          ) : current === "resources" ? (
-            <Resources workspace={workspace} currentUserId={currentUserId} />
-          ) : current === "message" ? (
-            <MessageBoard openThreadMessageId={openThreadMessageId} />
-          ) : current === "chat" ? (
-            <>
-              <header className="mb-3">
-                <h1 className="text-2xl font-semibold">AI Chat</h1>
-              </header>
-              <Chat />
-            </>
-          ) : null}
-        </main>
 
-        {/* Agenda only for Calendar */}
-        {current === "calendar" && (
-          <>
-            <Agenda
-              events={events}
-              onEventClick={handleEventClick}
-              calendarView={calendarView}
-              onViewChange={setCalendarView}
-              currentUserId={currentUserId}
-            />
+                {/* Add / Smart Schedule / Block Modals */}
+                <AddToCalendar
+                  open={showAdd}
+                  onClose={() => setShowAdd(false)}
+                  onSmartSchedule={() => setShowSmart(true)}
+                  onBlockTime={() => setShowBlock(true)}
+                />
 
-            {/* Add / Smart Schedule / Block Modals */}
-            <AddToCalendar
-              open={showAdd}
-              onClose={() => setShowAdd(false)}
-              onSmartSchedule={() => setShowSmart(true)}
-              onBlockTime={() => setShowBlock(true)}
-            />
+                <SmartScheduleModal
+                  open={showSmart}
+                  onClose={() => setShowSmart(false)}
+                  onScheduled={handleAddMeeting}
+                  currentUserId={currentUserUUID}
+                />
 
-            <SmartScheduleModal
-              open={showSmart}
-              onClose={() => setShowSmart(false)}
-              onScheduled={handleAddMeeting}
-              currentUserId={currentUserUUID}
-            />
+                <UnavailabilityModal
+                  open={showBlock}
+                  onClose={() => setShowBlock(false)}
+                  onBlocked={handleBlocked}
+                />
 
-            <UnavailabilityModal
-              open={showBlock}
-              onClose={() => setShowBlock(false)}
-              onBlocked={handleBlocked}
-            />
-
-            {/* Event details modal */}
-            <EventDetailsModal
-              open={selectedEventForDetails !== null}
-              onClose={() => setSelectedEventForDetails(null)}
-              event={selectedEventForDetails}
-              currentUserId={currentUserId}
-              onDelete={handleDeleteEvent}
-              onRsvpChange={refreshEvents}
-              onEventUpdate={handleEventUpdate}
-            />
-          </>
-        )}
-      </div>
+                {/* Event details modal */}
+                <EventDetailsModal
+                  open={selectedEventForDetails !== null}
+                  onClose={() => setSelectedEventForDetails(null)}
+                  event={selectedEventForDetails}
+                  currentUserId={currentUserId}
+                  isWorkspaceOwner={isWorkspaceOwner}
+                  onDelete={handleDeleteEvent}
+                  onRsvpChange={refreshEvents}
+                  onEventUpdate={handleEventUpdate}
+                />
+              </>
+            )}
+          </div>
         </>
       )}
 

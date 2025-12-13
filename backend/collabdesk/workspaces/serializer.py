@@ -11,6 +11,7 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class WorkspaceMemberSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="user.id")
     user_id = serializers.CharField(source="user.user_id")
     username = serializers.CharField(source="user.username")
     role = serializers.CharField()  # role is a CharField on the model, not a ForeignKey
@@ -19,13 +20,22 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WorkspaceMember
-        fields = ["user_id", "username", "role", "joined_at", "full_name", "email"]
+        fields = [
+            "id",
+            "user_id",
+            "username",
+            "role",
+            "joined_at",
+            "full_name",
+            "email",
+        ]
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
+    created_by_id = serializers.IntegerField(source="created_by.id", read_only=True)
 
     class Meta:
         model = Workspace
@@ -34,6 +44,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "created_at",
+            "created_by_id",
             "owner",
             "members",
             "member_count",

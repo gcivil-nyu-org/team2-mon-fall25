@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from .serializers import EventSerializer, EventParticipantSerializer
 from .models import Event, EventParticipant
 from collabdesk.middleware import set_workspace_context
+from collabdesk.permissions import IsEventCreatorOrWorkspaceOwner
 from datetime import datetime, timedelta
 from django.utils import timezone
 import logging
@@ -92,7 +93,7 @@ class EventListCreateView(generics.ListCreateAPIView):
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsEventCreatorOrWorkspaceOwner]
 
     def initial(self, request, *args, **kwargs):
         """Override to set workspace context after authentication"""

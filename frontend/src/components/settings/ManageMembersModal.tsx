@@ -66,11 +66,14 @@ export function ManageMembersModal({
     if (isMember) return false;
 
     const query = searchQuery.toLowerCase();
-    return (
-      user.full_name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.username.toLowerCase().includes(query)
-    );
+
+    // Check if the property exists and is a string before calling toLowerCase
+    const nameMatches = user.full_name && user.full_name.toLowerCase().includes(query);
+    const emailMatches = user.email && user.email.toLowerCase().includes(query);
+    const usernameMatches = user.username && user.username.toLowerCase().includes(query);
+
+    return nameMatches || emailMatches || usernameMatches;
+
   });
 
   const toggleUser = (userId: string) => {

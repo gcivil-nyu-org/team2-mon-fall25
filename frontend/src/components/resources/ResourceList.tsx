@@ -12,6 +12,7 @@ interface ResourceListProps {
   onDownload: (resource: Resource) => void;
   onDelete: (resource: Resource) => void;
   currentUserId?: number;
+  isWorkspaceOwner?: boolean;
 }
 
 export function ResourceList({
@@ -20,6 +21,7 @@ export function ResourceList({
   onDownload,
   onDelete,
   currentUserId,
+  isWorkspaceOwner = false,
 }: ResourceListProps) {
   if (resources.length === 0) {
     return (
@@ -190,7 +192,7 @@ export function ResourceList({
                       />
                     </svg>
                   </button>
-                  {resource.uploadedById === currentUserId && (
+                  {(resource.uploadedById === currentUserId || isWorkspaceOwner) && (
                     <button
                       onClick={() => onDelete(resource)}
                       className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"

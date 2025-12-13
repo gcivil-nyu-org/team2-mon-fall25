@@ -157,7 +157,7 @@ useEffect(() => {
             onDelete={handleDeleteNote}
             onClose={handleCloseEditor}
             workspaceMembers={workspaceMembers.map(m => ({
-                id: m.user_id, 
+                id: String(m.id), 
                 name: m.full_name,     // User.name expected by NoteEditor
                 email: m.email ?? "",  // User.email expected by NoteEditor
                 }))}
@@ -239,6 +239,7 @@ useEffect(() => {
 
 function convertToWorkspaceMember(m: WorkspaceMemberExtended): WorkspaceMember {
   return {
+    id: m.id,
     user_id: m.user_id,
     username: m.username,
     full_name: m.full_name,

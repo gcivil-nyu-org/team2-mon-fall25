@@ -13,6 +13,7 @@ from django.http import FileResponse, Http404, JsonResponse, HttpResponse
 from .serializers import ResourceSerializer
 from .models import Resource
 from collabdesk.middleware import set_workspace_context
+from collabdesk.permissions import IsResourceUploaderOrWorkspaceOwner
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .s3_utils import (
@@ -146,7 +147,12 @@ class ResourceCreateView(generics.ListCreateAPIView):
 class ResourceDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsResourceUploaderOrWorkspaceOwner]
+
+    def initial(self, request, *args, **kwargs):
+        """Override to set workspace context after authentication"""
+        super().initial(request, *args, **kwargs)
+        set_workspace_context(request)
 
     def perform_destroy(self, instance):
         # Delete file from S3 before deleting database record
@@ -394,27 +400,3 @@ def list_files(request):
             {"success": False, "error": result.get("error", "Unknown error occurred")},
             status=500,
         )
-
-
-class LatestResourcesView(generics.ListAPIView):
-    serializer_class = ResourceSerializer
-    permission_classes = [IsAuthenticated]
-
-    def initial(self, request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-        set_workspace_context(request)
-
-    def get_queryset(self):
-        request = self.request
-        user = request.user
-
-        # If workspace context available
-        if hasattr(request, "workspace") and request.workspace:
-            qs = Resource.objects.filter(workspace=request.workspace)
-        else:
-            # fallback: all user's workspaces
-            user_workspaces = user.workspaces.values_list("workspace_id", flat=True)
-            qs = Resource.objects.filter(workspace_id__in=user_workspaces)
-
-        # Latest 3 updated resources
-        return qs.order_by("-uploaded")[:3]

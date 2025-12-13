@@ -1,5 +1,5 @@
 export interface User {
-  id: string;
+  id: string; // Note : stringified numeric WorkspaceMember.id (NOT UUID)
   name: string;
   email: string;
   avatar?: string;
@@ -33,7 +33,7 @@ export interface UpdateNoteData {
 }
 
 export interface ShareNoteData {
-  user_ids: string[];
+  ids: string[];
 }
 
 export type ViewMode = 'grid' | 'list';

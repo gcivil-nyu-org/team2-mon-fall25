@@ -45,11 +45,14 @@ export function SmartScheduleModal({
   const canFind = title.trim().length > 0 && date.length === 10 && selected.length > 0;
 
   // Step state
-  const [step, setStep] = useState<"setup" | "recommendations" | "no-slots">("setup");
+  const [step, setStep] = useState<"setup" | "recommendations" | "no-slots" | "manual">("setup");
 
   // Store API recommended slots
   const [apiRecs, setApiRecs] = useState<Recommended[]>([]);
   const [noSlotsMessage, setNoSlotsMessage] = useState("");
+
+  // Manual time selection
+  const [manualStartTime, setManualStartTime] = useState("");
 
   // Workspace members fetched from backend
   const [members, setMembers] = useState<Member[]>([]);
@@ -216,6 +219,55 @@ export function SmartScheduleModal({
     }
   }
 
+  async function scheduleManual() {
+    if (!manualStartTime) return;
+
+    setIsSubmitting(true);
+    try {
+      // Parse manual start time and calculate end time
+      const startDate = new Date(manualStartTime);
+      const endDate = new Date(startDate.getTime() + duration * 60000);
+
+      // Create event via API
+      const currentPeople = members.length ? members : PEOPLE;
+      const response = await createEvent({
+        title: title.trim(),
+        description: `Meeting with ${selected.map(id => currentPeople.find(p => p.id === id)?.name).join(", ")}`,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        event_type: "INDIVIDUAL",
+        location: "none",
+        attendees: selected,
+      });
+
+      // Call the parent callback with the scheduled meeting
+      onScheduled({
+        id: response.event_id,
+        title: title.trim(),
+        startISO: startDate.toISOString(),
+        endISO: endDate.toISOString(),
+        attendees: selected,
+      });
+
+      // Reset and close
+      onClose();
+      setStep("setup");
+      setSelected([]);
+      setTitle("");
+      setDate("");
+      setDuration(30);
+      setApiRecs([]);
+      setError("");
+      setNoSlotsMessage("");
+      setManualStartTime("");
+    } catch (error) {
+      console.error("Failed to create event:", error);
+      alert("Failed to create event. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <Modal
       open={open}
@@ -225,6 +277,7 @@ export function SmartScheduleModal({
         setApiRecs([]);
         setError("");
         setNoSlotsMessage("");
+        setManualStartTime("");
       }}
       title="Smart Schedule"
       wide
@@ -365,18 +418,14 @@ export function SmartScheduleModal({
               ← Back
             </button>
             <button
-              onClick={() => {
-                // Allow user to proceed with manual scheduling
-                setStep("setup");
-                // Could also open a manual time picker here
-              }}
+              onClick={() => setStep("manual")}
               className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap"
             >
-              Schedule Manually →
+              Choose Time Manually →
             </button>
           </div>
         </div>
-      ) : (
+      ) : step === "recommendations" ? (
         // Recommendations step
         <div className="space-y-4">
           {recs.length > 0 && (
@@ -411,17 +460,76 @@ export function SmartScheduleModal({
             ))}
           </div>
 
-          <div className="pt-2">
+          <div className="flex gap-3 pt-2">
             <button
               onClick={() => setStep("setup")}
               disabled={isSubmitting}
-              className="w-full rounded-xl border px-4 py-2 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+              className="flex-1 rounded-xl border px-4 py-2 text-sm dark:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
             >
               ← Back
             </button>
+            <button
+              onClick={() => setStep("manual")}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+            >
+              Choose Time Manually
+            </button>
           </div>
         </div>
-      )}
+      ) : step === "manual" ? (
+        // Manual time selection step
+        <div className="space-y-4">
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+            Select a custom time for your meeting
+          </div>
+
+          {/* Manual time picker */}
+          <div>
+            <label className="block text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+              Start Time
+            </label>
+            <input
+              type="datetime-local"
+              value={manualStartTime}
+              onChange={(e) => setManualStartTime(e.target.value)}
+              min={`${date}T00:00`}
+              max={`${date}T23:59`}
+              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            />
+          </div>
+
+          {/* Show calculated end time */}
+          {manualStartTime && (
+            <div className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                Meeting duration: {duration} minutes
+              </div>
+              <div className="text-sm font-medium mt-1">
+                End time: {format(new Date(new Date(manualStartTime).getTime() + duration * 60000), "p")}
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setStep("setup")}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={scheduleManual}
+              disabled={!manualStartTime || isSubmitting}
+              className="flex-1 rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
+            >
+              {isSubmitting ? "⏳ Scheduling..." : "Schedule Meeting"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </Modal>
   );
 }

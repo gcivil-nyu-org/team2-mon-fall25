@@ -143,6 +143,94 @@ class EventSerializer(serializers.ModelSerializer):
                 )
         return result
 
+    def update(self, instance, validated_data):
+        # Extract attendees if present
+        raw_attendees = validated_data.pop("attendees", None)
+
+        # Update standard fields
+        instance = super().update(instance, validated_data)
+
+        # For newly added participants, track their emails for invitations
+        newly_added_emails = []
+
+        # If attendees field was provided, update participants
+        if raw_attendees is not None:
+            User = get_user_model()
+            request = self.context.get("request")
+
+            # Resolve users similar to create()
+            users = []
+            if raw_attendees:
+                numeric_ids = []
+                uuid_like = []
+                for v in raw_attendees:
+                    try:
+                        iv = int(str(v))
+                        numeric_ids.append(iv)
+                    except (TypeError, ValueError):
+                        uuid_like.append(str(v))
+
+                users_by_pk = (
+                    list(User.objects.filter(id__in=numeric_ids)) if numeric_ids else []
+                )
+                users_by_uuid = (
+                    list(User.objects.filter(user_id__in=uuid_like))
+                    if uuid_like
+                    else []
+                )
+
+                seen = set()
+                for u in users_by_pk + users_by_uuid:
+                    if u.id not in seen:
+                        seen.add(u.id)
+                        users.append(u)
+
+            # Sync participants
+            current_participants = EventParticipant.objects.filter(event=instance)
+            current_user_ids = set(p.user.id for p in current_participants if p.user)
+            new_user_ids = set(u.id for u in users)
+
+            # Remove participants not in new list
+            to_remove = current_user_ids - new_user_ids
+            if to_remove:
+                EventParticipant.objects.filter(
+                    event=instance, user__id__in=to_remove
+                ).delete()
+
+            # Add new participants
+            to_add = new_user_ids - current_user_ids
+            users_to_add = [u for u in users if u.id in to_add]
+
+            # CAPTURE EMAILS FOR NEWLY ADDED USERS
+            newly_added_emails = [u.email for u in users_to_add if u.email]
+
+            # --- LOG LINE ---
+            logger.info(
+                f"   New Attendee Emails to Notify for Event '{instance.title}': {newly_added_emails}"
+            )
+            # --- LOG LINE ---
+
+            new_participants = [
+                EventParticipant(
+                    event=instance,
+                    user=u,
+                    added_by=(
+                        request.user if request and hasattr(request, "user") else u
+                    ),
+                    status="invited",
+                )
+                for u in users_to_add
+            ]
+            if new_participants:
+                EventParticipant.objects.bulk_create(new_participants)
+
+        logger.info(f"   Event '{instance.title}' updated successfully.")
+
+        # Send invitations to newly added participants
+        send_event_invitation_email(instance, newly_added_emails)
+
+        return instance
+
     def create(self, validated_data):
         # Extract attendees (prefer numeric user.id, fallback to user.user_id)
         raw_attendees = validated_data.pop("attendees", []) or []

@@ -166,7 +166,8 @@ export function NoteEditor({
   const handleShareNote = async (userIds: string[]) => {
     if (!note) return;
     try {
-      await NotesApi.shareNote(note.id, { user_ids: userIds });
+      console.log('Sharing note with user IDs:', userIds);
+      await NotesApi.shareNote(note.id, { ids: userIds });
       toast.success('Note shared successfully');
       setSharingNote(null);
     } catch (error) {
@@ -401,13 +402,13 @@ export function NoteEditor({
           {/* Metadata */}
           {note && (
             <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 dark:text-zinc-400 space-y-1">
-              <div>Created by {note.created_by.name} on {new Date(note.created_at).toLocaleDateString()}</div>
+              <div>Created by {note.created_by.email} on {new Date(note.created_at).toLocaleDateString()}</div>
               {note.last_modified_by && (
-                <div>Last modified by {note.last_modified_by.name} on {new Date(note.updated_at).toLocaleDateString()}</div>
+                <div>Last modified by {note.last_modified_by.email} on {new Date(note.updated_at).toLocaleDateString()}</div>
               )}
               {note.shared_with.length > 0 && (
                 <div>
-                  Shared with: {note.shared_with.map(u => u.name).join(', ')}
+                  Shared with: {note.shared_with.map(u => u.email).join(', ')}
                 </div>
               )}
             </div>
@@ -423,7 +424,7 @@ export function NoteEditor({
           onShare={handleShareNote}
           note={sharingNote}
           workspaceMembers={workspaceMembers.map(m => ({
-                id: m.id,        
+                id: String(m.id),   // 🔥 force id = user_id here     
                 name: m.name,  
                 email: m.email     
     }))}
