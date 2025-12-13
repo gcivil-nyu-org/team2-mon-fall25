@@ -22,7 +22,7 @@ import { ThreadModal } from "./ThreadModal";
 
 // const PAGE_SIZE = 20; 
 
-export function MessageBoard({ openThreadMessageId }: { openThreadMessageId?: string | null }) {
+export function MessageBoard({ openThreadMessageId, isWorkspaceOwner = false }: { openThreadMessageId?: string | null; isWorkspaceOwner?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -506,6 +506,7 @@ const handleUpdate = async () => {
             onReply={(message) => setThreadMessage(message)}
             currentUser={currentUser}
             userMap={userMap}
+            isWorkspaceOwner={isWorkspaceOwner}
           />
           <div ref={messageEndRef} />
           {showNewMessageIndicator && (

@@ -11,6 +11,7 @@ interface MessageFeedProps {
   onReply?: (message: Message) => void;
   currentUser: { id: string; name: string; email: string };
   userMap: Map<string, string>;
+  isWorkspaceOwner?: boolean;
 }
 
 export function MessageFeed({
@@ -22,6 +23,7 @@ export function MessageFeed({
   onReply,
   currentUser,
   userMap,
+  isWorkspaceOwner = false,
 }: MessageFeedProps) {
   const feedEndRef = useRef<HTMLDivElement>(null);
   const feedContainerRef = useRef<HTMLDivElement>(null);
@@ -82,6 +84,7 @@ export function MessageFeed({
           onReply={onReply}
           currentUser={currentUser}
           userMap={userMap}
+          isWorkspaceOwner={isWorkspaceOwner}
         />
       ))}
       {/* Invisible element to scroll to */}

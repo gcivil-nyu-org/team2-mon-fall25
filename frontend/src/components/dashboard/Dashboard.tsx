@@ -209,6 +209,7 @@ export function Dashboard({
         onClose={() => setEventModalOpen(false)}
         event={selectedEvent}
         currentUserId={currentUserId}
+        isWorkspaceOwner={currentUserId !== undefined && workspace?.created_by_id === currentUserId}
         onRsvpChange={() => {
           // Optionally refresh events after RSVP change
           console.log("RSVP changed");

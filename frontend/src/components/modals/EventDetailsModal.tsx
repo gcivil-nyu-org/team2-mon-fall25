@@ -38,6 +38,7 @@ interface EventDetailsModalProps {
   onClose: () => void;
   event: CalEvent | null;
   currentUserId?: number;
+  isWorkspaceOwner?: boolean;
   onDelete?: (id: string) => void;
   onRsvpChange?: () => void;
   onEventUpdate?: (event: CalEvent) => void;
@@ -48,6 +49,7 @@ export function EventDetailsModal({
   onClose,
   event,
   currentUserId,
+  isWorkspaceOwner = false,
   onDelete,
   onRsvpChange,
   onEventUpdate,
@@ -208,6 +210,7 @@ export function EventDetailsModal({
 
   const isUnavailable = currentEvent.kind === "unavailable";
   const isMyEvent = currentUserId !== undefined && currentEvent.createdBy === currentUserId;
+  const canEditDelete = isMyEvent || isWorkspaceOwner;
   const isAttendee = !isMyEvent && currentUserId !== undefined && currentEvent.attendeesIds?.includes(currentUserId);
   const currentUserUUID = availableUsers.find(u => u.id === currentUserId)?.user_id;
 
@@ -471,7 +474,7 @@ export function EventDetailsModal({
                 </div>
               </div>
 
-              {isMyEvent && (
+              {canEditDelete && (
                 <button
                   onClick={handleEditClick}
                   className="p-1 text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
@@ -543,8 +546,8 @@ export function EventDetailsModal({
               </div>
             </div>
 
-            {/* Attendees - For Event Creator */}
-            {isMyEvent && !isUnavailable && (
+            {/* Attendees - For Event Creator or Workspace Owner */}
+            {canEditDelete && !isUnavailable && (
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Attendees
@@ -612,8 +615,8 @@ export function EventDetailsModal({
               </div>
             )}
 
-            {/* Attendees - For Non-Creator (Simple List) */}
-            {!isMyEvent && !isUnavailable && (
+            {/* Attendees - For Non-Creator and Non-Owner (Simple List) */}
+            {!canEditDelete && !isUnavailable && (
               <div>
                 <label className="block text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Attendees
@@ -693,8 +696,8 @@ export function EventDetailsModal({
               </div>
             )}
 
-            {/* Delete Button - Only show if user created the event */}
-            {isMyEvent && onDelete && (
+            {/* Delete Button - Only show if user created the event or is workspace owner */}
+            {canEditDelete && onDelete && (
               <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
                 <button
                   onClick={() => {
