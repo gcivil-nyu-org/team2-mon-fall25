@@ -12,7 +12,7 @@ import { ResourceUploadModal } from "./ResourceUploadModal";
 import { ResourcePreviewModal } from "./ResourcePreviewModal";
 import { ResourceEditModal } from "./ResourceEditModal";
 
-export function Resources({ workspace, currentUserId }: { workspace: string; currentUserId?: number }) {
+export function Resources({ workspace, currentUserId, isWorkspaceOwner = false }: { workspace: string; currentUserId?: number; isWorkspaceOwner?: boolean }) {
   // State
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,6 +268,7 @@ export function Resources({ workspace, currentUserId }: { workspace: string; cur
             onDownload={handleDownload}
             onDelete={handleDelete}
             currentUserId={currentUserId}
+            isWorkspaceOwner={isWorkspaceOwner}
           />
         )}
       </div>

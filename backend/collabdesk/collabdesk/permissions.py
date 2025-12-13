@@ -284,3 +284,39 @@ class IsEventCreatorOrWorkspaceOwner(permissions.BasePermission):
         return False
 
 
+class IsResourceUploaderOrWorkspaceOwner(permissions.BasePermission):
+    """
+    Permission class for resources that allows:
+    - All authenticated users: Read access (GET, HEAD, OPTIONS)
+    - Resource uploader: Full access (GET, POST, PUT, PATCH, DELETE)
+    - Workspace owner: Full access (GET, POST, PUT, PATCH, DELETE)
+    - Other users: Read-only access
+
+    Usage:
+        Add to permission_classes on resource viewsets that need this behavior.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if user can perform the action on the resource.
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # Allow read-only access for all authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Check if user is the resource uploader
+        uploaded_by = getattr(obj, 'uploaded_by', None)
+        if uploaded_by and uploaded_by.id == request.user.id:
+            return True
+
+        # Check if user is the workspace owner
+        workspace = getattr(obj, 'workspace', None)
+        if workspace and workspace.created_by_id == request.user.id:
+            return True
+
+        return False
+
+
