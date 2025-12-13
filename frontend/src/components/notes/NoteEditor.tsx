@@ -402,13 +402,13 @@ export function NoteEditor({
           {/* Metadata */}
           {note && (
             <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-sm text-zinc-500 dark:text-zinc-400 space-y-1">
-              <div>Created by {note.created_by.name} on {new Date(note.created_at).toLocaleDateString()}</div>
+              <div>Created by {note.created_by.email} on {new Date(note.created_at).toLocaleDateString()}</div>
               {note.last_modified_by && (
-                <div>Last modified by {note.last_modified_by.name} on {new Date(note.updated_at).toLocaleDateString()}</div>
+                <div>Last modified by {note.last_modified_by.email} on {new Date(note.updated_at).toLocaleDateString()}</div>
               )}
               {note.shared_with.length > 0 && (
                 <div>
-                  Shared with: {note.shared_with.map(u => u.name).join(', ')}
+                  Shared with: {note.shared_with.map(u => u.email).join(', ')}
                 </div>
               )}
             </div>
@@ -418,7 +418,6 @@ export function NoteEditor({
 
       {/* Share Modal */}
       {sharingNote && (
-        console.log("workspaceMembers BEFORE mapping", workspaceMembers),
         <ShareNoteModal
           isOpen={true}
           onClose={() => setSharingNote(null)}
